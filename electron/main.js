@@ -11,14 +11,25 @@ app.disableHardwareAcceleration();
 let activitySnapshot = [];
 let networkServer;
 
+// os.networkInterfaces() lists every adapter, and picking the first
+// non-internal IPv4 blindly often grabs a VPN, VirtualBox, VMware, Docker,
+// or Hyper-V virtual adapter instead of the real Wi-Fi/Ethernet connection —
+// that address looks valid but nothing else on the LAN can reach it. Skip
+// interface names that match common virtual-adapter patterns and prefer
+// whatever's left.
 function getLanIp() {
   const interfaces = os.networkInterfaces();
-  for (const values of Object.values(interfaces)) {
+  const virtualNamePattern = /virtual|vmware|virtualbox|vethernet|hyper-v|docker|tailscale|zerotier|loopback|tunnel|^tun\d|^tap\d/i;
+  const candidates = [];
+  for (const [name, values] of Object.entries(interfaces)) {
     for (const item of values || []) {
-      if (item.family === "IPv4" && !item.internal) return item.address;
+      if (item.family === "IPv4" && !item.internal) {
+        candidates.push({ name, address: item.address });
+      }
     }
   }
-  return "127.0.0.1";
+  const real = candidates.find((c) => !virtualNamePattern.test(c.name));
+  return (real || candidates[0] || {}).address || "127.0.0.1";
 }
 
 // Small read-only HTTP server so another device on the same Wi-Fi can view

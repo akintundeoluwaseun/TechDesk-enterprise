@@ -9,10 +9,16 @@ export default function DeviceTab() {
   const [confirmErase, setConfirmErase] = useState(false);
   const [notificationEmail, setNotificationEmail] = useState(() => db.getSettings?.().notificationEmail || "");
   const [emailSaved, setEmailSaved] = useState(false);
-  const [network, setNetwork] = useState({ ip: "Unavailable", url: "" });
+  const isDesktopApp = typeof window !== "undefined" && !!window.techdesk;
+  const [network, setNetwork] = useState({ ip: isDesktopApp ? "Loading..." : "Desktop app only", url: "" });
 
   useEffect(() => {
-    window.techdesk?.getNetworkInfo?.().then(setNetwork).catch(() => {});
+    if (!isDesktopApp) return;
+    window.techdesk
+      .getNetworkInfo()
+      .then(setNetwork)
+      .catch(() => setNetwork({ ip: "Unavailable", url: "" }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function handleDownloadBackup() {
@@ -149,11 +155,23 @@ export default function DeviceTab() {
           </div>
         </div>
         <button
-          onClick={() => window.techdesk?.showNetworkQr?.(network.url)}
+          onClick={() => {
+            if (!isDesktopApp) {
+              alert("The local activity connection only works in the installed desktop app, not in a browser tab.");
+              return;
+            }
+            window.techdesk.showNetworkQr(network.url);
+          }}
           className={`mt-4 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
         >
           <QrCode className="w-4 h-4" /> Show connection QR
         </button>
+        {!isDesktopApp && (
+          <p className={`mt-3 text-xs ${t.textMuted}`}>
+            Not available here — this needs the installed desktop app, since it runs a small server on this
+            device that a browser tab can't provide.
+          </p>
+        )}
       </div>
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
