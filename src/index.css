@@ -33,3 +33,56 @@ select {
 .dark select {
   color-scheme: dark;
 }
+
+/* ---- Liquid glass surfaces ----
+   Real glass does two things flat translucency can't: it bends/saturates
+   the color behind it, and it catches ambient light along its edges. The
+   backdrop-filter below approximates the first (blur + saturate, instead
+   of blur alone); the ::before mask-composite trick approximates the
+   second — a gradient-bright rim traced just inside each rounded edge,
+   brightest at the top-left as if lit from above. Pair a size class with
+   the base class, e.g. `liquid-glass liquid-glass-lg`. */
+.liquid-glass {
+  position: relative;
+  isolation: isolate;
+}
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.7) 0%,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0) 70%,
+    rgba(255, 255, 255, 0.32) 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.dark .liquid-glass::before {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0) 70%,
+    rgba(255, 255, 255, 0.12) 100%
+  );
+}
+
+.liquid-glass-sm {
+  backdrop-filter: blur(14px) saturate(165%);
+  -webkit-backdrop-filter: blur(14px) saturate(165%);
+}
+.liquid-glass-lg {
+  backdrop-filter: blur(26px) saturate(180%);
+  -webkit-backdrop-filter: blur(26px) saturate(180%);
+}
+.liquid-glass-xl {
+  backdrop-filter: blur(44px) saturate(190%);
+  -webkit-backdrop-filter: blur(44px) saturate(190%);
+}

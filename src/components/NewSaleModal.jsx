@@ -204,7 +204,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-6 overflow-y-auto">
-      <div className={`w-full max-w-xl rounded-2xl mt-10 mb-10 ${t.dark ? "bg-[#1a1a2e]/80 backdrop-blur-2xl border border-white/10" : "bg-white/35 backdrop-blur-2xl backdrop-brightness-90 border border-white/50"}`}>
+      <div className={`w-full max-w-xl rounded-2xl mt-10 mb-10 ${t.modalBg}`}>
         <div className="flex items-center justify-between px-6 pt-6 pb-4">
           <h2 className={`text-xl font-bold ${t.textPrimary}`}>{isEdit ? "Edit Sale" : "New Sale"}</h2>
           <button onClick={onClose} className={t.textMuted}>

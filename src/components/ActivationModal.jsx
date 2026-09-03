@@ -30,7 +30,7 @@ export default function ActivationModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6">
-      <div className={`w-full max-w-sm rounded-2xl p-6 ${t.dark ? "bg-[#1a1a2e]/90 backdrop-blur-2xl border border-white/10" : "bg-white/35 backdrop-blur-2xl backdrop-brightness-90 border border-white/50"}`}>
+      <div className={`w-full max-w-sm rounded-2xl p-6 ${t.modalBg}`}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <ShieldCheck className={`w-5 h-5 ${activated ? "text-emerald-500" : t.textPrimary}`} />
