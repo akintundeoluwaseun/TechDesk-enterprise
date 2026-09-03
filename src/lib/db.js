@@ -8,6 +8,7 @@ const KEYS = {
   repairs: "techdesk_repairs",
   activity: "techdesk_activity",
   settings: "techdesk_settings",
+  counters: "techdesk_counters",
 };
 
 function read(key) {
@@ -27,10 +28,35 @@ function uid(prefix = "id") {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function parseNumericSuffix(str) {
+  const m = /(\d+)$/.exec(str || "");
+  return m ? Number(m[1]) : 0;
+}
+
+// Persisted, monotonically-increasing sequence per counter name — never
+// reused, so deleting a sale/repair can't make a later one collide with an
+// existing invoice/ticket number. Seeded from any existing records' highest
+// numeric suffix so upgrading from the old length-based scheme can't
+// collide with numbers already in use.
+function nextSequence(counterKey, records, field) {
+  const counters = read(KEYS.counters);
+  const stored = Array.isArray(counters) ? {} : counters;
+  const highestExisting = records.reduce((max, r) => Math.max(max, parseNumericSuffix(r[field])), 0);
+  const next = Math.max(stored[counterKey] || 0, highestExisting) + 1;
+  write(KEYS.counters, { ...stored, [counterKey]: next });
+  return next;
+}
+
 function nextInvoiceNumber() {
   const sales = read(KEYS.sales);
-  const n = sales.length + 1;
+  const n = nextSequence("invoice", sales, "invoice");
   return `INV-${String(n).padStart(5, "0")}`;
+}
+
+function nextTicketNumber() {
+  const repairs = read(KEYS.repairs);
+  const n = nextSequence("ticket", repairs, "ticket");
+  return `TKT-${String(n).padStart(5, "0")}`;
 }
 
 export const db = {
@@ -149,15 +175,12 @@ export const db = {
   // ---- Repairs ----
   getRepairs: () => read(KEYS.repairs),
   saveRepairs: (items) => write(KEYS.repairs, items),
-  nextTicketNumber: () => {
-    const repairs = read(KEYS.repairs);
-    return `TKT-${String(repairs.length + 1).padStart(5, "0")}`;
-  },
+  nextTicketNumber,
   createRepair: (repair) => {
     const repairs = read(KEYS.repairs);
     const record = {
       id: uid("rep"),
-      ticket: `TKT-${String(repairs.length + 1).padStart(5, "0")}`,
+      ticket: nextTicketNumber(),
       createdAt: new Date().toISOString(),
       status: "received",
       paymentStatus: "Unpaid",
@@ -200,7 +223,7 @@ export const db = {
     const defaults = {
       appearance: "dark",
       logo: null,
-      shopName: "TechDesk 2.0",
+      shopName: "TechDesk Solo",
       tagline: "REPAIR \u2022 SALES \u2022 ACCESSORIES",
       address: "",
       phone: "",
@@ -222,7 +245,6 @@ export const db = {
   },
   saveSettings: (settings) => write(KEYS.settings, settings),
 
-
   // ---- Backup / restore / erase (device tab) ----
   exportBackup: () => {
     const data = {};
@@ -234,7 +256,20 @@ export const db = {
   restoreBackup: (json) => {
     const parsed = JSON.parse(json);
     const data = parsed.data || parsed;
-    Object.entries(data).forEach(([key, value]) => {
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("Invalid backup file: missing data.");
+    }
+    const validKeys = new Set(Object.values(KEYS));
+    const entries = Object.entries(data).filter(([key]) => validKeys.has(key));
+    if (entries.length === 0) {
+      throw new Error("Invalid backup file: no recognized data.");
+    }
+    // validate every value parses as JSON before writing anything, so a
+    // malformed backup can't partially overwrite existing data
+    entries.forEach(([, value]) => {
+      if (value != null) JSON.parse(value);
+    });
+    entries.forEach(([key, value]) => {
       if (value != null) localStorage.setItem(key, value);
     });
   },
