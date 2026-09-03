@@ -3,10 +3,11 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { ThemeProvider, useThemeTokens } from "./lib/ThemeContext";
 import { SettingsProvider } from "./lib/SettingsContext";
-import { AuthProvider } from "./lib/AuthContext";
+import { AuthProvider, useAuth, canAccess, homeFor } from "./lib/AuthContext";
 import { LicenseProvider, useLicense } from "./lib/LicenseContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import Splash from "./components/Splash";
+import LoginScreen from "./pages/LoginScreen";
 import Sidebar from "./components/Sidebar";
 import RestrictedOverlay from "./components/RestrictedOverlay";
 import ActivationModal from "./components/ActivationModal";
@@ -19,7 +20,11 @@ import ReportsPage from "./pages/ReportsPage";
 import ActivityLogsPage from "./pages/ActivityLogsPage";
 import SettingsPage from "./pages/SettingsPage";
 
-function Guard({ children }) {
+function Guard({ path, children }) {
+  const { user } = useAuth();
+  if (!canAccess(user?.role, path)) {
+    return <Navigate to={homeFor(user?.role)} replace />;
+  }
   return children;
 }
 
@@ -75,6 +80,8 @@ function Shell() {
 }
 
 function Root() {
+  const { user } = useAuth();
+  if (!user) return <LoginScreen />;
   return <Shell />;
 }
 

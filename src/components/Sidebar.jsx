@@ -15,6 +15,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
+import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 
 const NAV_ITEMS_BASE = [
@@ -31,7 +32,7 @@ const NAV_ITEMS_BASE = [
 export default function Sidebar() {
   const t = useThemeTokens();
   const { settings } = useSettings();
-  const user = { name: "Administrator", role: "single admin" };
+  const { user, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("techdesk_sidebar_collapsed") === "1");
 
   function toggleCollapsed() {
@@ -41,7 +42,9 @@ export default function Sidebar() {
     });
   }
 
-  const visibleItems = NAV_ITEMS_BASE.map((item) => item.to === "/repairs" ? { ...item, label: settings.labels?.navRepairs || "Repairs" } : item);
+  const visibleItems = NAV_ITEMS_BASE.filter((item) => canAccess(user?.role, item.to)).map((item) =>
+    item.to === "/repairs" ? { ...item, label: settings.labels?.navRepairs || "Repairs" } : item
+  );
 
   function handlePowerOff() {
     if (window.techdesk?.quit) {
@@ -133,6 +136,9 @@ export default function Sidebar() {
           )}
         </div>
         <div className={`flex items-center gap-1 ${collapsed ? "flex-col" : ""}`}>
+          <button onClick={signOut} title="Switch user" className={`p-1.5 rounded-lg ${t.textMuted}`}>
+            <Users className="w-4 h-4" />
+          </button>
           <button onClick={handlePowerOff} title="Power off" className="p-1.5 rounded-lg text-red-500">
             <Power className="w-4 h-4" />
           </button>

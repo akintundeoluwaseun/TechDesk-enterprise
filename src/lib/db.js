@@ -8,6 +8,7 @@ const KEYS = {
   repairs: "techdesk_repairs",
   activity: "techdesk_activity",
   settings: "techdesk_settings",
+  users: "techdesk_users",
   counters: "techdesk_counters",
 };
 
@@ -244,6 +245,29 @@ export const db = {
     return { ...defaults, ...stored, labels: { ...defaults.labels, ...(stored.labels || {}) } };
   },
   saveSettings: (settings) => write(KEYS.settings, settings),
+
+  // ---- Users (PIN-based, per device) ----
+  getUsers: () => read(KEYS.users),
+  addUser: (user) => {
+    const users = read(KEYS.users);
+    const record = { id: uid("user"), createdAt: new Date().toISOString(), ...user };
+    users.push(record);
+    write(KEYS.users, users);
+    return record;
+  },
+  updateUser: (id, patch) => {
+    const users = read(KEYS.users);
+    const idx = users.findIndex((u) => u.id === id);
+    if (idx > -1) {
+      users[idx] = { ...users[idx], ...patch };
+      write(KEYS.users, users);
+      return users[idx];
+    }
+    return null;
+  },
+  deleteUser: (id) => {
+    write(KEYS.users, read(KEYS.users).filter((u) => u.id !== id));
+  },
 
   // ---- Backup / restore / erase (device tab) ----
   exportBackup: () => {
