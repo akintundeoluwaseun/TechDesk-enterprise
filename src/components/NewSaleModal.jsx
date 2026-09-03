@@ -51,6 +51,25 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
     return inventory.filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase()));
   }, [inventory, productSearch]);
 
+  // when editing, the units this sale originally sold were already deducted
+  // from stock, so they're still available for this cart to re-claim
+  const originalQtyByProduct = useMemo(() => {
+    if (!isEdit) return {};
+    const map = {};
+    (sale.items || []).forEach((i) => {
+      if (i.fromInventory && i.productId) {
+        map[i.productId] = (map[i.productId] || 0) + Number(i.qty || 0);
+      }
+    });
+    return map;
+  }, [isEdit, sale]);
+
+  function availableStock(productId) {
+    const product = inventory.find((p) => p.id === productId);
+    if (!product) return 0;
+    return Number(product.stock || 0) + (originalQtyByProduct[productId] || 0);
+  }
+
   const filteredCustomers = useMemo(() => {
     if (!customerSearch) return [];
     const customers = db.getCustomers();
@@ -67,6 +86,8 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
   function addInventoryItem(product) {
     setCart((prev) => {
       const existing = prev.find((i) => i.productId === product.id);
+      const currentQty = existing?.qty || 0;
+      if (currentQty + 1 > availableStock(product.id)) return prev;
       if (existing) {
         return prev.map((i) => (i.productId === product.id ? { ...i, qty: i.qty + 1 } : i));
       }
@@ -107,7 +128,12 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
 
   function updateQty(itemId, delta) {
     setCart((prev) =>
-      prev.map((i) => (i.id === itemId ? { ...i, qty: Math.max(1, i.qty + delta) } : i))
+      prev.map((i) => {
+        if (i.id !== itemId) return i;
+        const nextQty = Math.max(1, i.qty + delta);
+        if (delta > 0 && i.fromInventory && nextQty > availableStock(i.productId)) return i;
+        return { ...i, qty: nextQty };
+      })
     );
   }
 
@@ -229,21 +255,31 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                 {filteredInventory.length === 0 && (
                   <div className={`text-sm text-center py-6 ${t.textMuted}`}>No products found</div>
                 )}
-                {filteredInventory.map((p) => (
-                  <button
-                    key={p.id}
-                    onClick={() => addInventoryItem(p)}
-                    className={`flex items-center justify-between rounded-xl px-4 py-3 text-left ${t.cardBg}`}
-                  >
-                    <div>
-                      <div className={`font-medium text-sm ${t.textPrimary}`}>{p.name}</div>
-                      <div className={`text-xs ${t.textMuted}`}>Stock: {p.stock}</div>
-                    </div>
-                    <div className={`font-semibold text-sm ${t.textPrimary}`}>
-                      &#8358;{Number(p.price).toLocaleString()}
-                    </div>
-                  </button>
-                ))}
+                {filteredInventory.map((p) => {
+                  const cartQty = cart.find((i) => i.productId === p.id)?.qty || 0;
+                  const remaining = availableStock(p.id) - cartQty;
+                  const outOfStock = remaining <= 0;
+                  return (
+                    <button
+                      key={p.id}
+                      onClick={() => addInventoryItem(p)}
+                      disabled={outOfStock}
+                      className={`flex items-center justify-between rounded-xl px-4 py-3 text-left ${t.cardBg} ${
+                        outOfStock ? "opacity-40 cursor-not-allowed" : ""
+                      }`}
+                    >
+                      <div>
+                        <div className={`font-medium text-sm ${t.textPrimary}`}>{p.name}</div>
+                        <div className={`text-xs ${t.textMuted}`}>
+                          {outOfStock ? "Out of stock" : `Stock: ${remaining}`}
+                        </div>
+                      </div>
+                      <div className={`font-semibold text-sm ${t.textPrimary}`}>
+                        &#8358;{Number(p.price).toLocaleString()}
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ) : (
@@ -323,7 +359,15 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                           <Minus className="w-4 h-4" />
                         </button>
                         <span className={`text-sm font-medium w-4 text-center ${t.textPrimary}`}>{item.qty}</span>
-                        <button onClick={() => updateQty(item.id, 1)} className={t.textSecondary}>
+                        <button
+                          onClick={() => updateQty(item.id, 1)}
+                          disabled={item.fromInventory && item.qty >= availableStock(item.productId)}
+                          className={`${t.textSecondary} ${
+                            item.fromInventory && item.qty >= availableStock(item.productId)
+                              ? "opacity-30 cursor-not-allowed"
+                              : ""
+                          }`}
+                        >
                           <Plus className="w-4 h-4" />
                         </button>
                         <button onClick={() => removeItem(item.id)} className="text-red-500">
