@@ -15,7 +15,6 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
-import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 
 const NAV_ITEMS_BASE = [
@@ -32,7 +31,7 @@ const NAV_ITEMS_BASE = [
 export default function Sidebar() {
   const t = useThemeTokens();
   const { settings } = useSettings();
-  const { user, signOut } = useAuth();
+  const user = { name: "Administrator", role: "single admin" };
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("techdesk_sidebar_collapsed") === "1");
 
   function toggleCollapsed() {
@@ -42,9 +41,7 @@ export default function Sidebar() {
     });
   }
 
-  const visibleItems = NAV_ITEMS_BASE.filter((item) => canAccess(user?.role, item.to)).map((item) =>
-    item.to === "/repairs" ? { ...item, label: settings.labels?.navRepairs || "Repairs" } : item
-  );
+  const visibleItems = NAV_ITEMS_BASE.map((item) => item.to === "/repairs" ? { ...item, label: settings.labels?.navRepairs || "Repairs" } : item);
 
   function handlePowerOff() {
     if (window.techdesk?.quit) {
@@ -57,7 +54,7 @@ export default function Sidebar() {
   return (
     <aside
       className={`shrink-0 flex flex-col justify-between p-4 h-screen sticky top-0 transition-all duration-200 ${
-        collapsed ? "w-20" : "w-72"
+        collapsed ? "w-20" : "w-72 max-md:w-20"
       } ${t.sidebarBg}`}
     >
       <div>
@@ -81,7 +78,7 @@ export default function Sidebar() {
             collapsed ? "justify-center w-full" : ""
           }`}
         >
-          {collapsed ? <ChevronRight className="w-4 h-4" /> : <><ChevronLeft className="w-4 h-4" /> Collapse</>}
+          {collapsed ? <ChevronRight className="w-4 h-4" /> : <><ChevronLeft className="w-4 h-4" /> <span className="max-md:hidden">Collapse</span></>}
         </button>
 
         <nav className="flex flex-col gap-1">
@@ -108,7 +105,7 @@ export default function Sidebar() {
                 }
               >
                 <Icon className="w-[18px] h-[18px] shrink-0" strokeWidth={2} />
-                {!collapsed && item.label}
+                {!collapsed && <span className="max-md:hidden">{item.label}</span>}
               </NavLink>
             );
           })}
@@ -136,9 +133,6 @@ export default function Sidebar() {
           )}
         </div>
         <div className={`flex items-center gap-1 ${collapsed ? "flex-col" : ""}`}>
-          <button onClick={signOut} title="Switch user" className={`p-1.5 rounded-lg ${t.textMuted}`}>
-            <Users className="w-4 h-4" />
-          </button>
           <button onClick={handlePowerOff} title="Power off" className="p-1.5 rounded-lg text-red-500">
             <Power className="w-4 h-4" />
           </button>

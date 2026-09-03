@@ -3,14 +3,12 @@ import Topbar from "../components/Topbar";
 import { useThemeTokens } from "../lib/ThemeContext";
 import ShopTab from "./settings/ShopTab";
 import ReceiptsTab from "./settings/ReceiptsTab";
-import UsersTab from "./settings/UsersTab";
 import DeviceTab from "./settings/DeviceTab";
 import DeveloperTab from "./settings/DeveloperTab";
 
 const TABS = [
   { key: "shop", label: "Shop", Component: ShopTab },
   { key: "receipts", label: "Receipts", Component: ReceiptsTab },
-  { key: "users", label: "Users", Component: UsersTab },
   { key: "device", label: "Device", Component: DeviceTab },
   { key: "developer", label: "Developer", Component: DeveloperTab },
 ];

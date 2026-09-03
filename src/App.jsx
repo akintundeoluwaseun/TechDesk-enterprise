@@ -3,11 +3,10 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { ThemeProvider, useThemeTokens } from "./lib/ThemeContext";
 import { SettingsProvider } from "./lib/SettingsContext";
-import { AuthProvider, useAuth, canAccess, homeFor } from "./lib/AuthContext";
+import { AuthProvider } from "./lib/AuthContext";
 import { LicenseProvider, useLicense } from "./lib/LicenseContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import Splash from "./components/Splash";
-import LoginScreen from "./pages/LoginScreen";
 import Sidebar from "./components/Sidebar";
 import RestrictedOverlay from "./components/RestrictedOverlay";
 import ActivationModal from "./components/ActivationModal";
@@ -20,11 +19,7 @@ import ReportsPage from "./pages/ReportsPage";
 import ActivityLogsPage from "./pages/ActivityLogsPage";
 import SettingsPage from "./pages/SettingsPage";
 
-function Guard({ path, children }) {
-  const { user } = useAuth();
-  if (!canAccess(user?.role, path)) {
-    return <Navigate to={homeFor(user?.role)} replace />;
-  }
+function Guard({ children }) {
   return children;
 }
 
@@ -59,7 +54,7 @@ function Shell() {
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>
       <Sidebar />
-      <div className="flex-1 relative">
+      <div className="flex-1 min-w-0 overflow-x-hidden relative">
         <Routes>
           <Route path="/" element={<Guard path="/"><DashboardPage /></Guard>} />
           <Route path="/sales" element={<Guard path="/sales"><SalesPage /></Guard>} />
@@ -80,8 +75,6 @@ function Shell() {
 }
 
 function Root() {
-  const { user } = useAuth();
-  if (!user) return <LoginScreen />;
   return <Shell />;
 }
 
