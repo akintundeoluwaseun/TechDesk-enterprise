@@ -223,7 +223,7 @@ export const db = {
     const defaults = {
       appearance: "dark",
       logo: null,
-      shopName: "TechDesk Solo",
+      shopName: "TechDesk 2.0",
       tagline: "REPAIR \u2022 SALES \u2022 ACCESSORIES",
       address: "",
       phone: "",

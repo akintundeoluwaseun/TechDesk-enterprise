@@ -63,7 +63,7 @@ export default function DeviceTab() {
   function sendActivityEmail() {
     const recent = db.getActivity().slice(0, 20);
     const lines = recent.map((a) => `- ${new Date(a.createdAt).toLocaleString()}: ${a.message}`).join("\n");
-    const subject = encodeURIComponent("TechDesk Solo activity report");
+    const subject = encodeURIComponent("TechDesk 2.0 activity report");
     const body = encodeURIComponent(`Recent activity:\n\n${lines || "No activity yet."}`);
     const to = encodeURIComponent(notificationEmail || "");
     window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;

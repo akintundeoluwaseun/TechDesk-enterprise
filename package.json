@@ -1,6 +1,6 @@
 {
   "name": "techdesk-solo",
-  "productName": "TechDesk Solo",
+  "productName": "TechDesk 2.0",
   "version": "1.0.0",
   "description": "Offline repair shop manager - sales, repairs, inventory, customers, reports, with LAN activity sharing.",
   "main": "electron/main.js",
@@ -35,7 +35,7 @@
   },
   "build": {
     "appId": "com.techdesk.solo",
-    "productName": "TechDesk Solo",
+    "productName": "TechDesk 2.0",
     "files": [
       "dist/**/*",
       "electron/**/*"
