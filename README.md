@@ -1,14 +1,13 @@
 # TechDesk Solo
 
-Offline-first repair shop manager for a **single operator** (Sales/POS, Repairs,
-Inventory, Customers, Reports, Activity Logs, Settings) built with React +
-Electron. All data lives on-device in localStorage — no backend, no internet
-required for day-to-day use.
+Offline-first repair shop manager (Sales/POS, Repairs, Inventory, Customers,
+Reports, Activity Logs, Settings) built with React + Electron. All data lives
+on-device in localStorage — no backend, no internet required for day-to-day
+use.
 
-Unlike TechDesk 2.0, Solo has no PIN login or multi-user roles — it opens
-straight to the dashboard as the device's one Administrator. In exchange it
-adds two things a solo operator benefits from: email alerts on activity, and
-a read-only activity log other devices on the same Wi-Fi can view.
+On top of everything TechDesk 2.0 has (PIN login, multi-user roles), Solo
+adds two extras: a one-click way to email yourself an activity report, and a
+read-only activity log other devices on the same Wi-Fi can view.
 
 ## Setup
 
@@ -38,29 +37,41 @@ Installers are written to `release/`. Run this on each target OS (or use CI) to
 produce that platform's installer — electron-builder does not cross-compile
 Windows installers from Linux/macOS reliably without extra setup (Wine).
 
-## Data
+## First run
 
-Everything (sales, repairs, inventory, customers, activity, settings) is
-stored in the browser's localStorage inside the Electron window — fully
-offline, per device. There's a single Administrator account; no PIN, no
-staff roles.
+On first launch you'll land on the user-select / PIN screen. The default admin
+PIN is `0000` — sign in as Admin, then go to Settings → Users to set a real PIN
+and add seller/repairer staff accounts.
+
+## Data & roles
+
+- Everything (sales, repairs, inventory, customers, activity, settings, users)
+  is stored in the browser's localStorage inside the Electron window — fully
+  offline, per device.
+- Roles: **admin** sees everything including the dashboard, reports, activity
+  logs, settings, and inventory cost/valuation. **seller** sees Sales (POS) +
+  Inventory. **repairer** sees Repairs + Inventory. A user can be assigned
+  **both**. Non-admin roles never see cost price or total inventory value.
+- Settings → Device has Download backup / Restore backup (JSON file), the
+  email activity report, LAN connection info, and Erase all data.
 
 ## Project structure
 
 ```
 src/
-  App.jsx              routing (no auth gate — always signed in as Admin)
+  App.jsx              routing + auth gate
   pages/                one file per screen
-  pages/settings/        the Settings tabs, including Developer (notifications + LAN)
+  pages/settings/        the Settings tabs, including Device (backup, email report, LAN)
   components/           shared Sidebar, Topbar, modals
   lib/db.js              localStorage data layer
+  lib/AuthContext.jsx    PIN session + role permissions
   lib/ThemeContext.jsx   light/dark theme
   lib/generateInvoicePdf.js   Sales receipt PDF
   lib/generateRepairPdf.js    Repair ticket + blank 3-copy form PDFs
   lib/reports.js         report aggregation
 electron/
   main.js                Electron main process: local backups, LAN activity
-                          server + QR code, Gmail email notifications
+                          server + QR code
   preload.js              exposes the techdesk bridge to the renderer
 ```
 
@@ -70,18 +81,17 @@ TechDesk Solo saves an automatic backup once a day (to this device's Electron
 `userData/backups` folder, keeping the last 14) as a safety net, on top of the
 manual Download backup / Restore backup in Settings → Device.
 
-## Email notifications
+## Email activity report
 
-Settings → Developer lets you configure a Gmail address (with an App
-Password, not your normal Google password) to receive alerts on new sales,
-repairs, low stock, and other activity. If sending fails (e.g. offline), the
-notification is queued to disk and retried automatically once a minute until
-it goes through.
+Settings → Device has an "Email activity report" button. It opens your own
+Mail app with recent activity pre-filled, addressed to whichever email you
+enter — you review it and hit send yourself. No password is ever typed into
+or stored by the app, and nothing is sent automatically in the background.
 
 ## LAN activity sharing
 
 The Electron main process runs a small local HTTP server (port 47821) that
-serves a read-only, auto-refreshing activity log page. Settings → Developer
+serves a read-only, auto-refreshing activity log page. Settings → Device
 shows this device's LAN address and a "Show connection QR" button — scan it
 from another device on the same Wi-Fi to open the log in a browser. Nothing
 here is writable from the other device; it's view-only.

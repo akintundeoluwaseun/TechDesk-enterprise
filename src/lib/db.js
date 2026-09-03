@@ -211,7 +211,6 @@ export const db = {
     activity.unshift({ id: uid("act"), createdAt: new Date().toISOString(), ...entry });
     write(KEYS.activity, activity);
     window.techdesk?.syncActivity?.(activity);
-    window.techdesk?.notifyActivity?.({ activity: activity[0], settings: db.getSettings() });
   },
   getActivity: () => read(KEYS.activity),
 
