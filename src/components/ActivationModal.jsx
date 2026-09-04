@@ -42,7 +42,7 @@ export default function ActivationModal({ onClose }) {
         </div>
 
         {activated ? (
-          <p className={`text-sm ${t.textSecondary}`}>This device is fully activated. Thanks for supporting TechDesk 2.0!</p>
+          <p className={`text-sm ${t.textSecondary}`}>This device is fully activated. Thanks for supporting TechDesk Solo!</p>
         ) : (
           <>
             <p className={`text-sm mb-4 ${t.textSecondary}`}>

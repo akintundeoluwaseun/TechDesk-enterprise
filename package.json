@@ -1,8 +1,8 @@
 {
   "name": "techdesk-solo",
-  "productName": "TechDesk 2.0",
+  "productName": "TechDesk Solo",
   "version": "1.0.0",
-  "description": "Offline repair shop manager - sales, repairs, inventory, customers, reports, with LAN activity sharing.",
+  "description": "Offline repair shop manager for a single operator - sales, repairs, inventory, customers, reports.",
   "main": "electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -16,7 +16,6 @@
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.8.2",
     "lucide-react": "^0.383.0",
-    "qrcode": "^1.5.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.23.0",
@@ -35,7 +34,7 @@
   },
   "build": {
     "appId": "com.techdesk.solo",
-    "productName": "TechDesk 2.0",
+    "productName": "TechDesk Solo",
     "files": [
       "dist/**/*",
       "electron/**/*"
