@@ -3,10 +3,11 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { ThemeProvider, useThemeTokens } from "./lib/ThemeContext";
 import { SettingsProvider } from "./lib/SettingsContext";
-import { AuthProvider } from "./lib/AuthContext";
+import { AuthProvider, useAuth, canAccess, homeFor } from "./lib/AuthContext";
 import { LicenseProvider, useLicense } from "./lib/LicenseContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import Splash from "./components/Splash";
+import LoginScreen from "./pages/LoginScreen";
 import Sidebar from "./components/Sidebar";
 import RestrictedOverlay from "./components/RestrictedOverlay";
 import ActivationModal from "./components/ActivationModal";
@@ -19,7 +20,11 @@ import ReportsPage from "./pages/ReportsPage";
 import ActivityLogsPage from "./pages/ActivityLogsPage";
 import SettingsPage from "./pages/SettingsPage";
 
-function Guard({ children }) {
+function Guard({ path, children }) {
+  const { user } = useAuth();
+  if (!canAccess(user?.role, path)) {
+    return <Navigate to={homeFor(user?.role)} replace />;
+  }
   return children;
 }
 
@@ -54,16 +59,16 @@ function Shell() {
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>
       <Sidebar />
-      <div className="flex-1 min-w-0 overflow-x-hidden relative">
+      <div className="flex-1 relative">
         <Routes>
-          <Route path="/" element={<Guard><DashboardPage /></Guard>} />
-          <Route path="/sales" element={<Guard><SalesPage /></Guard>} />
-          <Route path="/repairs" element={<Guard><RepairsPage /></Guard>} />
-          <Route path="/inventory" element={<Guard><InventoryPage /></Guard>} />
-          <Route path="/customers" element={<Guard><CustomersPage /></Guard>} />
-          <Route path="/reports" element={<Guard><ReportsPage /></Guard>} />
-          <Route path="/activity" element={<Guard><ActivityLogsPage /></Guard>} />
-          <Route path="/settings" element={<Guard><SettingsPage /></Guard>} />
+          <Route path="/" element={<Guard path="/"><DashboardPage /></Guard>} />
+          <Route path="/sales" element={<Guard path="/sales"><SalesPage /></Guard>} />
+          <Route path="/repairs" element={<Guard path="/repairs"><RepairsPage /></Guard>} />
+          <Route path="/inventory" element={<Guard path="/inventory"><InventoryPage /></Guard>} />
+          <Route path="/customers" element={<Guard path="/customers"><CustomersPage /></Guard>} />
+          <Route path="/reports" element={<Guard path="/reports"><ReportsPage /></Guard>} />
+          <Route path="/activity" element={<Guard path="/activity"><ActivityLogsPage /></Guard>} />
+          <Route path="/settings" element={<Guard path="/settings"><SettingsPage /></Guard>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         {restricted && <RestrictedOverlay onClick={() => setShowActivation(true)} />}
@@ -75,6 +80,8 @@ function Shell() {
 }
 
 function Root() {
+  const { user } = useAuth();
+  if (!user) return <LoginScreen />;
   return <Shell />;
 }
 
