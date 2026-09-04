@@ -102,6 +102,29 @@ shows this device's LAN address and a "Show connection QR" button — scan it
 from another device on the same Wi-Fi to open the log in a browser. Nothing
 here is writable from the other device; it's view-only.
 
+## Upgrading to a different edition
+
+There's no in-place upgrade — each edition is a separate install. To move
+your data from one edition to another (e.g. Business → Enterprise as your
+team grows past 3 staff):
+
+1. On the old edition, go to Settings → Device → Download backup and save
+   the JSON file somewhere safe.
+2. Install the new edition.
+3. On first run, go to Settings → Device → Restore backup and pick that
+   same JSON file.
+
+Backups are plain JSON (sales, repairs, inventory, customers, activity,
+settings) and aren't edition-specific, so a Business backup restores cleanly
+into Enterprise, staff accounts included, with no extra steps.
+
+## Uninstalling
+
+The Windows uninstaller asks whether you've backed up your data before it
+proceeds — answering "No" cancels the uninstall so you can back up first
+via Settings → Device → Download backup. Uninstalling never deletes your
+saved data either way; it only removes the app itself.
+
 ## Receipts
 
 Sales have two printable formats: a full A4 PDF invoice, and a 58mm
