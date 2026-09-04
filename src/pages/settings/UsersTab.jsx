@@ -92,7 +92,10 @@ export default function UsersTab() {
       </div>
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-        <h3 className={`font-semibold mb-1 ${t.textPrimary}`}>Users on this device</h3>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className={`font-semibold ${t.textPrimary}`}>Users on this device</h3>
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${t.pillBg}`}>Unlimited staff accounts</span>
+        </div>
         <p className={`text-sm mb-6 ${t.textSecondary}`}>
           Add sellers, repairers, or both. Each user signs in with their own PIN from the user switch screen.
           Sellers see Sales + Inventory, repairers see Repairs + Inventory. Only the admin sees dashboard, logs,
