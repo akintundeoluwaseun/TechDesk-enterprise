@@ -9,10 +9,10 @@ This is one of three TechDesk editions, aimed at different business sizes:
 
 - **Solo** — a single owner/technician. No login screen, no staff accounts.
 - **Business** — a small shop with a few staff: PIN login, roles
-  (admin/seller/repairer), plus email activity reports and LAN activity
-  sharing.
-- **Enterprise** (this one) — larger operations, same feature set as
-  Business today.
+  (admin/seller/repairer), up to 3 staff accounts, plus an email activity
+  report.
+- **Enterprise** (this one) — unlimited staff accounts, plus LAN activity
+  sharing on top of everything Business has.
 
 ## Setup
 
@@ -46,7 +46,7 @@ Windows installers from Linux/macOS reliably without extra setup (Wine).
 
 On first launch you'll land on the user-select / PIN screen. The default admin
 PIN is `0000` — sign in as Admin, then go to Settings → Users to set a real PIN
-and add seller/repairer staff accounts.
+and add seller/repairer staff accounts (no limit on this edition).
 
 ## Data & roles
 
@@ -57,6 +57,7 @@ and add seller/repairer staff accounts.
   logs, settings, and inventory cost/valuation. **seller** sees Sales (POS) +
   Inventory. **repairer** sees Repairs + Inventory. A user can be assigned
   **both**. Non-admin roles never see cost price or total inventory value.
+- Settings → Users has no cap on staff accounts (Business is capped at 3).
 - Settings → Device has Download backup / Restore backup (JSON file), the
   email activity report, LAN connection info, and Erase all data.
 
