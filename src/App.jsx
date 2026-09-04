@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, Suspense, lazy } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { ThemeProvider, useThemeTokens } from "./lib/ThemeContext";
@@ -11,14 +11,15 @@ import LoginScreen from "./pages/LoginScreen";
 import Sidebar from "./components/Sidebar";
 import RestrictedOverlay from "./components/RestrictedOverlay";
 import ActivationModal from "./components/ActivationModal";
-import DashboardPage from "./pages/DashboardPage";
-import SalesPage from "./pages/SalesPage";
-import RepairsPage from "./pages/RepairsPage";
-import InventoryPage from "./pages/InventoryPage";
-import CustomersPage from "./pages/CustomersPage";
-import ReportsPage from "./pages/ReportsPage";
-import ActivityLogsPage from "./pages/ActivityLogsPage";
-import SettingsPage from "./pages/SettingsPage";
+
+const DashboardPage = lazy(() => import("./pages/DashboardPage"));
+const SalesPage = lazy(() => import("./pages/SalesPage"));
+const RepairsPage = lazy(() => import("./pages/RepairsPage"));
+const InventoryPage = lazy(() => import("./pages/InventoryPage"));
+const CustomersPage = lazy(() => import("./pages/CustomersPage"));
+const ReportsPage = lazy(() => import("./pages/ReportsPage"));
+const ActivityLogsPage = lazy(() => import("./pages/ActivityLogsPage"));
+const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 function Guard({ path, children }) {
   const { user } = useAuth();
@@ -60,17 +61,19 @@ function Shell() {
     <div className={`min-h-screen w-full flex ${t.bg}`}>
       <Sidebar />
       <div className="flex-1 relative">
-        <Routes>
-          <Route path="/" element={<Guard path="/"><DashboardPage /></Guard>} />
-          <Route path="/sales" element={<Guard path="/sales"><SalesPage /></Guard>} />
-          <Route path="/repairs" element={<Guard path="/repairs"><RepairsPage /></Guard>} />
-          <Route path="/inventory" element={<Guard path="/inventory"><InventoryPage /></Guard>} />
-          <Route path="/customers" element={<Guard path="/customers"><CustomersPage /></Guard>} />
-          <Route path="/reports" element={<Guard path="/reports"><ReportsPage /></Guard>} />
-          <Route path="/activity" element={<Guard path="/activity"><ActivityLogsPage /></Guard>} />
-          <Route path="/settings" element={<Guard path="/settings"><SettingsPage /></Guard>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={null}>
+          <Routes>
+            <Route path="/" element={<Guard path="/"><DashboardPage /></Guard>} />
+            <Route path="/sales" element={<Guard path="/sales"><SalesPage /></Guard>} />
+            <Route path="/repairs" element={<Guard path="/repairs"><RepairsPage /></Guard>} />
+            <Route path="/inventory" element={<Guard path="/inventory"><InventoryPage /></Guard>} />
+            <Route path="/customers" element={<Guard path="/customers"><CustomersPage /></Guard>} />
+            <Route path="/reports" element={<Guard path="/reports"><ReportsPage /></Guard>} />
+            <Route path="/activity" element={<Guard path="/activity"><ActivityLogsPage /></Guard>} />
+            <Route path="/settings" element={<Guard path="/settings"><SettingsPage /></Guard>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
         {restricted && <RestrictedOverlay onClick={() => setShowActivation(true)} />}
       </div>
       <ActivateBadge onClick={() => setShowActivation(true)} />
