@@ -104,16 +104,18 @@ export default function UsersTab() {
 
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div>
-            <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Full name</label>
+            <label htmlFor="new-user-name" className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Full name</label>
             <input
+              id="new-user-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
             />
           </div>
           <div>
-            <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Email (optional)</label>
+            <label htmlFor="new-user-email" className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Email (optional)</label>
             <input
+              id="new-user-email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
@@ -122,8 +124,9 @@ export default function UsersTab() {
         </div>
 
         <div className="mb-4">
-          <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>PIN (4-6 digits)</label>
+          <label htmlFor="new-user-pin" className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>PIN (4-6 digits)</label>
           <input
+            id="new-user-pin"
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
             className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
