@@ -5,12 +5,14 @@ import { ThemeProvider, useThemeTokens } from "./lib/ThemeContext";
 import { SettingsProvider } from "./lib/SettingsContext";
 import { AuthProvider, useAuth, canAccess, homeFor } from "./lib/AuthContext";
 import { LicenseProvider, useLicense } from "./lib/LicenseContext";
+import { HelpProvider, useHelp } from "./lib/HelpContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import Splash from "./components/Splash";
 import LoginScreen from "./pages/LoginScreen";
 import Sidebar from "./components/Sidebar";
 import RestrictedOverlay from "./components/RestrictedOverlay";
 import ActivationModal from "./components/ActivationModal";
+import TutorialModal from "./components/TutorialModal";
 
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const SalesPage = lazy(() => import("./pages/SalesPage"));
@@ -54,6 +56,7 @@ function ActivateBadge({ onClick }) {
 function Shell() {
   const t = useThemeTokens();
   const { restricted } = useLicense();
+  const { open: helpOpen, dismiss: dismissHelp } = useHelp();
   const [showActivation, setShowActivation] = useState(false);
   useAutoBackup();
 
@@ -78,6 +81,7 @@ function Shell() {
       </div>
       <ActivateBadge onClick={() => setShowActivation(true)} />
       {showActivation && <ActivationModal onClose={() => setShowActivation(false)} />}
+      {helpOpen && <TutorialModal onClose={dismissHelp} />}
     </div>
   );
 }
@@ -96,13 +100,15 @@ export default function App() {
       <SettingsProvider>
         <LicenseProvider>
           <AuthProvider>
-            <HashRouter>
-              {showSplash ? (
-                <Splash onDone={() => setShowSplash(false)} />
-              ) : (
-                <Root />
-              )}
-            </HashRouter>
+            <HelpProvider>
+              <HashRouter>
+                {showSplash ? (
+                  <Splash onDone={() => setShowSplash(false)} />
+                ) : (
+                  <Root />
+                )}
+              </HashRouter>
+            </HelpProvider>
           </AuthProvider>
         </LicenseProvider>
       </SettingsProvider>

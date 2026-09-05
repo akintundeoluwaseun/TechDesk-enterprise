@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, Sun, ChevronDown, Power, Settings as SettingsIcon, Users as UsersIcon, X } from "lucide-react";
+import { Search, Bell, Sun, ChevronDown, Power, Settings as SettingsIcon, Users as UsersIcon, HelpCircle, X } from "lucide-react";
 import { useTheme, useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
+import { useHelp } from "../lib/HelpContext";
 import { db } from "../lib/db";
 
 export default function Topbar({ title, subtitle, action }) {
@@ -10,6 +11,7 @@ export default function Topbar({ title, subtitle, action }) {
   const t = useThemeTokens();
   const navigate = useNavigate();
   const { user, isAdmin, signOut } = useAuth();
+  const { openHelp } = useHelp();
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -227,6 +229,17 @@ export default function Topbar({ title, subtitle, action }) {
                 }`}
               >
                 <UsersIcon className="w-4 h-4" /> Switch user
+              </button>
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  openHelp();
+                }}
+                className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm ${t.textPrimary} ${
+                  t.dark ? "hover:bg-white/5" : "hover:bg-slate-50"
+                }`}
+              >
+                <HelpCircle className="w-4 h-4" /> Help
               </button>
               <button
                 onClick={handlePowerOff}
