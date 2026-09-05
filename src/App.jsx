@@ -1,6 +1,5 @@
 import React, { useState, Suspense, lazy } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { ShieldAlert, ShieldCheck } from "lucide-react";
 import { ThemeProvider, useThemeTokens } from "./lib/ThemeContext";
 import { SettingsProvider } from "./lib/SettingsContext";
 import { AuthProvider, useAuth, canAccess, homeFor } from "./lib/AuthContext";
@@ -31,28 +30,6 @@ function Guard({ path, children }) {
   return children;
 }
 
-function ActivateBadge({ onClick }) {
-  const t = useThemeTokens();
-  const { activated, restricted, daysLeft } = useLicense();
-  if (activated) return null;
-
-  return (
-    <button
-      onClick={onClick}
-      className={`fixed top-5 right-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold shadow-lg ${
-        restricted
-          ? "bg-red-500 text-white animate-pulse"
-          : t.dark
-          ? "bg-white text-black"
-          : "bg-slate-900 text-white"
-      }`}
-    >
-      {restricted ? <ShieldAlert className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-      {restricted ? "Activate" : `Trial: ${daysLeft}d left`}
-    </button>
-  );
-}
-
 function Shell() {
   const t = useThemeTokens();
   const { restricted } = useLicense();
@@ -62,7 +39,7 @@ function Shell() {
 
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>
-      <Sidebar />
+      <Sidebar onOpenActivation={() => setShowActivation(true)} />
       <div className="flex-1 relative">
         <Suspense fallback={null}>
           <Routes>
@@ -79,7 +56,6 @@ function Shell() {
         </Suspense>
         {restricted && <RestrictedOverlay onClick={() => setShowActivation(true)} />}
       </div>
-      <ActivateBadge onClick={() => setShowActivation(true)} />
       {showActivation && <ActivationModal onClose={() => setShowActivation(false)} />}
       {helpOpen && <TutorialModal onClose={dismissHelp} />}
     </div>

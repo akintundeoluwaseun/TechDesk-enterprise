@@ -13,10 +13,13 @@ import {
   Monitor,
   ChevronLeft,
   ChevronRight,
+  ShieldAlert,
+  ShieldCheck,
 } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
+import { useLicense } from "../lib/LicenseContext";
 
 const NAV_ITEMS_BASE = [
   { to: "/", label: "Dashboard", icon: LayoutGrid, end: true },
@@ -29,10 +32,11 @@ const NAV_ITEMS_BASE = [
   { to: "/settings", label: "Settings", icon: Settings },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onOpenActivation }) {
   const t = useThemeTokens();
   const { settings } = useSettings();
   const { user, signOut } = useAuth();
+  const { activated, restricted, daysLeft } = useLicense();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("techdesk_sidebar_collapsed") === "1");
 
   function toggleCollapsed() {
@@ -115,33 +119,48 @@ export default function Sidebar() {
         </nav>
       </div>
 
-      <div
-        className={`flex items-center gap-2 rounded-xl p-3 ${collapsed ? "flex-col" : "justify-between"} ${
-          t.dark ? "bg-white/5 border border-white/10" : "bg-white/60 border border-white/70"
-        }`}
-      >
-        <div className={`flex items-center gap-3 min-w-0 ${collapsed ? "flex-col" : ""}`}>
-          <div
-            className={`w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 ${
-              t.dark ? "bg-white text-black" : "bg-blue-100 text-blue-600"
+      <div className="flex flex-col gap-2">
+        {!activated && (
+          <button
+            onClick={onOpenActivation}
+            title={collapsed ? (restricted ? "Activate" : `Trial: ${daysLeft}d left`) : undefined}
+            className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold ${
+              restricted ? "bg-red-500 text-white animate-pulse" : t.pillBg
             }`}
           >
-            {user?.name?.[0] || "A"}
-          </div>
-          {!collapsed && (
-            <div className="text-left min-w-0">
-              <div className={`text-sm font-semibold truncate ${t.textPrimary}`}>{user?.name}</div>
-              <div className={`text-xs ${t.textSecondary}`}>{user?.role}</div>
+            {restricted ? <ShieldAlert className="w-3.5 h-3.5 shrink-0" /> : <ShieldCheck className="w-3.5 h-3.5 shrink-0" />}
+            {!collapsed && (restricted ? "Activate" : `Trial: ${daysLeft}d left`)}
+          </button>
+        )}
+
+        <div
+          className={`flex items-center gap-2 rounded-xl p-3 ${collapsed ? "flex-col" : "justify-between"} ${
+            t.dark ? "bg-white/5 border border-white/10" : "bg-white/60 border border-white/70"
+          }`}
+        >
+          <div className={`flex items-center gap-3 min-w-0 ${collapsed ? "flex-col" : ""}`}>
+            <div
+              className={`w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm shrink-0 ${
+                t.dark ? "bg-white text-black" : "bg-blue-100 text-blue-600"
+              }`}
+            >
+              {user?.name?.[0] || "A"}
             </div>
-          )}
-        </div>
-        <div className={`flex items-center gap-1 ${collapsed ? "flex-col" : ""}`}>
-          <button onClick={signOut} title="Switch user" className={`p-1.5 rounded-lg ${t.textMuted}`}>
-            <Users className="w-4 h-4" />
-          </button>
-          <button onClick={handlePowerOff} title="Power off" className="p-1.5 rounded-lg text-red-500">
-            <Power className="w-4 h-4" />
-          </button>
+            {!collapsed && (
+              <div className="text-left min-w-0">
+                <div className={`text-sm font-semibold truncate ${t.textPrimary}`}>{user?.name}</div>
+                <div className={`text-xs ${t.textSecondary}`}>{user?.role}</div>
+              </div>
+            )}
+          </div>
+          <div className={`flex items-center gap-1 ${collapsed ? "flex-col" : ""}`}>
+            <button onClick={signOut} title="Switch user" className={`p-1.5 rounded-lg ${t.textMuted}`}>
+              <Users className="w-4 h-4" />
+            </button>
+            <button onClick={handlePowerOff} title="Power off" className="p-1.5 rounded-lg text-red-500">
+              <Power className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       </div>
     </aside>
