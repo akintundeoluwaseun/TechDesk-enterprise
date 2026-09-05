@@ -56,17 +56,13 @@ export default function CustomersPage() {
             <div
               key={c.id}
               className={`flex items-center justify-between px-6 py-4 ${
-                idx !== customers.length - 1
-                  ? t.dark
-                    ? "border-b border-white/10"
-                    : "border-b border-slate-100"
-                  : ""
+                idx !== customers.length - 1 ? `border-b ${t.divider}` : ""
               }`}
             >
               <div className="flex items-center gap-3">
                 <div
                   className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                    t.dark ? "bg-white/10" : "bg-slate-100"
+                    t.dark ? "bg-white/10" : "bg-black/5"
                   }`}
                 >
                   <User className={`w-4 h-4 ${t.textSecondary}`} />

@@ -103,11 +103,11 @@ export default function Sidebar({ onOpenActivation }) {
                   } ${
                     isActive
                       ? t.dark
-                        ? "bg-white/20 text-white"
-                        : "bg-white/80 text-blue-600 shadow-sm"
+                        ? "shadow-[inset_3px_3px_6px_#14171d,inset_-3px_-3px_6px_#282d37] text-white"
+                        : "shadow-[inset_3px_3px_6px_#c8cdd4,inset_-3px_-3px_6px_#ffffff] text-blue-600"
                       : t.dark
                       ? "text-slate-300 hover:bg-white/5"
-                      : "text-slate-600 hover:bg-white/50"
+                      : "text-slate-600 hover:bg-black/5"
                   }`
                 }
               >
@@ -134,9 +134,7 @@ export default function Sidebar({ onOpenActivation }) {
         )}
 
         <div
-          className={`flex items-center gap-2 rounded-xl p-3 ${collapsed ? "flex-col" : "justify-between"} ${
-            t.dark ? "bg-white/5 border border-white/10" : "bg-white/60 border border-white/70"
-          }`}
+          className={`flex items-center gap-2 rounded-xl p-3 ${collapsed ? "flex-col" : "justify-between"} ${t.cardBg}`}
         >
           <div className={`flex items-center gap-3 min-w-0 ${collapsed ? "flex-col" : ""}`}>
             <div

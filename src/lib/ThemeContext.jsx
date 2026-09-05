@@ -26,29 +26,38 @@ export function useTheme() {
   return ctx;
 }
 
-// Shared token map so every page reads colors the same way — iOS-style liquid glass.
+// Shared token map so every page reads colors the same way — soft-UI /
+// neumorphism: flat surfaces, no borders, no blur, depth comes entirely from
+// paired light/dark box-shadows. Raised (cardBg/pillBg) = shadow falls away
+// from the surface, like it's popping up. Inset (inputBg/insetBg) = shadow
+// falls into the surface, like it's pressed in. Same trick, why the shadow
+// pairs mirror each other with "inset" swapped in.
 export function useThemeTokens() {
   const { dark } = useTheme();
   return {
     dark,
-    bg: dark ? "bg-[#0f1115]" : "bg-slate-100",
-    // blur radii kept small on purpose: backdrop-filter is one of the more
-    // expensive things a browser composites, and with a dozen-plus blurred
-    // elements on screen at once (every card/pill/input), a large radius
-    // measurably slows down page switches. Smaller radius reads almost
-    // identically frosted but costs far less to paint.
+    bg: dark ? "bg-[#1e222a]" : "bg-[#e9ecf1]",
     sidebarBg: dark
-      ? "bg-white/5 backdrop-blur-lg border-r border-white/10"
-      : "bg-white/25 backdrop-blur-lg border-r border-white/40 backdrop-brightness-95",
+      ? "bg-[#1a1d24] shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.5)]"
+      : "bg-[#e3e7ed] shadow-[inset_-8px_0_12px_-8px_rgba(163,177,198,0.4)]",
     cardBg: dark
-      ? "bg-white/[0.07] backdrop-blur-md border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.35)]"
-      : "bg-white/30 backdrop-blur-md backdrop-brightness-90 border border-white/50 shadow-[0_8px_32px_rgba(31,38,135,0.15)]",
+      ? "bg-[#1e222a] shadow-[8px_8px_16px_#14171d,-8px_-8px_16px_#282d37]"
+      : "bg-[#e9ecf1] shadow-[8px_8px_16px_#c8cdd4,-8px_-8px_16px_#ffffff]",
+    // a step "deeper" than cardBg, for a sub-panel nested inside a card
+    insetBg: dark
+      ? "bg-[#1e222a] shadow-[inset_4px_4px_8px_#14171d,inset_-4px_-4px_8px_#282d37]"
+      : "bg-[#e9ecf1] shadow-[inset_4px_4px_8px_#c8cdd4,inset_-4px_-4px_8px_#ffffff]",
     inputBg: dark
-      ? "bg-white/[0.06] backdrop-blur-sm border border-white/10 text-white placeholder:text-slate-500"
-      : "bg-white/30 backdrop-blur-sm backdrop-brightness-90 border border-white/50 text-slate-900 placeholder:text-slate-500",
-    pillBg: dark ? "bg-white/10 backdrop-blur-sm text-slate-200" : "bg-white/30 backdrop-blur-sm backdrop-brightness-90 text-slate-700",
-    textPrimary: dark ? "text-white" : "text-black",
-    textSecondary: dark ? "text-slate-300" : "text-slate-800",
-    textMuted: dark ? "text-slate-400" : "text-slate-700",
+      ? "bg-[#1e222a] shadow-[inset_3px_3px_6px_#14171d,inset_-3px_-3px_6px_#282d37] text-white placeholder:text-slate-500"
+      : "bg-[#e9ecf1] shadow-[inset_3px_3px_6px_#c8cdd4,inset_-3px_-3px_6px_#ffffff] text-slate-800 placeholder:text-slate-400",
+    pillBg: dark
+      ? "bg-[#1e222a] shadow-[4px_4px_8px_#14171d,-4px_-4px_8px_#282d37] text-slate-300"
+      : "bg-[#e9ecf1] shadow-[4px_4px_8px_#c8cdd4,-4px_-4px_8px_#ffffff] text-slate-700",
+    // faint hairline, for table rows / section dividers that don't warrant a
+    // full raised or inset treatment of their own
+    divider: dark ? "border-white/10" : "border-black/10",
+    textPrimary: dark ? "text-white" : "text-slate-800",
+    textSecondary: dark ? "text-slate-300" : "text-slate-600",
+    textMuted: dark ? "text-slate-400" : "text-slate-500",
   };
 }

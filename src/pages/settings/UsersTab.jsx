@@ -163,7 +163,7 @@ export default function UsersTab() {
           <UserPlus className="w-4 h-4" /> Add user
         </button>
 
-        <div className={`rounded-2xl p-5 mb-4 ${t.dark ? "bg-white/5 border border-white/10" : "bg-white/40 border border-white/60"}`}>
+        <div className={`rounded-2xl p-5 mb-4 ${t.insetBg}`}>
           <div className={`font-semibold ${t.textPrimary}`}>Admin</div>
           <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full mt-1 mb-1 ${t.pillBg}`}>admin</span>
           <p className={`text-xs mb-3 ${t.textMuted}`}>
@@ -188,7 +188,7 @@ export default function UsersTab() {
         {users.length > 0 && (
           <div className="flex flex-col gap-3">
             {users.map((u) => (
-              <div key={u.id} className={`rounded-2xl p-5 ${t.dark ? "bg-white/5 border border-white/10" : "bg-white/40 border border-white/60"}`}>
+              <div key={u.id} className={`rounded-2xl p-5 ${t.insetBg}`}>
                 {editingId === u.id ? (
                   <div className="flex flex-col gap-3">
                     <div className="grid grid-cols-2 gap-3">

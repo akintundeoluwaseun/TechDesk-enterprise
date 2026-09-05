@@ -24,7 +24,7 @@ export default function SettingsPage() {
     <div className="flex-1 p-8">
       <Topbar title="Settings" />
 
-      <div className={`inline-flex rounded-xl p-1 mb-6 ${t.dark ? "bg-white/5" : "bg-slate-100"}`}>
+      <div className={`inline-flex rounded-xl p-1 mb-6 ${t.insetBg}`}>
         {TABS.map((x) => (
           <button
             key={x.key}
@@ -32,8 +32,8 @@ export default function SettingsPage() {
             className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
               tab === x.key
                 ? t.dark
-                  ? "bg-white text-black"
-                  : "bg-white text-slate-900 shadow-sm"
+                  ? "bg-[#1e222a] shadow-[2px_2px_4px_#14171d,-2px_-2px_4px_#282d37] text-white"
+                  : "bg-[#e9ecf1] shadow-[2px_2px_4px_#c8cdd4,-2px_-2px_4px_#ffffff] text-slate-800"
                 : t.textSecondary
             }`}
           >

@@ -73,14 +73,14 @@ export default function InventoryPage() {
         }
       />
 
-      <div className={`flex rounded-xl p-1 mb-5 w-full max-w-md ${t.dark ? "bg-white/5" : "bg-slate-100"}`}>
+      <div className={`flex rounded-xl p-1 mb-5 w-full max-w-md ${t.insetBg}`}>
         <button
           onClick={() => setTab("in-stock")}
           className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${
             tab === "in-stock"
               ? t.dark
-                ? "bg-white text-black"
-                : "bg-white text-slate-900 shadow-sm"
+                ? "bg-[#1e222a] shadow-[2px_2px_4px_#14171d,-2px_-2px_4px_#282d37] text-white"
+                : "bg-[#e9ecf1] shadow-[2px_2px_4px_#c8cdd4,-2px_-2px_4px_#ffffff] text-slate-800"
               : t.textSecondary
           }`}
         >
@@ -91,8 +91,8 @@ export default function InventoryPage() {
           className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${
             tab === "sold-out"
               ? t.dark
-                ? "bg-white text-black"
-                : "bg-white text-slate-900 shadow-sm"
+                ? "bg-[#1e222a] shadow-[2px_2px_4px_#14171d,-2px_-2px_4px_#282d37] text-white"
+                : "bg-[#e9ecf1] shadow-[2px_2px_4px_#c8cdd4,-2px_-2px_4px_#ffffff] text-slate-800"
               : t.textSecondary
           }`}
         >
@@ -127,9 +127,7 @@ export default function InventoryPage() {
 
       <div className={`rounded-2xl overflow-hidden ${t.cardBg}`}>
         <div
-          className={`grid grid-cols-[2fr_1fr_1fr_1fr] px-6 py-4 text-sm font-semibold ${t.textSecondary} ${
-            t.dark ? "border-b border-white/10" : "border-b border-slate-100"
-          }`}
+          className={`grid grid-cols-[2fr_1fr_1fr_1fr] px-6 py-4 text-sm font-semibold ${t.textSecondary} border-b ${t.divider}`}
         >
           <span>Product</span>
           <span>Price</span>
@@ -143,9 +141,7 @@ export default function InventoryPage() {
           filtered.map((p) => (
             <div
               key={p.id}
-              className={`grid grid-cols-[2fr_1fr_1fr_1fr] items-center px-6 py-4 text-sm ${
-                t.dark ? "border-b border-white/5 last:border-0" : "border-b border-slate-50 last:border-0"
-              }`}
+              className={`grid grid-cols-[2fr_1fr_1fr_1fr] items-center px-6 py-4 text-sm border-b last:border-0 ${t.divider}`}
             >
               <div>
                 <div className={`font-medium ${t.textPrimary}`}>{p.name}</div>

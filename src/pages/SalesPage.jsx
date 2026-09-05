@@ -119,7 +119,7 @@ export default function SalesPage() {
                 <span className={`text-xs ${t.textMuted}`}>{sale.items.length} item(s)</span>
               </div>
 
-              <div className={`border-t ${t.dark ? "border-white/10" : "border-white/50"} pt-2 mb-2`}>
+              <div className={`border-t ${t.divider} pt-2 mb-2`}>
                 {sale.items.map((item, idx) => (
                   <div key={idx} className="flex items-center justify-between text-sm mb-0.5">
                     <span className={t.textSecondary}>

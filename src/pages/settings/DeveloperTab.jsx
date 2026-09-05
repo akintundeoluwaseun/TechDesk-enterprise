@@ -17,7 +17,7 @@ export default function DeveloperTab() {
       <p className={`text-sm mb-4 ${t.textSecondary}`}>Built and maintained by</p>
 
       <div className="flex items-center gap-3 mb-5">
-        <div className={`w-9 h-9 rounded-full flex items-center justify-center ${t.dark ? "bg-white/10" : "bg-slate-100"}`}>
+        <div className={`w-9 h-9 rounded-full flex items-center justify-center ${t.dark ? "bg-white/10" : "bg-black/5"}`}>
           <Code2 className={`w-4 h-4 ${t.textSecondary}`} />
         </div>
         <div>

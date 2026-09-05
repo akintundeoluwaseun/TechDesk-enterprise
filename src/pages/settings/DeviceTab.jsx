@@ -75,9 +75,7 @@ export default function DeviceTab() {
     window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
   }
 
-  const input = `w-full rounded-xl px-3 py-2.5 text-sm outline-none ${
-    t.dark ? "bg-white/5 border border-white/10 text-white" : "bg-slate-50 border border-slate-200 text-slate-900"
-  }`;
+  const input = `w-full rounded-xl px-3 py-2.5 text-sm outline-none ${t.inputBg}`;
 
   return (
     <div className="flex flex-col gap-5">
@@ -142,11 +140,11 @@ export default function DeviceTab() {
           </div>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className={`rounded-xl p-4 ${t.dark ? "bg-white/5" : "bg-slate-50"}`}>
+          <div className={`rounded-xl p-4 ${t.insetBg}`}>
             <div className={`text-xs uppercase tracking-wider ${t.textMuted}`}>PC address</div>
             <div className={`mt-2 break-all font-mono text-lg ${t.textPrimary}`}>{network.url || network.ip}</div>
           </div>
-          <div className={`rounded-xl p-4 ${t.dark ? "bg-white/5" : "bg-slate-50"}`}>
+          <div className={`rounded-xl p-4 ${t.insetBg}`}>
             <div className={`text-xs uppercase tracking-wider ${t.textMuted}`}>Connection</div>
             <div className="mt-2 flex items-center gap-2 text-sm text-emerald-500">
               <ShieldCheck size={16} /> Read-only activity log

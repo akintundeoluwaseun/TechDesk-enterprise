@@ -99,7 +99,7 @@ export default function Topbar({ title, subtitle, action }) {
             ) : (
               <span
                 className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
-                  t.dark ? "bg-white/10 text-slate-300" : "bg-slate-100 text-slate-500"
+                  t.dark ? "bg-black/20 text-slate-300" : "bg-black/5 text-slate-500"
                 }`}
               >
                 {t.dark ? "/" : "\u2318K"}
@@ -116,7 +116,7 @@ export default function Topbar({ title, subtitle, action }) {
                     key={i}
                     onClick={() => goTo(r.path)}
                     className={`w-full text-left px-4 py-2.5 text-sm flex items-center justify-between ${
-                      t.dark ? "hover:bg-white/5" : "hover:bg-slate-50"
+                      t.dark ? "hover:bg-white/5" : "hover:bg-black/5"
                     }`}
                   >
                     <span className={t.textPrimary}>{r.label}</span>
@@ -147,9 +147,7 @@ export default function Topbar({ title, subtitle, action }) {
           {notifOpen && (
             <div className={`absolute right-0 top-full mt-2 w-72 rounded-xl overflow-hidden z-20 ${t.cardBg}`}>
               <div
-                className={`px-4 py-3 flex items-center justify-between text-sm font-semibold ${t.textPrimary} ${
-                  t.dark ? "border-b border-white/10" : "border-b border-white/50"
-                }`}
+                className={`px-4 py-3 flex items-center justify-between text-sm font-semibold ${t.textPrimary} border-b ${t.divider}`}
               >
                 Notifications
                 <button onClick={handleClearNotifications} className={`text-xs font-medium ${t.textMuted}`}>
@@ -202,7 +200,7 @@ export default function Topbar({ title, subtitle, action }) {
           </button>
           {menuOpen && (
             <div className={`absolute right-0 top-full mt-2 w-52 rounded-xl overflow-hidden z-20 ${t.cardBg}`}>
-              <div className={`px-4 py-3 ${t.dark ? "border-b border-white/10" : "border-b border-slate-100"}`}>
+              <div className={`px-4 py-3 border-b ${t.divider}`}>
                 <div className={`text-sm font-semibold ${t.textPrimary}`}>{user?.name}</div>
                 <div className={`text-xs ${t.textMuted}`}>{user?.role}</div>
               </div>
@@ -213,7 +211,7 @@ export default function Topbar({ title, subtitle, action }) {
                     navigate("/settings");
                   }}
                   className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm ${t.textPrimary} ${
-                    t.dark ? "hover:bg-white/5" : "hover:bg-slate-50"
+                    t.dark ? "hover:bg-white/5" : "hover:bg-black/5"
                   }`}
                 >
                   <SettingsIcon className="w-4 h-4" /> Settings
@@ -225,7 +223,7 @@ export default function Topbar({ title, subtitle, action }) {
                   handleSwitchUser();
                 }}
                 className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm ${t.textPrimary} ${
-                  t.dark ? "hover:bg-white/5" : "hover:bg-slate-50"
+                  t.dark ? "hover:bg-white/5" : "hover:bg-black/5"
                 }`}
               >
                 <UsersIcon className="w-4 h-4" /> Switch user
@@ -236,7 +234,7 @@ export default function Topbar({ title, subtitle, action }) {
                   openHelp();
                 }}
                 className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm ${t.textPrimary} ${
-                  t.dark ? "hover:bg-white/5" : "hover:bg-slate-50"
+                  t.dark ? "hover:bg-white/5" : "hover:bg-black/5"
                 }`}
               >
                 <HelpCircle className="w-4 h-4" /> Help
@@ -244,7 +242,7 @@ export default function Topbar({ title, subtitle, action }) {
               <button
                 onClick={handlePowerOff}
                 className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 ${
-                  t.dark ? "hover:bg-white/5" : "hover:bg-slate-50"
+                  t.dark ? "hover:bg-white/5" : "hover:bg-black/5"
                 }`}
               >
                 <Power className="w-4 h-4" /> Power off

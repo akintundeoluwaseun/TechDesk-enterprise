@@ -90,7 +90,7 @@ export default function BusinessTypeSection() {
         </div>
       )}
 
-      <div className={`mt-5 pt-5 ${t.dark ? "border-t border-white/10" : "border-t border-white/50"}`}>
+      <div className={`mt-5 pt-5 border-t ${t.divider}`}>
         <h4 className={`text-sm font-semibold mb-1 ${t.textPrimary}`}>Inventory categories</h4>
         <p className={`text-xs mb-3 ${t.textMuted}`}>Shown when adding or filtering products.</p>
         <div className="flex flex-wrap gap-2 mb-3">

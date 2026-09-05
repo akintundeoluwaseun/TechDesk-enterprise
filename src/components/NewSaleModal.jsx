@@ -204,7 +204,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-6 overflow-y-auto">
-      <div className={`w-full max-w-xl rounded-2xl mt-10 mb-10 ${t.dark ? "bg-[#1a1a2e]/80 backdrop-blur-lg border border-white/10" : "bg-white/35 backdrop-blur-lg backdrop-brightness-90 border border-white/50"}`}>
+      <div className={`w-full max-w-xl rounded-2xl mt-10 mb-10 ${t.cardBg}`}>
         <div className="flex items-center justify-between px-6 pt-6 pb-4">
           <h2 className={`text-xl font-bold ${t.textPrimary}`}>{isEdit ? "Edit Sale" : "New Sale"}</h2>
           <button onClick={onClose} className={t.textMuted}>
@@ -213,7 +213,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
         </div>
 
         <div className="px-6">
-          <div className={`flex rounded-xl p-1 mb-5 ${t.dark ? "bg-white/5" : "bg-slate-100"}`}>
+          <div className={`flex rounded-xl p-1 mb-5 ${t.insetBg}`}>
             <button
               onClick={() => setTab("inventory")}
               className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -412,7 +412,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                   <button
                     key={c.id}
                     onClick={() => selectCustomer(c)}
-                    className={`text-left px-3 py-2 rounded-lg text-sm ${t.dark ? "hover:bg-white/5" : "hover:bg-slate-50"}`}
+                    className={`text-left px-3 py-2 rounded-lg text-sm ${t.dark ? "hover:bg-white/5" : "hover:bg-black/5"}`}
                   >
                     <span className={t.textPrimary}>{c.name}</span>{" "}
                     <span className={t.textMuted}>{c.phone}</span>

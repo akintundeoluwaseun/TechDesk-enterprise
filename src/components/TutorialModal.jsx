@@ -16,7 +16,7 @@ export default function TutorialModal({ onClose }) {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6">
-      <div className={`w-full max-w-sm rounded-2xl p-6 ${t.dark ? "bg-[#1a1a2e]/90 backdrop-blur-lg border border-white/10" : "bg-white/35 backdrop-blur-lg backdrop-brightness-90 border border-white/50"}`}>
+      <div className={`w-full max-w-sm rounded-2xl p-6 ${t.cardBg}`}>
         <div className="flex items-center justify-between mb-4">
           <h2 className={`text-lg font-bold ${t.textPrimary}`}>How to use TechDesk</h2>
           <button onClick={() => onClose(dontShowAgain)} className={t.textMuted}>

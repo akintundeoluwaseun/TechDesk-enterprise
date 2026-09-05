@@ -14,6 +14,11 @@ This is one of three TechDesk editions, aimed at different business sizes:
 - **Enterprise** (this one) — unlimited staff accounts, plus LAN activity
   sharing on top of everything Business has.
 
+Each edition also has its own visual identity: Business uses a translucent
+"liquid glass" look, Enterprise uses a soft-UI "neumorphic" look (flat
+surfaces, no borders, depth from paired light/dark shadows) — set once in
+`src/lib/ThemeContext.jsx`.
+
 ## Setup
 
 ```bash

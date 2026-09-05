@@ -70,9 +70,7 @@ export default function ShopTab() {
           <label className={`text-sm font-medium block mb-2 ${t.textPrimary}`}>Shop logo</label>
           <div className="flex items-center gap-4">
             <div
-              className={`w-16 h-16 rounded-xl flex items-center justify-center text-xs overflow-hidden ${
-                t.dark ? "border border-white/10" : "border border-slate-200"
-              } ${t.textMuted}`}
+              className={`w-16 h-16 rounded-xl flex items-center justify-center text-xs overflow-hidden ${t.insetBg} ${t.textMuted}`}
             >
               {settings.logo ? (
                 <img src={settings.logo} alt="Shop logo" className="w-full h-full object-cover" />
