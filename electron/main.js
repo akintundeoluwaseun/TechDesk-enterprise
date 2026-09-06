@@ -10,6 +10,9 @@ app.disableHardwareAcceleration();
 
 let activitySnapshot = [];
 let lowStockSnapshot = [];
+let repairsSnapshot = [];
+let inventorySnapshot = [];
+let shopInfoSnapshot = {};
 let shopName = "TechDesk Enterprise";
 let networkServer;
 
@@ -51,7 +54,7 @@ const ACTIVITY_PAGE_HTML = `<!doctype html>
 }
 *{box-sizing:border-box}
 body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text)}
-.wrap{max-width:480px;margin:0 auto;padding:20px 16px 36px}
+.wrap{max-width:480px;margin:0 auto;padding:20px 16px 96px}
 .raised{background:var(--bg);border-radius:20px;box-shadow:8px 8px 16px var(--shadow-dark),-8px -8px 16px var(--shadow-light)}
 header.raised{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;margin-bottom:16px}
 .brand{display:flex;align-items:center;gap:12px}
@@ -85,6 +88,15 @@ h1{margin:0;font-size:1.1rem;font-weight:700;line-height:1.25}
 .actor{font-size:.72rem;color:var(--text-muted);margin-top:3px}
 .dot{position:absolute;bottom:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#2563eb}
 .empty{color:var(--text-muted);font-size:.85rem;text-align:center;padding:24px 0}
+.badge{display:inline-block;font-size:.68rem;font-weight:700;text-transform:capitalize;padding:2px 8px;border-radius:999px;background:#e0e7ff;color:#4338ca;margin-top:4px}
+.info-row{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.85rem}
+.info-row:last-child{border-bottom:none}
+.info-row .label{color:var(--text-muted);flex:0 0 92px}
+.bottomnav{position:fixed;left:0;right:0;bottom:0;display:flex;justify-content:space-around;background:var(--bg);padding:10px 6px calc(8px + env(safe-area-inset-bottom));box-shadow:0 -8px 16px var(--shadow-dark);z-index:10}
+.navbtn{appearance:none;background:none;border:none;font:inherit;display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--text-muted);padding:4px 16px}
+.navbtn svg{width:22px;height:22px}
+.navbtn span{font-size:.66rem;font-weight:600}
+.navbtn.active{color:#2563eb}
 </style>
 <div class="wrap">
   <header class="raised">
@@ -98,25 +110,61 @@ h1{margin:0;font-size:1.1rem;font-weight:700;line-height:1.25}
     <div id="status" class="status offline">Offline</div>
   </header>
 
-  <div class="raised summary-card">
-    <div class="icon-badge neutral">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+  <div id="tab-home">
+    <div class="raised summary-card">
+      <div class="icon-badge neutral">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      </div>
+      <div class="summary-text">
+        <div class="summary-count" id="summaryCount">0</div>
+        <div class="summary-label" id="summaryLabel">New Notifications</div>
+      </div>
+      <div class="chevron">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+      </div>
     </div>
-    <div class="summary-text">
-      <div class="summary-count" id="summaryCount">0</div>
-      <div class="summary-label" id="summaryLabel">New Notifications</div>
+
+    <div class="section-head">
+      <div class="section-title">Notifications</div>
+      <button id="markRead">Mark all read</button>
     </div>
-    <div class="chevron">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-    </div>
+    <div id="feed">Loading…</div>
   </div>
 
-  <div class="section-head">
-    <div class="section-title">Notifications</div>
-    <button id="markRead">Mark all read</button>
+  <div id="tab-repairs" hidden>
+    <div class="section-head"><div class="section-title">Active Repairs</div></div>
+    <div id="repairsList">Loading…</div>
   </div>
-  <div id="feed">Loading…</div>
+
+  <div id="tab-inventory" hidden>
+    <div class="section-head"><div class="section-title">Inventory</div></div>
+    <div id="inventoryList">Loading…</div>
+  </div>
+
+  <div id="tab-more" hidden>
+    <div class="section-head"><div class="section-title">More</div></div>
+    <div class="raised" style="padding:14px 16px" id="shopInfoCard">Loading…</div>
+  </div>
 </div>
+
+<nav class="bottomnav">
+  <button class="navbtn active" data-tab="home">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    <span>Home</span>
+  </button>
+  <button class="navbtn" data-tab="repairs">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+    <span>Repairs</span>
+  </button>
+  <button class="navbtn" data-tab="inventory">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>
+    <span>Inventory</span>
+  </button>
+  <button class="navbtn" data-tab="more">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>
+    <span>More</span>
+  </button>
+</nav>
 <script>
 var KEY_LASTREAD = 'techdesk_lan_last_read';
 function getLastRead() {
@@ -186,11 +234,7 @@ function buildFeed(data) {
   return feed;
 }
 
-function render(data) {
-  var shopName = (data && data.shopName) || 'TechDesk';
-  document.title = shopName + ' Activity';
-  document.getElementById('shopName').textContent = shopName;
-
+function renderHome(data) {
   var feed = buildFeed(data);
   var lastRead = getLastRead();
   var unread = feed.filter(function (a) { return new Date(a.createdAt) > lastRead; }).length;
@@ -215,6 +259,77 @@ function render(data) {
     );
   }).join('') : '<p class="empty">No activity yet.</p>';
 }
+
+function renderRepairs(data) {
+  var repairs = (data && data.repairs) || [];
+  document.getElementById('repairsList').innerHTML = repairs.length ? repairs.map(function (r) {
+    return (
+      '<div class="raised item">' +
+        '<div class="icon-badge" style="background:#3b82f6">' + SVG.wrench + '</div>' +
+        '<div class="body">' +
+          '<div class="row1"><b>' + esc(r.device || 'Device') + '</b><span class="time">' + timeAgo(r.createdAt) + '</span></div>' +
+          '<div class="msg">' + esc(r.problem || '') + '</div>' +
+          '<div class="actor">' + esc(r.ticket || '') + ' • ' + esc(r.customerName || 'Walk-in') + '</div>' +
+          '<span class="badge">' + esc(r.status || '') + '</span>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('') : '<p class="empty">No active repairs.</p>';
+}
+
+function renderInventory(data) {
+  var inventory = (data && data.inventory) || [];
+  document.getElementById('inventoryList').innerHTML = inventory.length ? inventory.map(function (p) {
+    var stock = p.stock == null ? 0 : p.stock;
+    var isLow = stock <= (p.lowStockThreshold == null ? 5 : p.lowStockThreshold);
+    return (
+      '<div class="raised item">' +
+        '<div class="icon-badge" style="background:' + (isLow ? '#f59e0b' : '#94a3b8') + '">' + SVG.box + '</div>' +
+        '<div class="body">' +
+          '<div class="row1"><b>' + esc(p.name || 'Item') + '</b><span class="time">' + (isLow ? 'Low stock' : '') + '</span></div>' +
+          '<div class="msg">' + esc(p.category || '') + '</div>' +
+          '<div class="actor">' + esc(String(stock)) + ' in stock</div>' +
+        '</div>' +
+      '</div>'
+    );
+  }).join('') : '<p class="empty">No inventory yet.</p>';
+}
+
+function renderMore(data) {
+  var shopInfo = (data && data.shopInfo) || {};
+  var rows = [
+    { label: 'Address', value: shopInfo.address },
+    { label: 'Phone', value: shopInfo.phone },
+    { label: 'Email', value: shopInfo.email },
+    { label: 'Website', value: shopInfo.website }
+  ].filter(function (r) { return r.value; });
+  document.getElementById('shopInfoCard').innerHTML = rows.length ? rows.map(function (r) {
+    return '<div class="info-row"><div class="label">' + esc(r.label) + '</div><div>' + esc(r.value) + '</div></div>';
+  }).join('') + '<p class="empty" style="padding-top:14px">Read-only view — no changes can be made from this device.</p>' : '<p class="empty">No shop details added yet.</p>';
+}
+
+function render(data) {
+  var shopName = (data && data.shopName) || 'TechDesk';
+  document.title = shopName + ' Activity';
+  document.getElementById('shopName').textContent = shopName;
+  renderHome(data);
+  renderRepairs(data);
+  renderInventory(data);
+  renderMore(data);
+}
+
+var TABS = ['home', 'repairs', 'inventory', 'more'];
+function showTab(name) {
+  TABS.forEach(function (t) {
+    document.getElementById('tab-' + t).hidden = t !== name;
+  });
+  document.querySelectorAll('.navbtn').forEach(function (btn) {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === name);
+  });
+}
+document.querySelectorAll('.navbtn').forEach(function (btn) {
+  btn.addEventListener('click', function () { showTab(btn.getAttribute('data-tab')); });
+});
 
 function poll() {
   fetch('/activity.json').then(function (r) {
@@ -258,6 +373,9 @@ function startActivityServer() {
             shopName,
             activity: activitySnapshot,
             lowStock: lowStockSnapshot,
+            repairs: repairsSnapshot,
+            inventory: inventorySnapshot,
+            shopInfo: shopInfoSnapshot,
           })
         );
         return;
@@ -318,9 +436,12 @@ ipcMain.handle("techdesk:network-info", () => {
 });
 
 ipcMain.on("techdesk:sync-activity", (event, payload) => {
-  const { shopName: name, activity, lowStock } = payload || {};
+  const { shopName: name, activity, lowStock, repairs, inventory, shopInfo } = payload || {};
   activitySnapshot = Array.isArray(activity) ? activity.slice(0, 200) : [];
   lowStockSnapshot = Array.isArray(lowStock) ? lowStock.slice(0, 200) : [];
+  repairsSnapshot = Array.isArray(repairs) ? repairs.slice(0, 50) : [];
+  inventorySnapshot = Array.isArray(inventory) ? inventory.slice(0, 300) : [];
+  shopInfoSnapshot = shopInfo && typeof shopInfo === "object" ? shopInfo : {};
   shopName = typeof name === "string" && name.trim() ? name : "TechDesk Enterprise";
 });
 

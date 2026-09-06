@@ -214,13 +214,39 @@ export const db = {
   },
   getActivity: () => read(KEYS.activity),
   // Pushes current state to the LAN activity server (if running in Electron)
-  // so a phone viewing it sees the real shop name, activity history, and
-  // low-stock items -- not just whatever's happened since this call.
+  // so a phone viewing it sees the real shop name, activity history,
+  // low-stock items, active repairs, inventory, and shop contact info --
+  // not just whatever's happened since this call. Prices/costs are left out
+  // since this server is unauthenticated and read-only for anyone on the LAN.
   syncToLan: (activity) => {
     const list = activity || read(KEYS.activity);
     const inventory = read(KEYS.inventory);
     const lowStock = inventory.filter((p) => Number(p.stock || 0) <= Number(p.lowStockThreshold || 5));
-    window.techdesk?.syncActivity?.({ shopName: db.getSettings().shopName, activity: list, lowStock });
+    const repairs = read(KEYS.repairs)
+      .filter((r) => r.status !== "completed" && r.status !== "delivered")
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .slice(0, 50)
+      .map((r) => ({
+        ticket: r.ticket,
+        device: r.device,
+        problem: r.problem,
+        status: r.status,
+        customerName: r.customerName,
+        createdAt: r.createdAt,
+      }));
+    const inventoryList = inventory
+      .slice(0, 300)
+      .map((p) => ({ name: p.name, category: p.category, stock: p.stock, lowStockThreshold: p.lowStockThreshold }));
+    const settings = db.getSettings();
+    const shopInfo = { address: settings.address, phone: settings.phone, email: settings.email, website: settings.website };
+    window.techdesk?.syncActivity?.({
+      shopName: settings.shopName,
+      activity: list,
+      lowStock,
+      repairs,
+      inventory: inventoryList,
+      shopInfo,
+    });
   },
 
   // ---- Notifications (admin-only, clearable) ----
