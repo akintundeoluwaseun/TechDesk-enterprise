@@ -1,5 +1,7 @@
 # TechDesk Enterprise
 
+[![CI](https://github.com/akintundeoluwaseun/TechDesk-enterprise/actions/workflows/ci.yml/badge.svg?branch=enterprise)](https://github.com/akintundeoluwaseun/TechDesk-enterprise/actions/workflows/ci.yml)
+
 Offline-first repair shop manager for larger teams (Sales/POS, Repairs,
 Inventory, Customers, Reports, Activity Logs, Settings) built with React +
 Electron. All data lives on-device in localStorage — no backend, no internet
