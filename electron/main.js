@@ -39,14 +39,21 @@ function startActivityServer() {
   networkServer = http
     .createServer((req, res) => {
       res.setHeader("Access-Control-Allow-Origin", "*");
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
       if (req.url === "/activity.json") {
+        res.setHeader("Content-Type", "application/json; charset=utf-8");
         res.end(JSON.stringify(activitySnapshot));
         return;
       }
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.end(
-        `<!doctype html><meta name="viewport" content="width=device-width"><title>TechDesk Enterprise Activity</title><style>body{font:16px system-ui;padding:24px;background:#f8f7f2;color:#171717}h1{margin-top:0}.item{padding:14px;border-bottom:1px solid #ddd;background:#fff}.muted{color:#777;font-size:13px}</style><h1>TechDesk Enterprise Activity Log</h1><div id="log">Loading…</div><script>fetch('/activity.json').then(r=>r.json()).then(items=>{document.querySelector('#log').innerHTML=items.map(x=>'<div class="item"><b>'+((x.type||'Activity').replace(/[<>]/g,''))+'</b><div>'+((x.message||'').replace(/[<>]/g,''))+'</div><div class="muted">'+new Date(x.createdAt).toLocaleString()+'</div></div>').join('')||'<p>No activity yet.</p>'})</script>`
+        `<!doctype html><meta name="viewport" content="width=device-width, initial-scale=1"><title>TechDesk Enterprise Activity</title><style>body{font:16px system-ui;padding:20px;background:#f8f7f2;color:#171717}h1{margin:0 0 16px;font-size:1.25rem}.item{padding:14px;border-bottom:1px solid #ddd;background:#fff}.item b{text-transform:capitalize}.muted{color:#777;font-size:13px}</style><h1>TechDesk Enterprise Activity Log</h1><div id="log">Loading…</div><script>fetch('/activity.json').then(r=>r.json()).then(items=>{document.querySelector('#log').innerHTML=items.map(x=>'<div class="item"><b>'+((x.type||'Activity').replace(/[<>]/g,''))+'</b><div>'+((x.message||'').replace(/[<>]/g,''))+'</div><div class="muted">'+new Date(x.createdAt).toLocaleString()+'</div></div>').join('')||'<p>No activity yet.</p>'})</script>`
       );
+    })
+    // a stale process still holding the port (e.g. this app already running,
+    // or a previous instance that didn't release it in time) must not crash
+    // the whole app -- the rest of TechDesk works fine without this feature
+    .on("error", (err) => {
+      console.error("LAN activity server failed to start:", err.message);
     })
     .listen(47821, "0.0.0.0");
   return `http://${ip}:47821`;
