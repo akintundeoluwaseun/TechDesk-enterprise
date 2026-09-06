@@ -1,9 +1,11 @@
 const { app, BrowserWindow, ipcMain } = require("electron");
 const http = require("http");
+const https = require("https");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
 const QRCode = require("qrcode");
+const selfsigned = require("selfsigned");
 
 const isDev = !app.isPackaged;
 app.disableHardwareAcceleration();
@@ -35,6 +37,37 @@ function getLanIp() {
   }
   const real = candidates.find((c) => !virtualNamePattern.test(c.name));
   return (real || candidates[0] || {}).address || "127.0.0.1";
+}
+
+// The LAN activity page needs HTTPS, not just a nicer look -- Chrome refuses
+// the Notification permission prompt entirely on a plain-http, non-localhost
+// origin, so real popups on a phone are only possible over TLS. There's no
+// certificate authority to ask on a private LAN, so this generates a
+// self-signed one and caches it in userData so it's stable across restarts
+// (a phone that already accepted it once won't need to keep re-trusting a
+// new one every launch).
+async function getOrCreateCert() {
+  const dir = path.join(app.getPath("userData"), "lan-cert");
+  const keyPath = path.join(dir, "key.pem");
+  const certPath = path.join(dir, "cert.pem");
+  try {
+    if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+      return { key: fs.readFileSync(keyPath, "utf-8"), cert: fs.readFileSync(certPath, "utf-8") };
+    }
+  } catch {
+    // fall through and regenerate
+  }
+  const notAfterDate = new Date();
+  notAfterDate.setFullYear(notAfterDate.getFullYear() + 10);
+  const pems = await selfsigned.generate([{ name: "commonName", value: "techdesk.local" }], {
+    keySize: 2048,
+    notAfterDate,
+    extensions: [{ name: "basicConstraints", cA: true }],
+  });
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(keyPath, pems.private, "utf-8");
+  fs.writeFileSync(certPath, pems.cert, "utf-8");
+  return { key: pems.private, cert: pems.cert };
 }
 
 // Static shell for the read-only mobile activity page. Everything dynamic
@@ -109,6 +142,17 @@ h1{margin:0;font-size:1.1rem;font-weight:700;line-height:1.25}
     </div>
     <div id="status" class="status offline">Offline</div>
   </header>
+
+  <div class="raised" id="notifBanner" hidden style="display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:16px">
+    <div class="icon-badge neutral" style="width:38px;height:38px">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+    </div>
+    <div style="flex:1">
+      <div style="font-weight:700;font-size:.88rem">Get notified instantly</div>
+      <div class="sub" style="margin-top:1px">Turn on alerts for new activity</div>
+    </div>
+    <button id="enableNotif" style="border:none;font:inherit;background:#2563eb;color:#fff;font-size:.75rem;font-weight:700;padding:8px 14px;border-radius:999px">Enable</button>
+  </div>
 
   <div id="tab-home">
     <div class="raised summary-card">
@@ -308,6 +352,69 @@ function renderMore(data) {
   }).join('') + '<p class="empty" style="padding-top:14px">Read-only view — no changes can be made from this device.</p>' : '<p class="empty">No shop details added yet.</p>';
 }
 
+// Real OS-level popups via the Notification API. Chrome only grants this
+// permission on a secure origin (https, or localhost) -- since this page is
+// served over the LAN's own self-signed HTTPS, the permission prompt works,
+// but there's no way to notify while the tab/browser is fully closed without
+// a cloud push service, which would defeat the point of a LAN-only feature.
+// This fires while the page stays open (including backgrounded/screen-off
+// on most Android Chrome).
+var KEY_LASTNOTIFIED = 'techdesk_lan_last_notified';
+function getLastNotified() {
+  var v = localStorage.getItem(KEY_LASTNOTIFIED);
+  if (!v) {
+    v = new Date().toISOString();
+    localStorage.setItem(KEY_LASTNOTIFIED, v);
+  }
+  return new Date(v);
+}
+function setLastNotified(d) {
+  localStorage.setItem(KEY_LASTNOTIFIED, d.toISOString());
+}
+
+function updateNotifBanner() {
+  var banner = document.getElementById('notifBanner');
+  if (!('Notification' in window)) {
+    banner.hidden = true;
+    return;
+  }
+  banner.hidden = Notification.permission !== 'default';
+}
+document.getElementById('enableNotif').addEventListener('click', function () {
+  Notification.requestPermission().then(updateNotifBanner);
+});
+updateNotifBanner();
+
+function maybeNotify(data) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  var lastNotified = getLastNotified();
+  var fresh = buildFeed(data).filter(function (a) { return new Date(a.createdAt) > lastNotified; });
+  if (!fresh.length) return;
+  // Cap how many popups fire at once so a big batch of new activity (e.g.
+  // after the app was closed a while) doesn't flood the phone with alerts.
+  fresh
+    .sort(function (a, b) { return new Date(a.createdAt) - new Date(b.createdAt); })
+    .slice(-5)
+    .forEach(function (item) {
+      var icon = ICONS[item.type] || DEFAULT_ICON;
+      try {
+        var n = new Notification(icon.label, {
+          body: item.message + (item.actor ? ' — by ' + item.actor : ''),
+          tag: item.type + '-' + item.createdAt
+        });
+        n.onclick = function () { window.focus(); n.close(); };
+      } catch (e) {
+        // Notification constructor can throw in some embedded contexts; a
+        // missed popup shouldn't break the rest of the page.
+      }
+    });
+  var maxTs = fresh.reduce(function (m, a) {
+    var t = new Date(a.createdAt).getTime();
+    return t > m ? t : m;
+  }, lastNotified.getTime());
+  setLastNotified(new Date(maxTs));
+}
+
 function render(data) {
   var shopName = (data && data.shopName) || 'TechDesk';
   document.title = shopName + ' Activity';
@@ -316,6 +423,7 @@ function render(data) {
   renderRepairs(data);
   renderInventory(data);
   renderMore(data);
+  maybeNotify(data);
 }
 
 var TABS = ['home', 'repairs', 'inventory', 'more'];
@@ -359,38 +467,50 @@ poll();
 setInterval(poll, 5000);
 </script>`;
 
-// Small read-only HTTP server so another device on the same Wi-Fi can view
-// recent activity — nothing here accepts writes.
-function startActivityServer() {
+// Small read-only server so another device on the same Wi-Fi can view recent
+// activity — nothing here accepts writes.
+let serverScheme = "https";
+
+async function startActivityServer() {
   const ip = getLanIp();
-  networkServer = http
-    .createServer((req, res) => {
-      res.setHeader("Access-Control-Allow-Origin", "*");
-      if (req.url === "/activity.json") {
-        res.setHeader("Content-Type", "application/json; charset=utf-8");
-        res.end(
-          JSON.stringify({
-            shopName,
-            activity: activitySnapshot,
-            lowStock: lowStockSnapshot,
-            repairs: repairsSnapshot,
-            inventory: inventorySnapshot,
-            shopInfo: shopInfoSnapshot,
-          })
-        );
-        return;
-      }
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.end(ACTIVITY_PAGE_HTML);
-    })
-    // a stale process still holding the port (e.g. this app already running,
-    // or a previous instance that didn't release it in time) must not crash
-    // the whole app -- the rest of TechDesk works fine without this feature
-    .on("error", (err) => {
-      console.error("LAN activity server failed to start:", err.message);
-    })
-    .listen(47821, "0.0.0.0");
-  return `http://${ip}:47821`;
+  const requestHandler = (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    if (req.url === "/activity.json") {
+      res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.end(
+        JSON.stringify({
+          shopName,
+          activity: activitySnapshot,
+          lowStock: lowStockSnapshot,
+          repairs: repairsSnapshot,
+          inventory: inventorySnapshot,
+          shopInfo: shopInfoSnapshot,
+        })
+      );
+      return;
+    }
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.end(ACTIVITY_PAGE_HTML);
+  };
+  // a stale process still holding the port (e.g. this app already running,
+  // or a previous instance that didn't release it in time) must not crash
+  // the whole app -- the rest of TechDesk works fine without this feature
+  const onError = (err) => {
+    console.error("LAN activity server failed to start:", err.message);
+  };
+
+  try {
+    const certOptions = await getOrCreateCert();
+    networkServer = https.createServer(certOptions, requestHandler).on("error", onError).listen(47821, "0.0.0.0");
+    serverScheme = "https";
+  } catch (err) {
+    // No TLS cert could be generated/loaded -- fall back to plain HTTP so the
+    // read-only activity view still works, just without notification support.
+    console.error("Falling back to HTTP for LAN activity server:", err.message);
+    networkServer = http.createServer(requestHandler).on("error", onError).listen(47821, "0.0.0.0");
+    serverScheme = "http";
+  }
+  return `${serverScheme}://${ip}:47821`;
 }
 
 function createWindow() {
@@ -432,7 +552,7 @@ app.on("window-all-closed", () => {
 
 ipcMain.handle("techdesk:network-info", () => {
   const ip = getLanIp();
-  return { ip, url: `http://${ip}:47821` };
+  return { ip, url: `${serverScheme}://${ip}:47821` };
 });
 
 ipcMain.on("techdesk:sync-activity", (event, payload) => {
@@ -462,7 +582,11 @@ ipcMain.handle("techdesk:show-network-qr", async (event, url) => {
   const safeShopName = escapeHtml(shopName);
   await qrWindow.loadURL(
     `data:text/html;charset=utf-8,${encodeURIComponent(
-      `<!doctype html><meta name="viewport" content="width=device-width"><title>${safeShopName} QR</title><style>body{font:16px system-ui;text-align:center;padding:28px;background:#f8f7f2;color:#171717}img{width:320px;height:320px;background:#fff;padding:12px;border-radius:16px}code{display:block;word-break:break-all;margin-top:18px;font-size:13px}</style><h2>Connect to ${safeShopName}</h2><p>Scan on the same Wi‑Fi network to view the read-only activity log.</p><img src="${qr}" alt="Connection QR code"><code>${safeTarget}</code>`
+      `<!doctype html><meta name="viewport" content="width=device-width"><title>${safeShopName} QR</title><style>body{font:16px system-ui;text-align:center;padding:28px;background:#f8f7f2;color:#171717}img{width:320px;height:320px;background:#fff;padding:12px;border-radius:16px}code{display:block;word-break:break-all;margin-top:18px;font-size:13px}.note{color:#92400e;background:#fef3c7;border-radius:12px;padding:10px 14px;margin-top:16px;font-size:13px}</style><h2>Connect to ${safeShopName}</h2><p>Scan on the same Wi‑Fi network to view the read-only activity log.</p><img src="${qr}" alt="Connection QR code"><code>${safeTarget}</code>${
+        serverScheme === "https"
+          ? '<p class="note">First time only: the browser will show a security warning because this connection uses a self-signed certificate. Tap "Advanced" then "Proceed" to continue — this only enables local notifications and is expected.</p>'
+          : ""
+      }`
     )}`
   );
   return { ok: true };

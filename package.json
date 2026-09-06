@@ -21,7 +21,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.23.0",
-    "recharts": "^2.12.7"
+    "recharts": "^2.12.7",
+    "selfsigned": "^5.5.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^7.0.1",

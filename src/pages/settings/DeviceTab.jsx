@@ -150,6 +150,9 @@ export default function DeviceTab() {
               <ShieldCheck size={16} /> Read-only activity log
             </div>
             <div className={`mt-1 text-xs ${t.textMuted}`}>Use the QR code or enter the address manually.</div>
+            <div className={`mt-1 text-xs ${t.textMuted}`}>
+              First visit: the browser shows a security warning (self-signed certificate, needed for notifications) — tap Advanced → Proceed.
+            </div>
           </div>
         </div>
         <button
