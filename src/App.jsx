@@ -6,6 +6,7 @@ import { AuthProvider, useAuth, canAccess, homeFor } from "./lib/AuthContext";
 import { LicenseProvider, useLicense } from "./lib/LicenseContext";
 import { HelpProvider, useHelp } from "./lib/HelpContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
+import { useLanSync } from "./lib/useLanSync";
 import Splash from "./components/Splash";
 import LoginScreen from "./pages/LoginScreen";
 import Sidebar from "./components/Sidebar";
@@ -36,6 +37,7 @@ function Shell() {
   const { open: helpOpen, dismiss: dismissHelp } = useHelp();
   const [showActivation, setShowActivation] = useState(false);
   useAutoBackup();
+  useLanSync();
 
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>

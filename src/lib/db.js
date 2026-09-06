@@ -210,9 +210,29 @@ export const db = {
     const activity = read(KEYS.activity);
     activity.unshift({ id: uid("act"), createdAt: new Date().toISOString(), ...entry });
     write(KEYS.activity, activity);
-    window.techdesk?.syncActivity?.(activity);
+    db.syncToLan(activity);
   },
   getActivity: () => read(KEYS.activity),
+  // Pushes current state to the LAN activity server (if running in Electron)
+  // so a phone viewing it sees the real shop name, activity history,
+  // low-stock items, and headline stats -- not just whatever's happened
+  // since this call.
+  syncToLan: (activity) => {
+    const list = activity || read(KEYS.activity);
+    const inventory = read(KEYS.inventory);
+    const lowStock = inventory.filter((p) => Number(p.stock || 0) <= Number(p.lowStockThreshold || 5));
+    const repairs = read(KEYS.repairs);
+    const activeRepairs = repairs.filter((r) => r.status !== "completed" && r.status !== "delivered").length;
+    const today = new Date().toDateString();
+    const salesToday = read(KEYS.sales).filter((s) => new Date(s.createdAt).toDateString() === today).length;
+    const customersCount = read(KEYS.customers).length;
+    window.techdesk?.syncActivity?.({
+      shopName: db.getSettings().shopName,
+      activity: list,
+      lowStock,
+      stats: { activeRepairs, salesToday, customersCount },
+    });
+  },
 
   // ---- Notifications (admin-only, clearable) ----
   getNotifClearedAt: () => localStorage.getItem("techdesk_notif_cleared_at") || null,
