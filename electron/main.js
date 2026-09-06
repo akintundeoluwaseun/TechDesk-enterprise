@@ -10,7 +10,6 @@ app.disableHardwareAcceleration();
 
 let activitySnapshot = [];
 let lowStockSnapshot = [];
-let statsSnapshot = { activeRepairs: 0, salesToday: 0, customersCount: 0 };
 let shopName = "TechDesk Enterprise";
 let networkServer;
 
@@ -36,64 +35,86 @@ function getLanIp() {
 }
 
 // Static shell for the read-only mobile activity page. Everything dynamic
-// (shop name, activity, low stock, stats) is fetched from /activity.json and
+// (shop name, activity, low stock) is fetched from /activity.json and
 // rendered client-side, so this string never needs to change per-request.
 const ACTIVITY_PAGE_HTML = `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TechDesk Activity</title>
 <style>
-:root{color-scheme:light}
+:root{
+  color-scheme:light;
+  --bg:#e8ecf3;
+  --shadow-dark:#c3c9d4;
+  --shadow-light:#ffffff;
+  --text:#1e2a3a;
+  --text-muted:#64748b;
+}
 *{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f4f5f7;color:#111827}
-.wrap{max-width:480px;margin:0 auto;padding:16px 14px 32px}
-header{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:14px}
-h1{margin:0;font-size:1.15rem;font-weight:700;line-height:1.25}
-.sub{font-size:.8rem;color:#6b7280;margin-top:2px}
-.status{font-size:.72rem;font-weight:600;padding:4px 10px;border-radius:999px;white-space:nowrap}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text)}
+.wrap{max-width:480px;margin:0 auto;padding:20px 16px 36px}
+.raised{background:var(--bg);border-radius:20px;box-shadow:8px 8px 16px var(--shadow-dark),-8px -8px 16px var(--shadow-light)}
+header.raised{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:12px}
+.logo{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.15rem;color:var(--text);flex:0 0 auto;box-shadow:4px 4px 8px var(--shadow-dark),-4px -4px 8px var(--shadow-light)}
+h1{margin:0;font-size:1.1rem;font-weight:700;line-height:1.25}
+.sub{font-size:.76rem;color:var(--text-muted);margin-top:1px}
+.status{font-size:.72rem;font-weight:600;padding:5px 11px;border-radius:999px;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.status::before{content:'';width:7px;height:7px;border-radius:50%}
 .status.online{background:#d1fae5;color:#059669}
+.status.online::before{background:#059669}
 .status.offline{background:#fee2e2;color:#dc2626}
-.stats{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:14px;-webkit-overflow-scrolling:touch}
-.stat{flex:0 0 auto;min-width:76px;background:#fff;border-radius:14px;padding:10px 8px;text-align:center;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.stat-emoji{font-size:1.1rem}
-.stat-value{font-weight:700;font-size:.95rem;margin-top:2px}
-.stat-label{font-size:.62rem;color:#6b7280;margin-top:1px;line-height:1.2}
-.card{background:#fff;border-radius:16px;padding:12px 14px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.card-title{font-weight:700;font-size:.85rem}
-.ls-item{display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0;border-bottom:1px solid #f1f1f1}
-.ls-item:last-child{border-bottom:none}
-.ls-qty{color:#b45309;font-weight:600}
-.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-#markRead{border:none;background:#eef2ff;color:#4338ca;font-size:.75rem;font-weight:600;padding:6px 12px;border-radius:999px}
-.summary{font-size:.78rem;color:#6b7280;margin-bottom:10px}
-.item{display:flex;gap:10px;background:#fff;border-radius:16px;padding:12px;margin-bottom:8px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
-.icon{flex:0 0 auto;width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.05rem}
-.body{flex:1;min-width:0}
-.row1{display:flex;align-items:center;gap:6px}
-.row1 b{font-size:.85rem}
-.dot{width:8px;height:8px;border-radius:50%;background:#2563eb;display:inline-block}
-.msg{font-size:.82rem;color:#374151;margin-top:2px}
-.actor{font-size:.72rem;color:#6b7280;margin-top:2px}
-.time{font-size:.7rem;color:#9ca3af;margin-top:4px}
-.empty{color:#9ca3af;font-size:.85rem}
+.status.offline::before{background:#dc2626}
+.summary-card{display:flex;align-items:center;gap:14px;padding:16px;margin-bottom:18px}
+.summary-count{font-size:1.6rem;font-weight:800;line-height:1}
+.summary-label{font-size:.8rem;color:var(--text-muted);margin-top:2px}
+.summary-text{flex:1}
+.chevron{color:var(--text-muted);flex:0 0 auto}
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.section-title{font-weight:700;font-size:1rem}
+#markRead{border:none;font:inherit;background:var(--bg);color:var(--text);font-size:.75rem;font-weight:600;padding:8px 14px;border-radius:999px;box-shadow:4px 4px 8px var(--shadow-dark),-4px -4px 8px var(--shadow-light)}
+#markRead:active{box-shadow:inset 3px 3px 6px var(--shadow-dark),inset -3px -3px 6px var(--shadow-light)}
+.item{position:relative;display:flex;gap:12px;padding:14px;margin-bottom:14px}
+.icon-badge{flex:0 0 auto;width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:4px 4px 8px var(--shadow-dark),-4px -4px 8px var(--shadow-light)}
+.icon-badge.neutral{background:var(--bg);color:var(--text)}
+.icon-badge svg{width:20px;height:20px}
+.body{flex:1;min-width:0;padding-right:10px}
+.row1{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.row1 b{font-size:.92rem}
+.time{font-size:.68rem;color:var(--text-muted);white-space:nowrap;flex:0 0 auto}
+.msg{font-size:.82rem;color:var(--text-muted);margin-top:3px;line-height:1.35}
+.actor{font-size:.72rem;color:var(--text-muted);margin-top:3px}
+.dot{position:absolute;bottom:14px;right:14px;width:8px;height:8px;border-radius:50%;background:#2563eb}
+.empty{color:var(--text-muted);font-size:.85rem;text-align:center;padding:24px 0}
 </style>
 <div class="wrap">
-  <header>
-    <div>
-      <h1 id="shopName">Loading…</h1>
-      <div class="sub">Mobile Notifications</div>
+  <header class="raised">
+    <div class="brand">
+      <div class="logo">T</div>
+      <div>
+        <h1 id="shopName">Loading…</h1>
+        <div class="sub">Mobile Notifications</div>
+      </div>
     </div>
-    <div id="status" class="status offline">● Offline</div>
+    <div id="status" class="status offline">Offline</div>
   </header>
-  <div class="stats" id="stats"></div>
-  <div class="card" id="lowStockCard" style="display:none">
-    <div class="card-title">📦 Low Stock</div>
-    <div id="lowStockList"></div>
+
+  <div class="raised summary-card">
+    <div class="icon-badge neutral">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+    </div>
+    <div class="summary-text">
+      <div class="summary-count" id="summaryCount">0</div>
+      <div class="summary-label" id="summaryLabel">New Notifications</div>
+    </div>
+    <div class="chevron">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
   </div>
+
   <div class="section-head">
-    <div class="card-title">🔔 Notifications</div>
+    <div class="section-title">Notifications</div>
     <button id="markRead">Mark all read</button>
   </div>
-  <div class="summary" id="summary"></div>
   <div id="feed">Loading…</div>
 </div>
 <script>
@@ -106,14 +127,24 @@ function setLastRead(d) {
   localStorage.setItem(KEY_LASTREAD, d.toISOString());
 }
 
-var ICONS = {
-  sale: { emoji: '💰', label: 'Sale', bg: '#d1fae5', fg: '#059669' },
-  repair: { emoji: '🔧', label: 'Repair', bg: '#dbeafe', fg: '#2563eb' },
-  inventory: { emoji: '📦', label: 'Inventory', bg: '#fef3c7', fg: '#b45309' },
-  customer: { emoji: '👤', label: 'Customer', bg: '#ede9fe', fg: '#7c3aed' },
-  settings: { emoji: '⚙️', label: 'Settings', bg: '#e2e8f0', fg: '#475569' }
+var SVG = {
+  cart: '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
+  wrench: '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+  box: '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>',
+  person: '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  gear: '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>'
 };
-var DEFAULT_ICON = { emoji: '🔔', label: 'Activity', bg: '#f3f4f6', fg: '#6b7280' };
+
+var ICONS = {
+  sale: { svg: SVG.cart, label: 'Sale', bg: '#10b981' },
+  repair: { svg: SVG.wrench, label: 'Repair', bg: '#3b82f6' },
+  inventory: { svg: SVG.box, label: 'Stock Update', bg: '#f59e0b' },
+  lowstock: { svg: SVG.box, label: 'Low Stock Alert', bg: '#f59e0b' },
+  customer: { svg: SVG.person, label: 'New Customer', bg: '#8b5cf6' },
+  settings: { svg: SVG.gear, label: 'Account Update', bg: '#64748b' }
+};
+var DEFAULT_ICON = { svg: SVG.bell, label: 'Activity', bg: '#94a3b8' };
 
 function esc(s) {
   return String(s == null ? '' : s).replace(/[<>&]/g, function (c) {
@@ -136,54 +167,50 @@ function timeAgo(iso) {
 
 var lastSnapshot = '';
 
+// Low-stock is a live state, not a logged event, so it has no natural
+// "when it happened" timestamp of its own -- reuse the product's own
+// createdAt so it slots into the timeline at a stable position instead of
+// jumping to "just now" (and re-appearing as unread) on every poll.
+function buildFeed(data) {
+  var activity = (data && data.activity) || [];
+  var lowStock = (data && data.lowStock) || [];
+  var feed = activity.map(function (a) { return a; });
+  lowStock.forEach(function (p) {
+    feed.push({
+      type: 'lowstock',
+      message: (p.name || 'Item') + ' — only ' + (p.stock == null ? 0 : p.stock) + ' remaining.',
+      createdAt: p.createdAt || p.updatedAt || new Date(0).toISOString()
+    });
+  });
+  feed.sort(function (a, b) { return new Date(b.createdAt) - new Date(a.createdAt); });
+  return feed;
+}
+
 function render(data) {
   var shopName = (data && data.shopName) || 'TechDesk';
   document.title = shopName + ' Activity';
   document.getElementById('shopName').textContent = shopName;
 
-  var activity = (data && data.activity) || [];
-  var lowStock = (data && data.lowStock) || [];
-  var stats = (data && data.stats) || {};
+  var feed = buildFeed(data);
   var lastRead = getLastRead();
-  var unread = activity.filter(function (a) { return new Date(a.createdAt) > lastRead; }).length;
+  var unread = feed.filter(function (a) { return new Date(a.createdAt) > lastRead; }).length;
 
-  var statTiles = [
-    { emoji: '🔔', label: 'Notifications', value: String(activity.length) },
-    { emoji: '🔧', label: 'Active repairs', value: String(stats.activeRepairs || 0) },
-    { emoji: '📦', label: 'Low stock', value: String(lowStock.length) },
-    { emoji: '💰', label: 'Recent sales', value: String(stats.salesToday || 0) },
-    { emoji: '👤', label: 'Customers', value: String(stats.customersCount || 0) },
-    { emoji: '⚙️', label: 'Connection', value: 'Connected' }
-  ];
-  document.getElementById('stats').innerHTML = statTiles.map(function (s) {
-    return '<div class="stat"><div class="stat-emoji">' + s.emoji + '</div><div class="stat-value">' + esc(s.value) + '</div><div class="stat-label">' + esc(s.label) + '</div></div>';
-  }).join('');
+  document.getElementById('summaryCount').textContent = String(unread);
+  document.getElementById('summaryLabel').textContent = unread === 1 ? 'New Notification' : 'New Notifications';
 
-  var lowStockCard = document.getElementById('lowStockCard');
-  if (lowStock.length) {
-    lowStockCard.style.display = '';
-    document.getElementById('lowStockList').innerHTML = lowStock.slice(0, 20).map(function (p) {
-      return '<div class="ls-item"><span>' + esc(p.name || 'Item') + '</span><span class="ls-qty">' + esc(String(p.stock == null ? 0 : p.stock)) + ' left</span></div>';
-    }).join('');
-  } else {
-    lowStockCard.style.display = 'none';
-  }
-
-  document.getElementById('summary').textContent = unread + (unread === 1 ? ' new notification' : ' new notifications');
-
-  document.getElementById('feed').innerHTML = activity.length ? activity.map(function (item) {
+  document.getElementById('feed').innerHTML = feed.length ? feed.map(function (item) {
     var icon = ICONS[item.type] || DEFAULT_ICON;
     var isUnread = new Date(item.createdAt) > lastRead;
     var actor = item.actor ? '<div class="actor">by ' + esc(item.actor) + '</div>' : '';
     return (
-      '<div class="item">' +
-        '<div class="icon" style="background:' + icon.bg + ';color:' + icon.fg + '">' + icon.emoji + '</div>' +
+      '<div class="raised item">' +
+        '<div class="icon-badge" style="background:' + icon.bg + '">' + icon.svg + '</div>' +
         '<div class="body">' +
-          '<div class="row1"><b>' + esc(icon.label) + '</b>' + (isUnread ? '<span class="dot"></span>' : '') + '</div>' +
+          '<div class="row1"><b>' + esc(icon.label) + '</b><span class="time">' + timeAgo(item.createdAt) + '</span></div>' +
           '<div class="msg">' + esc(item.message || '') + '</div>' +
           actor +
-          '<div class="time">' + timeAgo(item.createdAt) + '</div>' +
         '</div>' +
+        (isUnread ? '<span class="dot"></span>' : '') +
       '</div>'
     );
   }).join('') : '<p class="empty">No activity yet.</p>';
@@ -194,7 +221,7 @@ function poll() {
     if (!r.ok) throw new Error('bad status');
     return r.json();
   }).then(function (data) {
-    document.getElementById('status').textContent = '● Connected';
+    document.getElementById('status').textContent = 'Connected';
     document.getElementById('status').className = 'status online';
     var snap = JSON.stringify(data);
     if (snap !== lastSnapshot) {
@@ -202,7 +229,7 @@ function poll() {
       render(data);
     }
   }).catch(function () {
-    document.getElementById('status').textContent = '● Offline';
+    document.getElementById('status').textContent = 'Offline';
     document.getElementById('status').className = 'status offline';
   });
 }
@@ -231,7 +258,6 @@ function startActivityServer() {
             shopName,
             activity: activitySnapshot,
             lowStock: lowStockSnapshot,
-            stats: statsSnapshot,
           })
         );
         return;
@@ -292,15 +318,10 @@ ipcMain.handle("techdesk:network-info", () => {
 });
 
 ipcMain.on("techdesk:sync-activity", (event, payload) => {
-  const { shopName: name, activity, lowStock, stats } = payload || {};
+  const { shopName: name, activity, lowStock } = payload || {};
   activitySnapshot = Array.isArray(activity) ? activity.slice(0, 200) : [];
   lowStockSnapshot = Array.isArray(lowStock) ? lowStock.slice(0, 200) : [];
   shopName = typeof name === "string" && name.trim() ? name : "TechDesk Enterprise";
-  statsSnapshot = {
-    activeRepairs: Number(stats?.activeRepairs) || 0,
-    salesToday: Number(stats?.salesToday) || 0,
-    customersCount: Number(stats?.customersCount) || 0,
-  };
 });
 
 ipcMain.handle("techdesk:show-network-qr", async (event, url) => {

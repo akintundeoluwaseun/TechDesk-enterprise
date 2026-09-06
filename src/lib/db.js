@@ -214,24 +214,13 @@ export const db = {
   },
   getActivity: () => read(KEYS.activity),
   // Pushes current state to the LAN activity server (if running in Electron)
-  // so a phone viewing it sees the real shop name, activity history,
-  // low-stock items, and headline stats -- not just whatever's happened
-  // since this call.
+  // so a phone viewing it sees the real shop name, activity history, and
+  // low-stock items -- not just whatever's happened since this call.
   syncToLan: (activity) => {
     const list = activity || read(KEYS.activity);
     const inventory = read(KEYS.inventory);
     const lowStock = inventory.filter((p) => Number(p.stock || 0) <= Number(p.lowStockThreshold || 5));
-    const repairs = read(KEYS.repairs);
-    const activeRepairs = repairs.filter((r) => r.status !== "completed" && r.status !== "delivered").length;
-    const today = new Date().toDateString();
-    const salesToday = read(KEYS.sales).filter((s) => new Date(s.createdAt).toDateString() === today).length;
-    const customersCount = read(KEYS.customers).length;
-    window.techdesk?.syncActivity?.({
-      shopName: db.getSettings().shopName,
-      activity: list,
-      lowStock,
-      stats: { activeRepairs, salesToday, customersCount },
-    });
+    window.techdesk?.syncActivity?.({ shopName: db.getSettings().shopName, activity: list, lowStock });
   },
 
   // ---- Notifications (admin-only, clearable) ----
