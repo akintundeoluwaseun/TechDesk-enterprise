@@ -7,6 +7,7 @@ import { LicenseProvider, useLicense } from "./lib/LicenseContext";
 import { HelpProvider, useHelp } from "./lib/HelpContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import { useLanSync } from "./lib/useLanSync";
+import { useEmailSync } from "./lib/useEmailSync";
 import Splash from "./components/Splash";
 import LoginScreen from "./pages/LoginScreen";
 import Sidebar from "./components/Sidebar";
@@ -38,6 +39,7 @@ function Shell() {
   const [showActivation, setShowActivation] = useState(false);
   useAutoBackup();
   useLanSync();
+  useEmailSync();
 
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>

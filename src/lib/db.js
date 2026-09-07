@@ -274,11 +274,41 @@ export const db = {
       businessType: "general",
       labels: DEFAULT_LABELS,
       categories: BUSINESS_PRESETS.general.defaultCategories,
+      notificationEmail: "",
+      smtpHost: "",
+      smtpPort: 587,
+      smtpSecure: false,
+      smtpUser: "",
+      smtpPassword: "",
+      dailyDigestEnabled: false,
+      dailyDigestTime: "08:00",
     };
     // merge so shops that saved settings before these fields existed still get sane defaults
     return { ...defaults, ...stored, labels: { ...defaults.labels, ...(stored.labels || {}) } };
   },
-  saveSettings: (settings) => write(KEYS.settings, settings),
+  saveSettings: (settings) => {
+    write(KEYS.settings, settings);
+    db.syncEmailSettings(settings);
+  },
+  // Pushes SMTP + daily-digest config to the Electron main process (if
+  // running in Electron), which is the only place actually able to send
+  // email -- the renderer just collects the settings.
+  syncEmailSettings: (settings) => {
+    const s = settings || db.getSettings();
+    window.techdesk?.syncEmailSettings?.({
+      shopName: s.shopName,
+      to: s.notificationEmail,
+      smtp: {
+        host: s.smtpHost,
+        port: Number(s.smtpPort) || 587,
+        secure: !!s.smtpSecure,
+        user: s.smtpUser,
+        password: s.smtpPassword,
+      },
+      dailyDigestEnabled: !!s.dailyDigestEnabled,
+      dailyDigestTime: s.dailyDigestTime || "08:00",
+    });
+  },
 
   // ---- Users (PIN-based, per device) ----
   getUsers: () => read(KEYS.users),

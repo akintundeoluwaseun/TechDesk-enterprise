@@ -7,6 +7,7 @@ const fs = require("fs");
 const QRCode = require("qrcode");
 const selfsigned = require("selfsigned");
 const webpush = require("web-push");
+const nodemailer = require("nodemailer");
 
 const isDev = !app.isPackaged;
 app.disableHardwareAcceleration();
@@ -18,6 +19,92 @@ let inventorySnapshot = [];
 let shopInfoSnapshot = {};
 let shopName = "TechDesk Enterprise";
 let networkServer;
+
+// SMTP + daily-digest config, pushed from the renderer's Settings page
+// whenever it changes (see db.js's syncEmailSettings). The password lives
+// only in memory here and in the renderer's own localStorage -- it's never
+// written to a file by the main process.
+let emailSettings = { to: "", smtp: {}, dailyDigestEnabled: false, dailyDigestTime: "08:00" };
+
+// Tracks the last date (toDateString()) a digest was actually sent, so a
+// restart around the trigger minute can't send a duplicate. Persisted
+// because a shop that closes overnight and reopens near digest time the
+// next morning is a completely normal use pattern, not an edge case.
+const lastDigestPath = path.join(app.getPath("userData"), "email", "last-digest.json");
+let lastDigestSentDate = null;
+try {
+  lastDigestSentDate = JSON.parse(fs.readFileSync(lastDigestPath, "utf-8")).date || null;
+} catch {
+  lastDigestSentDate = null;
+}
+function saveLastDigestSentDate(dateStr) {
+  try {
+    fs.mkdirSync(path.dirname(lastDigestPath), { recursive: true });
+    fs.writeFileSync(lastDigestPath, JSON.stringify({ date: dateStr }), "utf-8");
+  } catch (err) {
+    console.error("Failed to persist last digest date:", err.message);
+  }
+}
+
+function buildTransporter(smtp) {
+  return nodemailer.createTransport({
+    host: smtp.host,
+    port: Number(smtp.port) || 587,
+    secure: !!smtp.secure,
+    auth: { user: smtp.user, pass: smtp.password },
+  });
+}
+
+async function sendMail({ smtp, to, subject, text }) {
+  const transporter = buildTransporter(smtp);
+  await transporter.sendMail({ from: smtp.user, to, subject, text });
+}
+
+function buildDigestEmail() {
+  const todayStr = new Date().toDateString();
+  const todayActivity = activitySnapshot.filter((a) => new Date(a.createdAt).toDateString() === todayStr);
+  const activityLines = todayActivity.length
+    ? todayActivity
+        .map((a) => `- ${new Date(a.createdAt).toLocaleTimeString()}: ${a.message}${a.actor ? " (" + a.actor + ")" : ""}`)
+        .join("\n")
+    : "No activity recorded today.";
+  const lowStockLines = lowStockSnapshot.length
+    ? lowStockSnapshot.map((p) => `- ${p.name}: ${p.stock} left`).join("\n")
+    : "None.";
+  const subject = `${shopName} — Daily activity digest (${new Date().toLocaleDateString()})`;
+  const text = [
+    `Daily summary for ${shopName}`,
+    "",
+    `Active repairs: ${repairsSnapshot.length}`,
+    "",
+    "Today's activity:",
+    activityLines,
+    "",
+    "Low stock:",
+    lowStockLines,
+  ].join("\n");
+  return { subject, text };
+}
+
+// Checked once a minute; only actually sends when the digest is enabled,
+// SMTP + recipient are configured, the clock matches the configured time,
+// and today's digest hasn't already gone out.
+function checkDailyDigest() {
+  if (!emailSettings.dailyDigestEnabled) return;
+  if (!emailSettings.to || !emailSettings.smtp?.host || !emailSettings.smtp?.user) return;
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  if (`${hh}:${mm}` !== emailSettings.dailyDigestTime) return;
+  const todayStr = now.toDateString();
+  if (lastDigestSentDate === todayStr) return;
+  lastDigestSentDate = todayStr;
+  saveLastDigestSentDate(todayStr);
+  const { subject, text } = buildDigestEmail();
+  sendMail({ smtp: emailSettings.smtp, to: emailSettings.to, subject, text }).catch((err) => {
+    console.error("Daily digest send failed:", err.message);
+  });
+}
 
 // Notification titles shown in real push popups -- kept separate from the
 // page's ICONS map (which also carries colors/emoji irrelevant to a push
@@ -746,6 +833,7 @@ function createWindow() {
 app.whenReady().then(() => {
   startActivityServer();
   createWindow();
+  setInterval(checkDailyDigest, 60000);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -760,6 +848,33 @@ app.on("window-all-closed", () => {
 ipcMain.handle("techdesk:network-info", () => {
   const ip = getLanIp();
   return { ip, url: `${serverScheme}://${ip}:47821` };
+});
+
+ipcMain.on("techdesk:sync-email-settings", (event, payload) => {
+  const { shopName: name, to, smtp, dailyDigestEnabled, dailyDigestTime } = payload || {};
+  emailSettings = {
+    to: typeof to === "string" ? to : "",
+    smtp: smtp && typeof smtp === "object" ? smtp : {},
+    dailyDigestEnabled: !!dailyDigestEnabled,
+    dailyDigestTime: typeof dailyDigestTime === "string" && dailyDigestTime ? dailyDigestTime : "08:00",
+  };
+  if (typeof name === "string" && name.trim()) shopName = name;
+});
+
+// Used by the Settings page's "Send test email" button, which needs to
+// report success/failure immediately for whatever SMTP fields are
+// currently typed -- not the possibly-stale, already-saved emailSettings.
+ipcMain.handle("techdesk:send-email", async (event, payload) => {
+  const { smtp, to, subject, text } = payload || {};
+  if (!smtp?.host || !smtp?.user || !to) {
+    return { ok: false, error: "Missing SMTP host, username, or recipient." };
+  }
+  try {
+    await sendMail({ smtp, to, subject: subject || "TechDesk test email", text: text || "This is a test email from TechDesk." });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 });
 
 ipcMain.on("techdesk:sync-activity", (event, payload) => {
