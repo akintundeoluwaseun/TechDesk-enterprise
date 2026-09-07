@@ -6,6 +6,7 @@ const path = require("path");
 const fs = require("fs");
 const QRCode = require("qrcode");
 const selfsigned = require("selfsigned");
+const webpush = require("web-push");
 
 const isDev = !app.isPackaged;
 app.disableHardwareAcceleration();
@@ -17,6 +18,86 @@ let inventorySnapshot = [];
 let shopInfoSnapshot = {};
 let shopName = "TechDesk Enterprise";
 let networkServer;
+
+// Notification titles shown in real push popups -- kept separate from the
+// page's ICONS map (which also carries colors/emoji irrelevant to a push
+// payload) so the main process doesn't need to parse its own served HTML.
+const PUSH_TYPE_LABELS = {
+  sale: "Sale",
+  repair: "Repair",
+  inventory: "Stock Update",
+  customer: "New Customer",
+  settings: "Account Update",
+};
+
+// Phones that opted into real push notifications (endpoint + encryption
+// keys from the browser's PushSubscription), persisted so they survive an
+// app restart -- otherwise every relaunch would silently stop notifying
+// devices that already granted permission.
+const pushSubsPath = path.join(app.getPath("userData"), "lan-cert", "push-subscriptions.json");
+let pushSubscriptions = [];
+try {
+  pushSubscriptions = JSON.parse(fs.readFileSync(pushSubsPath, "utf-8"));
+  if (!Array.isArray(pushSubscriptions)) pushSubscriptions = [];
+} catch {
+  pushSubscriptions = [];
+}
+function savePushSubscriptions() {
+  try {
+    fs.mkdirSync(path.dirname(pushSubsPath), { recursive: true });
+    fs.writeFileSync(pushSubsPath, JSON.stringify(pushSubscriptions), "utf-8");
+  } catch (err) {
+    console.error("Failed to save push subscriptions:", err.message);
+  }
+}
+
+// Only activity created after the server started (or after the last
+// broadcast) should trigger a push -- otherwise every launch would replay
+// the entire history as a burst of notifications to every subscribed phone.
+let lastBroadcastAt = new Date();
+
+// Sends a real OS push (works even with the browser fully closed) to every
+// subscribed phone. Requires the shop's PC to have internet access, since
+// Chrome routes web push through Google's FCM service -- if that's
+// unavailable, sendNotification simply rejects per-subscription and this
+// logs it rather than throwing, so the rest of the app is unaffected.
+function broadcastPush(items) {
+  if (!items.length || !pushSubscriptions.length) return;
+  items.slice(-5).forEach((item) => {
+    const payload = JSON.stringify({
+      title: PUSH_TYPE_LABELS[item.type] || "Activity",
+      body: item.message + (item.actor ? " — by " + item.actor : ""),
+      tag: item.type + "-" + item.createdAt,
+    });
+    pushSubscriptions.forEach((sub) => {
+      webpush.sendNotification(sub, payload).catch((err) => {
+        if (err && (err.statusCode === 404 || err.statusCode === 410)) {
+          // subscription is dead (browser data cleared, permission revoked, etc.)
+          pushSubscriptions = pushSubscriptions.filter((s) => s.endpoint !== sub.endpoint);
+          savePushSubscriptions();
+        } else {
+          console.error("Push send failed:", err && err.message);
+        }
+      });
+    });
+  });
+}
+
+// VAPID keys identify this app's server to the push service so it can't be
+// impersonated; cached alongside the TLS cert so subscriptions created
+// against one keypair keep working across restarts.
+function getOrCreateVapidKeys() {
+  const filePath = path.join(app.getPath("userData"), "lan-cert", "vapid.json");
+  try {
+    if (fs.existsSync(filePath)) return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+  } catch {
+    // fall through and regenerate
+  }
+  const keys = webpush.generateVAPIDKeys();
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, JSON.stringify(keys), "utf-8");
+  return keys;
+}
 
 // os.networkInterfaces() lists every adapter, and picking the first
 // non-internal IPv4 blindly often grabs a VPN, VirtualBox, VMware, Docker,
@@ -70,10 +151,13 @@ async function getOrCreateCert() {
   return { key: pems.private, cert: pems.cert };
 }
 
-// Static shell for the read-only mobile activity page. Everything dynamic
-// (shop name, activity, low stock) is fetched from /activity.json and
-// rendered client-side, so this string never needs to change per-request.
-const ACTIVITY_PAGE_HTML = `<!doctype html>
+// Shell for the read-only mobile activity page. Everything dynamic (shop
+// name, activity, low stock) is fetched from /activity.json and rendered
+// client-side; the only thing baked in at build time is the VAPID public
+// key, since that's fixed for this app's lifetime and the page needs it to
+// subscribe to push.
+function buildActivityPageHtml(vapidPublicKey) {
+  return `<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>TechDesk Activity</title>
 <style>
@@ -352,13 +436,56 @@ function renderMore(data) {
   }).join('') + '<p class="empty" style="padding-top:14px">Read-only view — no changes can be made from this device.</p>' : '<p class="empty">No shop details added yet.</p>';
 }
 
-// Real OS-level popups via the Notification API. Chrome only grants this
-// permission on a secure origin (https, or localhost) -- since this page is
-// served over the LAN's own self-signed HTTPS, the permission prompt works,
-// but there's no way to notify while the tab/browser is fully closed without
-// a cloud push service, which would defeat the point of a LAN-only feature.
-// This fires while the page stays open (including backgrounded/screen-off
-// on most Android Chrome).
+// Real OS-level notifications. Two mechanisms, in priority order:
+//
+// 1. Web Push (service worker + PushManager) -- delivered by Chrome's push
+//    service even with the browser fully closed. Requires the shop's PC to
+//    have internet access (the push service is Google's cloud, not
+//    anything on this LAN); if that's unavailable, subscribing simply
+//    fails and this falls through to mechanism 2.
+// 2. In-tab polling -- fires a popup directly from here while the page
+//    happens to be open (including backgrounded on most Android Chrome).
+//    Used only when push isn't active, so the two mechanisms never double
+//    -fire the same event.
+//
+// Both need the Notification permission first, which Chrome only grants on
+// a secure origin (https, or localhost) -- this page is served over the
+// LAN's own self-signed HTTPS specifically so that prompt works at all.
+var VAPID_PUBLIC_KEY = '${vapidPublicKey || ""}';
+var pushActive = false;
+
+function urlBase64ToUint8Array(base64String) {
+  var padding = '='.repeat((4 - base64String.length % 4) % 4);
+  var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  var rawData = atob(base64);
+  var outputArray = new Uint8Array(rawData.length);
+  for (var i = 0; i < rawData.length; i++) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
+function tryEnablePush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window) || !VAPID_PUBLIC_KEY) {
+    return Promise.reject(new Error('push not supported'));
+  }
+  return navigator.serviceWorker.register('/sw.js')
+    .then(function (reg) {
+      return reg.pushManager.getSubscription().then(function (existing) {
+        return existing || reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      });
+    })
+    .then(function (sub) {
+      return fetch('/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(sub)
+      });
+    })
+    .then(function () { pushActive = true; });
+}
+
 var KEY_LASTNOTIFIED = 'techdesk_lan_last_notified';
 function getLastNotified() {
   var v = localStorage.getItem(KEY_LASTNOTIFIED);
@@ -381,11 +508,21 @@ function updateNotifBanner() {
   banner.hidden = Notification.permission !== 'default';
 }
 document.getElementById('enableNotif').addEventListener('click', function () {
-  Notification.requestPermission().then(updateNotifBanner);
+  Notification.requestPermission().then(function (perm) {
+    updateNotifBanner();
+    if (perm === 'granted') tryEnablePush().catch(function () { pushActive = false; });
+  });
 });
 updateNotifBanner();
+// A previous visit may have already granted permission -- re-establish the
+// push subscription silently (browsers can drop them, e.g. after clearing
+// site data) rather than waiting for another Enable click that won't show.
+if ('Notification' in window && Notification.permission === 'granted') {
+  tryEnablePush().catch(function () { pushActive = false; });
+}
 
 function maybeNotify(data) {
+  if (pushActive) return; // real push already covers this device
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
   var lastNotified = getLastNotified();
   var fresh = buildFeed(data).filter(function (a) { return new Date(a.createdAt) > lastNotified; });
@@ -466,6 +603,33 @@ document.getElementById('markRead').addEventListener('click', function () {
 poll();
 setInterval(poll, 5000);
 </script>`;
+}
+
+// Service worker registered at the page's root scope so it can receive push
+// events and show a real OS notification even when no tab is open.
+const SERVICE_WORKER_JS = `
+self.addEventListener('push', function (event) {
+  var data = {};
+  try { data = event.data ? event.data.json() : {}; } catch (e) {}
+  var title = data.title || 'TechDesk';
+  event.waitUntil(self.registration.showNotification(title, {
+    body: data.body || '',
+    tag: data.tag || undefined
+  }));
+});
+
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (allClients) {
+      for (var i = 0; i < allClients.length; i++) {
+        if ('focus' in allClients[i]) return allClients[i].focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow('/');
+    })
+  );
+});
+`;
 
 // Small read-only server so another device on the same Wi-Fi can view recent
 // activity — nothing here accepts writes.
@@ -473,6 +637,22 @@ let serverScheme = "https";
 
 async function startActivityServer() {
   const ip = getLanIp();
+
+  let vapidPublicKey = "";
+  try {
+    const vapidKeys = getOrCreateVapidKeys();
+    webpush.setVapidDetails("mailto:seun85148@gmail.com", vapidKeys.publicKey, vapidKeys.privateKey);
+    vapidPublicKey = vapidKeys.publicKey;
+  } catch (err) {
+    // Push notifications won't be offered, but the rest of the page still works.
+    console.error("Could not set up push notifications:", err.message);
+  }
+  const activityPageHtml = buildActivityPageHtml(vapidPublicKey);
+  // Nothing before this point should count as "new" for push purposes --
+  // otherwise every relaunch would replay the whole activity history as a
+  // burst of notifications to every subscribed phone.
+  lastBroadcastAt = new Date();
+
   const requestHandler = (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     if (req.url === "/activity.json") {
@@ -489,8 +669,35 @@ async function startActivityServer() {
       );
       return;
     }
+    if (req.url === "/sw.js") {
+      res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+      res.end(SERVICE_WORKER_JS);
+      return;
+    }
+    if (req.method === "POST" && req.url === "/subscribe") {
+      let body = "";
+      req.on("data", (chunk) => {
+        body += chunk;
+        if (body.length > 10000) req.destroy(); // a PushSubscription is a few hundred bytes; anything huge is bogus
+      });
+      req.on("end", () => {
+        try {
+          const sub = JSON.parse(body);
+          if (sub && typeof sub.endpoint === "string" && !pushSubscriptions.some((s) => s.endpoint === sub.endpoint)) {
+            pushSubscriptions.push(sub);
+            savePushSubscriptions();
+          }
+          res.statusCode = 200;
+          res.end("ok");
+        } catch {
+          res.statusCode = 400;
+          res.end("bad request");
+        }
+      });
+      return;
+    }
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.end(ACTIVITY_PAGE_HTML);
+    res.end(activityPageHtml);
   };
   // a stale process still holding the port (e.g. this app already running,
   // or a previous instance that didn't release it in time) must not crash
@@ -563,6 +770,12 @@ ipcMain.on("techdesk:sync-activity", (event, payload) => {
   inventorySnapshot = Array.isArray(inventory) ? inventory.slice(0, 300) : [];
   shopInfoSnapshot = shopInfo && typeof shopInfo === "object" ? shopInfo : {};
   shopName = typeof name === "string" && name.trim() ? name : "TechDesk Enterprise";
+
+  const fresh = activitySnapshot.filter((a) => new Date(a.createdAt) > lastBroadcastAt);
+  if (fresh.length) {
+    broadcastPush(fresh);
+    lastBroadcastAt = new Date(fresh.reduce((max, a) => Math.max(max, new Date(a.createdAt).getTime()), lastBroadcastAt.getTime()));
+  }
 });
 
 ipcMain.handle("techdesk:show-network-qr", async (event, url) => {
