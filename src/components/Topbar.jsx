@@ -1,10 +1,50 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Bell, Sun, ChevronDown, Power, Settings as SettingsIcon, Users as UsersIcon, HelpCircle, X } from "lucide-react";
+import {
+  Search,
+  Bell,
+  Sun,
+  ChevronDown,
+  ChevronRight,
+  Power,
+  Settings as SettingsIcon,
+  Users as UsersIcon,
+  HelpCircle,
+  X,
+  ShoppingCart,
+  Wrench,
+  Box,
+  User,
+} from "lucide-react";
 import { useTheme, useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { useHelp } from "../lib/HelpContext";
 import { db } from "../lib/db";
+
+// Matches the colored-circle-icon notification design: one look per
+// activity type, real category labels (no fabricated sub-statuses like
+// "Repair Completed" vs "Repair Update" -- the message text already says
+// what happened).
+const NOTIF_STYLES = {
+  sale: { Icon: ShoppingCart, label: "New Sale", light: "bg-blue-100 text-blue-600", dark: "bg-blue-500/20 text-blue-400" },
+  repair: { Icon: Wrench, label: "Repair Update", light: "bg-emerald-100 text-emerald-600", dark: "bg-emerald-500/20 text-emerald-400" },
+  inventory: { Icon: Box, label: "Stock Update", light: "bg-amber-100 text-amber-600", dark: "bg-amber-500/20 text-amber-400" },
+  lowstock: { Icon: Box, label: "Low Stock Alert", light: "bg-amber-100 text-amber-600", dark: "bg-amber-500/20 text-amber-400" },
+  customer: { Icon: User, label: "New Customer", light: "bg-violet-100 text-violet-600", dark: "bg-violet-500/20 text-violet-400" },
+  settings: { Icon: SettingsIcon, label: "Account Update", light: "bg-slate-200 text-slate-600", dark: "bg-slate-500/20 text-slate-400" },
+};
+const DEFAULT_NOTIF_STYLE = { Icon: Bell, label: "Activity", light: "bg-slate-200 text-slate-600", dark: "bg-slate-500/20 text-slate-400" };
+
+function timeAgo(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const diffMin = Math.round(Math.max(0, Date.now() - d.getTime()) / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHr = Math.round(diffMin / 60);
+  if (diffHr < 24) return `${diffHr}h ago`;
+  return `${Math.round(diffHr / 24)}d ago`;
+}
 
 export default function Topbar({ title, subtitle, action }) {
   const { toggleDark } = useTheme();
@@ -18,15 +58,33 @@ export default function Topbar({ title, subtitle, action }) {
 
   const [clearedAt, setClearedAt] = useState(() => db.getNotifClearedAt());
 
-  const lowStock = useMemo(() => db.getInventory().filter((p) => p.stock <= (p.lowStockThreshold || 5)), []);
-  const recentActivity = useMemo(() => {
-    const all = db.getActivity();
-    const filtered = clearedAt ? all.filter((a) => new Date(a.createdAt) > new Date(clearedAt)) : all;
-    return filtered.slice(0, 8);
+  // A single time-ordered feed, same idea as the LAN mobile view: real
+  // activity plus low-stock items synthesized in (using the product's own
+  // timestamp, since "low stock" is a live state with no event time of its
+  // own -- that keeps it from jumping to "just now" on every open).
+  const notifFeed = useMemo(() => {
+    const activity = db.getActivity();
+    const lowStock = db.getInventory().filter((p) => Number(p.stock || 0) <= Number(p.lowStockThreshold || 5));
+    const merged = [
+      ...activity,
+      ...lowStock.map((p) => ({
+        type: "lowstock",
+        message: `${p.name || "Item"} — only ${p.stock ?? 0} remaining.`,
+        createdAt: p.createdAt || p.updatedAt || new Date(0).toISOString(),
+      })),
+    ];
+    merged.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    return merged.slice(0, 8);
   }, [clearedAt]);
-  const hasAlerts = isAdmin && (lowStock.length > 0 || recentActivity.length > 0);
 
-  function handleClearNotifications() {
+  const unreadCount = useMemo(
+    () => notifFeed.filter((a) => !clearedAt || new Date(a.createdAt) > new Date(clearedAt)).length,
+    [notifFeed, clearedAt]
+  );
+  const hasAlerts = isAdmin && unreadCount > 0;
+
+  function closeNotifications() {
+    setNotifOpen(false);
     db.clearNotifications();
     setClearedAt(db.getNotifClearedAt());
   }
@@ -148,37 +206,75 @@ export default function Topbar({ title, subtitle, action }) {
             {hasAlerts && <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 rounded-full bg-blue-500" />}
           </button>
           {notifOpen && (
-            <div className={`absolute right-0 top-full mt-2 w-72 rounded-xl overflow-hidden z-20 ${t.cardBg}`}>
-              <div
-                className={`px-4 py-3 flex items-center justify-between text-sm font-semibold ${t.textPrimary} border-b ${t.divider}`}
-              >
-                Notifications
-                <button onClick={handleClearNotifications} className={`text-xs font-medium ${t.textMuted}`}>
-                  Clear
+            <div className={`absolute right-0 top-full mt-2 w-96 rounded-2xl overflow-hidden z-20 shadow-xl ${t.cardBg}`}>
+              <div className={`px-4 py-3 flex items-center justify-between border-b ${t.divider}`}>
+                <div className="flex items-center gap-2">
+                  <Bell className={`w-4 h-4 ${t.textSecondary}`} />
+                  <span className={`font-semibold text-sm ${t.textPrimary}`}>Notifications</span>
+                  {unreadCount > 0 && (
+                    <span
+                      className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                        t.dark ? "bg-blue-500/20 text-blue-400" : "bg-blue-100 text-blue-600"
+                      }`}
+                    >
+                      {unreadCount} new
+                    </span>
+                  )}
+                </div>
+                <button onClick={closeNotifications} className={t.textMuted}>
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-              {lowStock.length > 0 && (
-                <div className="px-4 py-2">
-                  <div className="text-xs font-semibold text-orange-500 mb-1">Low stock</div>
-                  {lowStock.slice(0, 4).map((p) => (
-                    <div key={p.id} className={`text-xs py-1 ${t.textSecondary}`}>
-                      {p.name} &mdash; {p.stock} left
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div className="px-4 py-2 pb-3">
-                <div className={`text-xs font-semibold mb-1 ${t.textMuted}`}>Recent activity</div>
-                {recentActivity.length === 0 ? (
-                  <div className={`text-xs py-2 ${t.textMuted}`}>Nothing new</div>
+
+              <div className="max-h-96 overflow-y-auto">
+                {notifFeed.length === 0 ? (
+                  <div className={`px-4 py-6 text-center text-sm ${t.textMuted}`}>Nothing new</div>
                 ) : (
-                  recentActivity.map((a) => (
-                    <div key={a.id} className={`text-xs py-1 ${t.textSecondary}`}>
-                      {a.message}
-                    </div>
-                  ))
+                  notifFeed.map((item, i) => {
+                    const style = NOTIF_STYLES[item.type] || DEFAULT_NOTIF_STYLE;
+                    const Icon = style.Icon;
+                    const isUnread = !clearedAt || new Date(item.createdAt) > new Date(clearedAt);
+                    return (
+                      <div
+                        key={item.id || i}
+                        className={`flex gap-3 px-4 py-3 border-b ${t.divider} ${
+                          isUnread ? (t.dark ? "bg-blue-500/10" : "bg-blue-50") : ""
+                        }`}
+                      >
+                        <div
+                          className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
+                            t.dark ? style.dark : style.light
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className={`text-sm font-semibold ${t.textPrimary}`}>{style.label}</span>
+                            <span className={`text-xs shrink-0 flex items-center gap-1.5 ${t.textMuted}`}>
+                              {timeAgo(item.createdAt)}
+                              {isUnread && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 shrink-0" />}
+                            </span>
+                          </div>
+                          <p className={`text-xs mt-0.5 ${t.textSecondary}`}>{item.message}</p>
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
+
+              <button
+                onClick={() => {
+                  setNotifOpen(false);
+                  navigate("/activity");
+                }}
+                className={`w-full px-4 py-3 text-sm font-medium flex items-center justify-center gap-1 ${
+                  t.dark ? "text-blue-400 hover:bg-white/5" : "text-blue-600 hover:bg-black/5"
+                }`}
+              >
+                View all notifications <ChevronRight className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
         </div>
