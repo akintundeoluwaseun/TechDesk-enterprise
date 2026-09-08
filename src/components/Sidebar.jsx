@@ -60,28 +60,28 @@ export default function Sidebar({ onOpenActivation }) {
 
   return (
     <aside
-      className={`shrink-0 flex flex-col justify-between p-4 h-screen sticky top-0 transition-all duration-200 ${
-        collapsed ? "w-20" : "w-72"
+      className={`shrink-0 flex flex-col justify-between p-3 h-screen sticky top-0 transition-all duration-200 ${
+        collapsed ? "w-[72px]" : "w-60"
       } ${t.sidebarBg}`}
     >
       <div>
         <div className="flex items-center justify-between px-1 pt-2 pb-1">
           <div className="flex items-center gap-2 min-w-0">
-            <Monitor className={`w-6 h-6 shrink-0 ${t.dark ? "text-white" : "text-blue-500"}`} />
+            <Monitor className={`w-5 h-5 shrink-0 ${t.dark ? "text-white" : "text-blue-500"}`} />
             {!collapsed && (
-              <span className={`text-xl font-bold truncate ${t.textPrimary}`}>{settings.shopName}</span>
+              <span className={`text-base font-bold truncate ${t.textPrimary}`}>{settings.shopName}</span>
             )}
           </div>
         </div>
         {!collapsed && (
-          <div className={`px-1 pb-4 text-[11px] tracking-wide font-medium truncate ${t.textMuted}`}>
+          <div className={`px-1 pb-3 text-[11px] tracking-wide font-medium truncate ${t.textMuted}`}>
             {settings.tagline}
           </div>
         )}
 
         <button
           onClick={toggleCollapsed}
-          className={`flex items-center gap-2 px-3 py-2 mb-3 rounded-xl text-xs font-medium ${t.pillBg} ${
+          className={`flex items-center gap-2 px-3 py-1.5 mb-2 rounded-xl text-xs font-medium ${t.pillBg} ${
             collapsed ? "justify-center w-full" : ""
           }`}
         >
@@ -98,7 +98,7 @@ export default function Sidebar({ onOpenActivation }) {
                 end={item.end}
                 title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                  `flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${
                     collapsed ? "justify-center" : ""
                   } ${
                     isActive
@@ -134,7 +134,7 @@ export default function Sidebar({ onOpenActivation }) {
         )}
 
         <div
-          className={`flex items-center gap-2 rounded-xl p-3 ${collapsed ? "flex-col" : "justify-between"} ${t.cardBg}`}
+          className={`flex items-center gap-2 rounded-xl p-2.5 ${collapsed ? "flex-col" : "justify-between"} ${t.cardBg}`}
         >
           <div className={`flex items-center gap-3 min-w-0 ${collapsed ? "flex-col" : ""}`}>
             <div
