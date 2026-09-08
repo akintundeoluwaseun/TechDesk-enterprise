@@ -1,0 +1,19 @@
+name = "techdesk-email-relay"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+
+# Created once with: wrangler kv namespace create RATE_LIMIT
+# Then paste the returned id below.
+[[kv_namespaces]]
+binding = "RATE_LIMIT"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+# Not secret -- the "from" address shown on outgoing mail. Must be on a
+# domain you've verified in Resend (see README.md), or leave unset to use
+# Resend's shared onboarding@resend.dev sender for a quick start.
+[vars]
+FROM_ADDRESS = "TechDesk <digest@yourdomain.com>"
+
+# Secrets (never put these in this file) -- set with:
+#   wrangler secret put RESEND_API_KEY
+#   wrangler secret put CLIENT_KEY

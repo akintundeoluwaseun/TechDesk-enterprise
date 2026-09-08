@@ -12,10 +12,6 @@ export default function DeviceTab() {
   const isDesktopApp = typeof window !== "undefined" && !!window.techdesk;
   const [network, setNetwork] = useState({ ip: isDesktopApp ? "Loading..." : "Desktop app only", url: "" });
 
-  const [smtp, setSmtp] = useState(() => {
-    const s = db.getSettings?.() || {};
-    return { host: s.smtpHost || "", port: s.smtpPort || 587, secure: !!s.smtpSecure, user: s.smtpUser || "", password: s.smtpPassword || "" };
-  });
   const [dailyDigestEnabled, setDailyDigestEnabled] = useState(() => !!db.getSettings?.().dailyDigestEnabled);
   const [dailyDigestTime, setDailyDigestTime] = useState(() => db.getSettings?.().dailyDigestTime || "08:00");
   const [digestSaved, setDigestSaved] = useState(false);
@@ -86,17 +82,7 @@ export default function DeviceTab() {
   }
 
   function saveDigestSettings(patch = {}) {
-    const next = {
-      ...db.getSettings(),
-      smtpHost: smtp.host,
-      smtpPort: Number(smtp.port) || 587,
-      smtpSecure: smtp.secure,
-      smtpUser: smtp.user,
-      smtpPassword: smtp.password,
-      dailyDigestEnabled,
-      dailyDigestTime,
-      ...patch,
-    };
+    const next = { ...db.getSettings(), dailyDigestEnabled, dailyDigestTime, ...patch };
     db.saveSettings(next);
     setDigestSaved(true);
     setTimeout(() => setDigestSaved(false), 1800);
@@ -119,15 +105,14 @@ export default function DeviceTab() {
       alert("Sending email only works in the installed desktop app.");
       return;
     }
-    saveDigestSettings();
+    if (!notificationEmail) {
+      setTestResult({ ok: false, error: "Enter an email address above first." });
+      return;
+    }
+    saveNotificationEmail();
     setTestSending(true);
     setTestResult(null);
-    const result = await window.techdesk.sendTestEmail({
-      smtp: { host: smtp.host, port: Number(smtp.port) || 587, secure: smtp.secure, user: smtp.user, password: smtp.password },
-      to: notificationEmail,
-      subject: "TechDesk test email",
-      text: "This is a test email from TechDesk to confirm your SMTP settings work.",
-    });
+    const result = await window.techdesk.sendTestEmail({ to: notificationEmail });
     setTestSending(false);
     setTestResult(result);
   }
@@ -194,13 +179,13 @@ export default function DeviceTab() {
           <div>
             <h3 className={`font-semibold ${t.textPrimary}`}>Automatic daily digest</h3>
             <p className={`text-sm ${t.textSecondary}`}>
-              Sends a real email every day with today's activity, active repairs, and low stock — through your own
-              SMTP account, no mail app needed. Uses the same recipient address as above.
+              Sends a real email every day with today's activity, active repairs, and low stock — to the address
+              above. Nothing else to set up.
             </p>
           </div>
         </div>
 
-        <div className="mt-4 flex items-center gap-3">
+        <div className="mt-4 flex items-center gap-3 flex-wrap">
           <button
             onClick={toggleDailyDigest}
             className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${
@@ -220,53 +205,6 @@ export default function DeviceTab() {
               />
             </label>
           )}
-        </div>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <input
-            className={input}
-            placeholder="SMTP host (e.g. smtp.yourprovider.com)"
-            value={smtp.host}
-            onChange={(e) => setSmtp((s) => ({ ...s, host: e.target.value }))}
-            onBlur={() => saveDigestSettings()}
-          />
-          <input
-            className={input}
-            placeholder="Port (e.g. 587)"
-            value={smtp.port}
-            onChange={(e) => setSmtp((s) => ({ ...s, port: e.target.value }))}
-            onBlur={() => saveDigestSettings()}
-          />
-          <input
-            className={input}
-            placeholder="SMTP username"
-            value={smtp.user}
-            onChange={(e) => setSmtp((s) => ({ ...s, user: e.target.value }))}
-            onBlur={() => saveDigestSettings()}
-          />
-          <input
-            className={input}
-            type="password"
-            placeholder="SMTP password"
-            value={smtp.password}
-            onChange={(e) => setSmtp((s) => ({ ...s, password: e.target.value }))}
-            onBlur={() => saveDigestSettings()}
-          />
-        </div>
-        <label className="mt-3 flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={smtp.secure}
-            onChange={(e) => {
-              const secure = e.target.checked;
-              setSmtp((s) => ({ ...s, secure }));
-              saveDigestSettings({ smtpSecure: secure });
-            }}
-          />
-          <span className={t.textSecondary}>Use TLS/SSL (usually on for port 465, off for port 587)</span>
-        </label>
-
-        <div className="mt-4 flex items-center gap-3 flex-wrap">
           <button
             onClick={handleSendTestEmail}
             disabled={testSending}
@@ -274,13 +212,13 @@ export default function DeviceTab() {
           >
             <Send className="w-4 h-4" /> {testSending ? "Sending…" : digestSaved ? "Saved" : "Send test email"}
           </button>
-          {testResult && (
-            <span className={`flex items-center gap-1.5 text-sm ${testResult.ok ? "text-emerald-500" : "text-red-500"}`}>
-              {testResult.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-              {testResult.ok ? "Sent successfully." : testResult.error || "Send failed."}
-            </span>
-          )}
         </div>
+        {testResult && (
+          <p className={`mt-3 flex items-center gap-1.5 text-sm ${testResult.ok ? "text-emerald-500" : "text-red-500"}`}>
+            {testResult.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+            {testResult.ok ? "Sent successfully." : testResult.error || "Send failed."}
+          </p>
+        )}
         {!isDesktopApp && (
           <p className={`mt-3 text-xs ${t.textMuted}`}>Sending only works in the installed desktop app, not in a browser tab.</p>
         )}

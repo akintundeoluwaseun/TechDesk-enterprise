@@ -7,7 +7,7 @@ const fs = require("fs");
 const QRCode = require("qrcode");
 const selfsigned = require("selfsigned");
 const webpush = require("web-push");
-const nodemailer = require("nodemailer");
+const relayConfig = require("./relayConfig");
 
 const isDev = !app.isPackaged;
 app.disableHardwareAcceleration();
@@ -20,11 +20,11 @@ let shopInfoSnapshot = {};
 let shopName = "TechDesk Enterprise";
 let networkServer;
 
-// SMTP + daily-digest config, pushed from the renderer's Settings page
-// whenever it changes (see db.js's syncEmailSettings). The password lives
-// only in memory here and in the renderer's own localStorage -- it's never
-// written to a file by the main process.
-let emailSettings = { to: "", smtp: {}, dailyDigestEnabled: false, dailyDigestTime: "08:00" };
+// Daily-digest recipient + schedule, pushed from the renderer's Settings
+// page whenever it changes (see db.js's syncEmailSettings). No SMTP
+// credentials live here at all -- sending goes through the developer-run
+// relay (relay/worker.js) so a shop only ever types their email address.
+let emailSettings = { to: "", dailyDigestEnabled: false, dailyDigestTime: "08:00" };
 
 // Tracks the last date (toDateString()) a digest was actually sent, so a
 // restart around the trigger minute can't send a duplicate. Persisted
@@ -46,52 +46,52 @@ function saveLastDigestSentDate(dateStr) {
   }
 }
 
-function buildTransporter(smtp) {
-  return nodemailer.createTransport({
-    host: smtp.host,
-    port: Number(smtp.port) || 587,
-    secure: !!smtp.secure,
-    auth: { user: smtp.user, pass: smtp.password },
+function relayConfigured() {
+  return !!(relayConfig.RELAY_URL && relayConfig.CLIENT_KEY);
+}
+
+async function postToRelay(path, body) {
+  if (!relayConfigured()) {
+    throw new Error("Email relay isn't configured yet (see relay/README.md and electron/relayConfig.js).");
+  }
+  const res = await fetch(relayConfig.RELAY_URL.replace(/\/$/, "") + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientKey: relayConfig.CLIENT_KEY, ...body }),
   });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.ok) throw new Error(data.error || `Relay request failed (${res.status})`);
 }
 
-async function sendMail({ smtp, to, subject, text }) {
-  const transporter = buildTransporter(smtp);
-  await transporter.sendMail({ from: smtp.user, to, subject, text });
-}
-
-function buildDigestEmail() {
+function buildDigestPayload() {
   const todayStr = new Date().toDateString();
-  const todayActivity = activitySnapshot.filter((a) => new Date(a.createdAt).toDateString() === todayStr);
-  const activityLines = todayActivity.length
-    ? todayActivity
-        .map((a) => `- ${new Date(a.createdAt).toLocaleTimeString()}: ${a.message}${a.actor ? " (" + a.actor + ")" : ""}`)
-        .join("\n")
-    : "No activity recorded today.";
-  const lowStockLines = lowStockSnapshot.length
-    ? lowStockSnapshot.map((p) => `- ${p.name}: ${p.stock} left`).join("\n")
-    : "None.";
-  const subject = `${shopName} — Daily activity digest (${new Date().toLocaleDateString()})`;
-  const text = [
-    `Daily summary for ${shopName}`,
-    "",
-    `Active repairs: ${repairsSnapshot.length}`,
-    "",
-    "Today's activity:",
+  const activityLines = activitySnapshot
+    .filter((a) => new Date(a.createdAt).toDateString() === todayStr)
+    .map((a) => `${new Date(a.createdAt).toLocaleTimeString()}: ${a.message}${a.actor ? " (" + a.actor + ")" : ""}`);
+  const lowStockLines = lowStockSnapshot.map((p) => `${p.name}: ${p.stock} left`);
+  return {
+    shopName,
+    date: new Date().toLocaleDateString(),
     activityLines,
-    "",
-    "Low stock:",
     lowStockLines,
-  ].join("\n");
-  return { subject, text };
+    activeRepairsCount: repairsSnapshot.length,
+  };
+}
+
+async function sendDailyDigest() {
+  await postToRelay("/send-digest", { to: emailSettings.to, ...buildDigestPayload() });
+}
+
+async function sendTestEmail(to) {
+  await postToRelay("/send-test", { to, shopName });
 }
 
 // Checked once a minute; only actually sends when the digest is enabled,
-// SMTP + recipient are configured, the clock matches the configured time,
-// and today's digest hasn't already gone out.
+// a recipient is configured, the clock matches the configured time, and
+// today's digest hasn't already gone out.
 function checkDailyDigest() {
   if (!emailSettings.dailyDigestEnabled) return;
-  if (!emailSettings.to || !emailSettings.smtp?.host || !emailSettings.smtp?.user) return;
+  if (!emailSettings.to) return;
   const now = new Date();
   const hh = String(now.getHours()).padStart(2, "0");
   const mm = String(now.getMinutes()).padStart(2, "0");
@@ -100,8 +100,7 @@ function checkDailyDigest() {
   if (lastDigestSentDate === todayStr) return;
   lastDigestSentDate = todayStr;
   saveLastDigestSentDate(todayStr);
-  const { subject, text } = buildDigestEmail();
-  sendMail({ smtp: emailSettings.smtp, to: emailSettings.to, subject, text }).catch((err) => {
+  sendDailyDigest().catch((err) => {
     console.error("Daily digest send failed:", err.message);
   });
 }
@@ -851,26 +850,21 @@ ipcMain.handle("techdesk:network-info", () => {
 });
 
 ipcMain.on("techdesk:sync-email-settings", (event, payload) => {
-  const { shopName: name, to, smtp, dailyDigestEnabled, dailyDigestTime } = payload || {};
+  const { shopName: name, to, dailyDigestEnabled, dailyDigestTime } = payload || {};
   emailSettings = {
     to: typeof to === "string" ? to : "",
-    smtp: smtp && typeof smtp === "object" ? smtp : {},
     dailyDigestEnabled: !!dailyDigestEnabled,
     dailyDigestTime: typeof dailyDigestTime === "string" && dailyDigestTime ? dailyDigestTime : "08:00",
   };
   if (typeof name === "string" && name.trim()) shopName = name;
 });
 
-// Used by the Settings page's "Send test email" button, which needs to
-// report success/failure immediately for whatever SMTP fields are
-// currently typed -- not the possibly-stale, already-saved emailSettings.
+// Used by the Settings page's "Send test email" button.
 ipcMain.handle("techdesk:send-email", async (event, payload) => {
-  const { smtp, to, subject, text } = payload || {};
-  if (!smtp?.host || !smtp?.user || !to) {
-    return { ok: false, error: "Missing SMTP host, username, or recipient." };
-  }
+  const { to } = payload || {};
+  if (!to) return { ok: false, error: "Enter an email address first." };
   try {
-    await sendMail({ smtp, to, subject: subject || "TechDesk test email", text: text || "This is a test email from TechDesk." });
+    await sendTestEmail(to);
     return { ok: true };
   } catch (err) {
     return { ok: false, error: err.message };
