@@ -821,6 +821,17 @@ function createWindow() {
     },
   });
 
+  // The sidebar's nav items are real <a href> links (React Router's
+  // NavLink, under HashRouter), and the app itself loads from a file://
+  // URL -- so without this, hovering a nav icon shows Chromium's native
+  // link-target preview with the raw resolved file://.../index.html#/route
+  // string. That's a browser-chrome feature separate from the app's own
+  // title="..." tooltips (which already show the right short label), so
+  // suppressing it here doesn't affect those.
+  win.webContents.on("update-target-url", (event) => {
+    event.preventDefault();
+  });
+
   if (isDev) {
     win.loadURL("http://localhost:5173");
     win.webContents.openDevTools({ mode: "detach" });
