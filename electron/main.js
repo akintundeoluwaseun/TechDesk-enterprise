@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, shell } = require("electron");
 const http = require("http");
 const https = require("https");
 const os = require("os");
@@ -830,6 +830,18 @@ function createWindow() {
   // suppressing it here doesn't affect those.
   win.webContents.on("update-target-url", (event) => {
     event.preventDefault();
+  });
+
+  // window.open()/target="_blank" (e.g. the WhatsApp buttons on Sales and
+  // Repairs) would otherwise open inside a brand-new Electron BrowserWindow
+  // by default -- another copy of the app's own chrome, not a real browser
+  // or the WhatsApp app. Deny that and hand the URL to the OS instead, so
+  // it opens in the system's actual default browser (which itself may then
+  // hand off to a locally installed WhatsApp app/WhatsApp Web, same as
+  // clicking a wa.me link anywhere else).
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: "deny" };
   });
 
   if (isDev) {

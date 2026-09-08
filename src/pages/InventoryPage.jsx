@@ -32,7 +32,7 @@ export default function InventoryPage() {
     if (tab === "in-stock" && p.stock <= 0) return false;
     if (tab === "sold-out" && p.stock > 0) return false;
     if (category !== "All" && p.category !== category) return false;
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search && !p.name?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
 

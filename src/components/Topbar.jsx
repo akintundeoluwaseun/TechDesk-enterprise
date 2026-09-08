@@ -35,24 +35,27 @@ export default function Topbar({ title, subtitle, action }) {
     if (!query) return [];
     const q = query.toLowerCase();
     const results = [];
+    // Optional-chained throughout: a record from an older backup or a
+    // manually edited data file can be missing a field the UI normally
+    // guarantees, and one bad record shouldn't crash search for everything.
     db.getSales().forEach((s) => {
-      if (s.invoice.toLowerCase().includes(q) || s.customerName?.toLowerCase().includes(q)) {
-        results.push({ type: "Sale", label: `${s.invoice} \u2014 ${s.customerName}`, path: "/sales" });
+      if (s.invoice?.toLowerCase().includes(q) || s.customerName?.toLowerCase().includes(q)) {
+        results.push({ type: "Sale", label: `${s.invoice || "Sale"} \u2014 ${s.customerName || "Walk-in"}`, path: "/sales" });
       }
     });
     db.getRepairs().forEach((r) => {
-      if (r.ticket.toLowerCase().includes(q) || r.customerName?.toLowerCase().includes(q) || r.device?.toLowerCase().includes(q)) {
-        results.push({ type: "Repair", label: `${r.ticket} \u2014 ${r.device}`, path: "/repairs" });
+      if (r.ticket?.toLowerCase().includes(q) || r.customerName?.toLowerCase().includes(q) || r.device?.toLowerCase().includes(q)) {
+        results.push({ type: "Repair", label: `${r.ticket || "Repair"} \u2014 ${r.device || "Device"}`, path: "/repairs" });
       }
     });
     db.getInventory().forEach((p) => {
-      if (p.name.toLowerCase().includes(q)) {
+      if (p.name?.toLowerCase().includes(q)) {
         results.push({ type: "Product", label: p.name, path: "/inventory" });
       }
     });
     db.getCustomers().forEach((c) => {
-      if (c.name.toLowerCase().includes(q) || c.phone?.includes(q)) {
-        results.push({ type: "Customer", label: c.name, path: "/customers" });
+      if (c.name?.toLowerCase().includes(q) || c.phone?.includes(q)) {
+        results.push({ type: "Customer", label: c.name || c.phone || "Customer", path: "/customers" });
       }
     });
     return results.slice(0, 8);

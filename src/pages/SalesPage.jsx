@@ -30,7 +30,7 @@ export default function SalesPage() {
 
   const filtered = sales.filter(
     (s) =>
-      s.invoice.toLowerCase().includes(search.toLowerCase()) ||
+      s.invoice?.toLowerCase().includes(search.toLowerCase()) ||
       s.customerName?.toLowerCase().includes(search.toLowerCase())
   );
 

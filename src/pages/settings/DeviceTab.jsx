@@ -66,8 +66,8 @@ export default function DeviceTab() {
     window.location.reload();
   }
 
-  function saveNotificationEmail() {
-    db.saveSettings({ ...db.getSettings(), notificationEmail });
+  function saveNotificationEmail(value = notificationEmail) {
+    db.saveSettings({ ...db.getSettings(), notificationEmail: value });
     setEmailSaved(true);
     setTimeout(() => setEmailSaved(false), 1800);
   }
@@ -161,8 +161,10 @@ export default function DeviceTab() {
             className={input}
             placeholder="Email to send the report to"
             value={notificationEmail}
-            onChange={(e) => setNotificationEmail(e.target.value)}
-            onBlur={saveNotificationEmail}
+            onChange={(e) => {
+              setNotificationEmail(e.target.value);
+              saveNotificationEmail(e.target.value);
+            }}
           />
           <button
             onClick={sendActivityEmail}

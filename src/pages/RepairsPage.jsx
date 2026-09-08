@@ -30,7 +30,7 @@ export default function RepairsPage() {
   const filtered = repairs.filter((r) => {
     const q = search.toLowerCase();
     return (
-      r.ticket.toLowerCase().includes(q) ||
+      r.ticket?.toLowerCase().includes(q) ||
       r.customerName?.toLowerCase().includes(q) ||
       r.customerPhone?.includes(q) ||
       r.device?.toLowerCase().includes(q) ||

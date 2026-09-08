@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, Pencil, Trash2, User } from "lucide-react";
+import { Plus, Pencil, Trash2, User, Search } from "lucide-react";
 import Topbar from "../components/Topbar";
 import CustomerModal from "../components/CustomerModal";
 import { useThemeTokens } from "../lib/ThemeContext";
@@ -10,6 +10,18 @@ export default function CustomersPage() {
   const [customers, setCustomers] = useState(() => db.getCustomers());
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
+  const [search, setSearch] = useState("");
+
+  const filtered = customers.filter((c) => {
+    const q = search.toLowerCase();
+    return (
+      !q ||
+      c.name?.toLowerCase().includes(q) ||
+      c.phone?.includes(q) ||
+      c.email?.toLowerCase().includes(q) ||
+      c.address?.toLowerCase().includes(q)
+    );
+  });
 
   function refresh() {
     setCustomers(db.getCustomers());
@@ -45,18 +57,33 @@ export default function CustomersPage() {
         }
       />
 
+      <div className={`flex items-center gap-2 rounded-full px-4 py-3 mb-6 ${t.cardBg}`}>
+        <Search className={`w-4 h-4 ${t.textMuted}`} />
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, phone, email or address"
+          className="bg-transparent outline-none text-sm flex-1"
+        />
+      </div>
+
       {customers.length === 0 ? (
         <div className={`rounded-2xl p-16 text-center ${t.cardBg}`}>
           <div className={`font-semibold ${t.textPrimary} mb-1`}>No customers yet</div>
           <div className={`text-sm ${t.textMuted}`}>Customers will appear here</div>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className={`rounded-2xl p-16 text-center ${t.cardBg}`}>
+          <div className={`font-semibold ${t.textPrimary} mb-1`}>No matching customers</div>
+          <div className={`text-sm ${t.textMuted}`}>Try a different search</div>
+        </div>
       ) : (
         <div className={`rounded-2xl overflow-hidden ${t.cardBg}`}>
-          {customers.map((c, idx) => (
+          {filtered.map((c, idx) => (
             <div
               key={c.id}
               className={`flex items-center justify-between px-6 py-4 ${
-                idx !== customers.length - 1 ? `border-b ${t.divider}` : ""
+                idx !== filtered.length - 1 ? `border-b ${t.divider}` : ""
               }`}
             >
               <div className="flex items-center gap-3">
