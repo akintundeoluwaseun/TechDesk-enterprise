@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from "react";
-import { Download } from "lucide-react";
+import { Download, FileSpreadsheet } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import Topbar from "../components/Topbar";
 import { useThemeTokens } from "../lib/ThemeContext";
-import { computeReport } from "../lib/reports";
+import { computeReport, reportToCsv } from "../lib/reports";
 import { generateReportPdf } from "../lib/generateReportPdf";
+import { downloadCsv } from "../lib/csv";
 
 const FILTERS = [
   { key: "today", label: "Today" },
@@ -20,6 +21,10 @@ export default function ReportsPage() {
 
   function handleDownload() {
     generateReportPdf(report, filter);
+  }
+
+  function handleDownloadCsv() {
+    downloadCsv(`techdesk-report-${filter}-${new Date().toISOString().slice(0, 10)}.csv`, reportToCsv(report));
   }
 
   const statCards = [
@@ -39,12 +44,20 @@ export default function ReportsPage() {
       <Topbar
         title="Reports"
         action={
-          <button
-            onClick={handleDownload}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
-          >
-            <Download className="w-4 h-4" /> Download report
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownloadCsv}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
+            >
+              <FileSpreadsheet className="w-4 h-4" /> Export CSV
+            </button>
+            <button
+              onClick={handleDownload}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
+            >
+              <Download className="w-4 h-4" /> Download report
+            </button>
+          </div>
         }
       />
 

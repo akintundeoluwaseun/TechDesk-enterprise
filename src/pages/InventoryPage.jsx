@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Search, Pencil, Trash2, Package, ChevronDown } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Package, ChevronDown, FileSpreadsheet } from "lucide-react";
 import Topbar from "../components/Topbar";
 import ProductModal from "../components/ProductModal";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { db } from "../lib/db";
+import { rowsToCsv, downloadCsv } from "../lib/csv";
 
 export default function InventoryPage() {
   const t = useThemeTokens();
@@ -47,6 +48,14 @@ export default function InventoryPage() {
     refresh();
   }
 
+  function handleExportCsv() {
+    const rows = [
+      ["Name", "SKU", "Category", "Price", "Cost Price", "Stock", "Low Stock Threshold"],
+      ...filtered.map((p) => [p.name, p.sku || "", p.category || "", p.price, p.costPrice || "", p.stock, p.lowStockThreshold ?? 5]),
+    ];
+    downloadCsv(`techdesk-inventory-${new Date().toISOString().slice(0, 10)}.csv`, rowsToCsv(rows));
+  }
+
   return (
     <div className="flex-1 p-8">
       <Topbar
@@ -59,17 +68,25 @@ export default function InventoryPage() {
             : `${inStockCount} in stock \u00b7 ${soldOutCount} sold out`
         }
         action={
-          <button
-            onClick={() => {
-              setEditingProduct(null);
-              setShowModal(true);
-            }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${
-              t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
-            }`}
-          >
-            <Plus className="w-4 h-4" /> Add Product
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportCsv}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
+            >
+              <FileSpreadsheet className="w-4 h-4" /> Export CSV
+            </button>
+            <button
+              onClick={() => {
+                setEditingProduct(null);
+                setShowModal(true);
+              }}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${
+                t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+              }`}
+            >
+              <Plus className="w-4 h-4" /> Add Product
+            </button>
+          </div>
         }
       />
 
