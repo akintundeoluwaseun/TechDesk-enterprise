@@ -124,11 +124,11 @@ export default function Sidebar({ onOpenActivation }) {
           <button
             onClick={onOpenActivation}
             title={collapsed ? (restricted ? "Activate" : `Trial: ${daysLeft}d left`) : undefined}
-            className={`flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-semibold ${
-              restricted ? "bg-red-500 text-white animate-pulse" : t.pillBg
+            className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold ${
+              restricted ? "bg-red-500 text-white animate-pulse" : t.dark ? "bg-white text-slate-900" : "bg-slate-900 text-white"
             }`}
           >
-            {restricted ? <ShieldAlert className="w-3.5 h-3.5 shrink-0" /> : <ShieldCheck className="w-3.5 h-3.5 shrink-0" />}
+            {restricted ? <ShieldAlert className="w-4 h-4 shrink-0" /> : <ShieldCheck className="w-4 h-4 shrink-0" />}
             {!collapsed && (restricted ? "Activate" : `Trial: ${daysLeft}d left`)}
           </button>
         )}
