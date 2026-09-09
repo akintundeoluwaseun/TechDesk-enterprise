@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Search, Pencil, Trash2, Package, ChevronDown, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Package, ChevronDown, FileSpreadsheet, AlertTriangle } from "lucide-react";
 import Topbar from "../components/Topbar";
 import ProductModal from "../components/ProductModal";
 import { useThemeTokens } from "../lib/ThemeContext";
@@ -11,7 +11,7 @@ export default function InventoryPage() {
   const t = useThemeTokens();
   const { isAdmin } = useAuth();
   const [products, setProducts] = useState(() => db.getInventory());
-  const [tab, setTab] = useState("in-stock"); // in-stock | sold-out
+  const [tab, setTab] = useState("in-stock"); // in-stock | sold-out | low-stock
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
   const [showModal, setShowModal] = useState(false);
@@ -26,12 +26,24 @@ export default function InventoryPage() {
     return ["All", ...Array.from(set)];
   }, [products]);
 
+  function isLowStock(p) {
+    return p.stock > 0 && p.stock <= (p.lowStockThreshold ?? 5);
+  }
+
+  function suggestedReorder(p) {
+    if (!isLowStock(p)) return 0;
+    const threshold = p.lowStockThreshold ?? 5;
+    return Math.max(1, threshold * 2 - p.stock);
+  }
+
   const inStockCount = products.filter((p) => p.stock > 0).length;
   const soldOutCount = products.filter((p) => p.stock <= 0).length;
+  const lowStockCount = products.filter(isLowStock).length;
 
   const filtered = products.filter((p) => {
     if (tab === "in-stock" && p.stock <= 0) return false;
     if (tab === "sold-out" && p.stock > 0) return false;
+    if (tab === "low-stock" && !isLowStock(p)) return false;
     if (category !== "All" && p.category !== category) return false;
     if (search && !p.name?.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
@@ -50,10 +62,20 @@ export default function InventoryPage() {
 
   function handleExportCsv() {
     const rows = [
-      ["Name", "SKU", "Category", "Price", "Cost Price", "Stock", "Low Stock Threshold"],
-      ...filtered.map((p) => [p.name, p.sku || "", p.category || "", p.price, p.costPrice || "", p.stock, p.lowStockThreshold ?? 5]),
+      ["Name", "SKU", "Category", "Price", "Cost Price", "Stock", "Low Stock Threshold", "Suggested Reorder Qty"],
+      ...filtered.map((p) => [
+        p.name,
+        p.sku || "",
+        p.category || "",
+        p.price,
+        p.costPrice || "",
+        p.stock,
+        p.lowStockThreshold ?? 5,
+        suggestedReorder(p),
+      ]),
     ];
-    downloadCsv(`techdesk-inventory-${new Date().toISOString().slice(0, 10)}.csv`, rowsToCsv(rows));
+    const filenameTag = tab === "low-stock" ? "restock-list" : "inventory";
+    downloadCsv(`techdesk-${filenameTag}-${new Date().toISOString().slice(0, 10)}.csv`, rowsToCsv(rows));
   }
 
   return (
@@ -73,7 +95,7 @@ export default function InventoryPage() {
               onClick={handleExportCsv}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
             >
-              <FileSpreadsheet className="w-4 h-4" /> Export CSV
+              <FileSpreadsheet className="w-4 h-4" /> {tab === "low-stock" ? "Export restock list" : "Export CSV"}
             </button>
             <button
               onClick={() => {
@@ -115,6 +137,18 @@ export default function InventoryPage() {
         >
           <Package className="w-4 h-4" /> Sold Out ({soldOutCount})
         </button>
+        <button
+          onClick={() => setTab("low-stock")}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${
+            tab === "low-stock"
+              ? t.dark
+                ? "bg-[#1e222a] shadow-[2px_2px_4px_#14171d,-2px_-2px_4px_#282d37] text-white"
+                : "bg-[#e9ecf1] shadow-[2px_2px_4px_#c8cdd4,-2px_-2px_4px_#ffffff] text-slate-800"
+              : t.textSecondary
+          }`}
+        >
+          <AlertTriangle className="w-4 h-4" /> Low Stock ({lowStockCount})
+        </button>
       </div>
 
       <div className={`flex items-center gap-2 rounded-full px-4 py-3 mb-4 ${t.cardBg}`}>
@@ -144,11 +178,14 @@ export default function InventoryPage() {
 
       <div className={`rounded-2xl overflow-hidden ${t.cardBg}`}>
         <div
-          className={`grid grid-cols-[2fr_1fr_1fr_1fr] px-6 py-4 text-sm font-semibold ${t.textSecondary} border-b ${t.divider}`}
+          className={`grid ${
+            tab === "low-stock" ? "grid-cols-[2fr_1fr_1fr_1fr_1fr]" : "grid-cols-[2fr_1fr_1fr_1fr]"
+          } px-6 py-4 text-sm font-semibold ${t.textSecondary} border-b ${t.divider}`}
         >
           <span>Product</span>
           <span>Price</span>
           <span>Stock</span>
+          {tab === "low-stock" && <span>Suggested Reorder</span>}
           <span className="text-right">Actions</span>
         </div>
 
@@ -158,7 +195,9 @@ export default function InventoryPage() {
           filtered.map((p) => (
             <div
               key={p.id}
-              className={`grid grid-cols-[2fr_1fr_1fr_1fr] items-center px-6 py-4 text-sm border-b last:border-0 ${t.divider}`}
+              className={`grid ${
+                tab === "low-stock" ? "grid-cols-[2fr_1fr_1fr_1fr_1fr]" : "grid-cols-[2fr_1fr_1fr_1fr]"
+              } items-center px-6 py-4 text-sm border-b last:border-0 ${t.divider}`}
             >
               <div>
                 <div className={`font-medium ${t.textPrimary}`}>{p.name}</div>
@@ -170,6 +209,9 @@ export default function InventoryPage() {
               <div className={p.stock <= (p.lowStockThreshold || 5) ? "text-orange-500 font-medium" : t.textPrimary}>
                 {p.stock}
               </div>
+              {tab === "low-stock" && (
+                <div className="font-medium text-orange-500">+{suggestedReorder(p)}</div>
+              )}
               <div className="flex items-center justify-end gap-3">
                 <button
                   onClick={() => {

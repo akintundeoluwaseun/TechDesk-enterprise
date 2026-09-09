@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { X, Search, Plus, Minus, Trash2 } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
@@ -13,6 +13,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
   const [tab, setTab] = useState("inventory"); // inventory | manual
 
   const [productSearch, setProductSearch] = useState("");
+  const productSearchRef = useRef(null);
   const inventory = db.getInventory();
 
   // manual (not-in-inventory) form
@@ -48,7 +49,8 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
 
   const filteredInventory = useMemo(() => {
     if (!productSearch) return inventory;
-    return inventory.filter((p) => p.name.toLowerCase().includes(productSearch.toLowerCase()));
+    const q = productSearch.toLowerCase();
+    return inventory.filter((p) => p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q));
   }, [inventory, productSearch]);
 
   // when editing, the units this sale originally sold were already deducted
@@ -144,6 +146,38 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
   function removeItem(itemId) {
     setCart((prev) => prev.filter((i) => i.id !== itemId));
   }
+
+  // Handles both a barcode scanner (which just types the SKU fast and
+  // sends Enter) and a cashier typing a SKU by hand: an exact SKU match
+  // adds straight to cart without needing a click, since scanning several
+  // items in a row shouldn't require touching the mouse at all.
+  function handleProductSearchKeyDown(e) {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    const q = productSearch.trim().toLowerCase();
+    if (!q) return;
+    const skuMatch = inventory.find((p) => p.sku && p.sku.toLowerCase() === q);
+    const match = skuMatch || (filteredInventory.length === 1 ? filteredInventory[0] : null);
+    if (!match) return;
+    const cartQty = cart.find((i) => i.productId === match.id)?.qty || 0;
+    if (cartQty >= availableStock(match.id)) return;
+    addInventoryItem(match);
+    setProductSearch("");
+  }
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === "Escape") {
+        onClose?.();
+      } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey) && cart.length > 0) {
+        e.preventDefault();
+        completeSale();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cart, custName, custPhone, custEmail, custAddress, payment, discount, amountPaid]);
 
   function selectCustomer(c) {
     setCustName(c.name);
@@ -245,9 +279,12 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
               <div className={`flex items-center gap-2 rounded-xl px-4 py-2.5 mb-3 ${t.inputBg}`}>
                 <Search className={`w-4 h-4 ${t.textMuted}`} />
                 <input
+                  ref={productSearchRef}
+                  autoFocus
                   value={productSearch}
                   onChange={(e) => setProductSearch(e.target.value)}
-                  placeholder="Search products..."
+                  onKeyDown={handleProductSearchKeyDown}
+                  placeholder="Search products, or scan a barcode/SKU..."
                   className="bg-transparent outline-none text-sm flex-1"
                 />
               </div>
@@ -271,6 +308,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                       <div>
                         <div className={`font-medium text-sm ${t.textPrimary}`}>{p.name}</div>
                         <div className={`text-xs ${t.textMuted}`}>
+                          {p.sku ? `${p.sku} · ` : ""}
                           {outOfStock ? "Out of stock" : `Stock: ${remaining}`}
                         </div>
                       </div>
@@ -519,12 +557,16 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
           <button
             onClick={completeSale}
             disabled={cart.length === 0}
-            className={`w-full py-3 rounded-xl font-semibold mb-6 disabled:opacity-50 ${
+            title="Ctrl/Cmd + Enter"
+            className={`w-full py-3 rounded-xl font-semibold mb-2 disabled:opacity-50 ${
               t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
             }`}
           >
             {isEdit ? "Save Changes" : "Complete Sale"}
           </button>
+          <div className={`text-center text-xs mb-6 ${t.textMuted}`}>
+            Ctrl/Cmd + Enter to complete &middot; Esc to close
+          </div>
         </div>
       </div>
     </div>
