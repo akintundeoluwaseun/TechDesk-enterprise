@@ -18,6 +18,17 @@
 const MAX_SENDS_PER_RECIPIENT_PER_DAY = 4;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// HQ account/branch keys are public-facing (created from the marketing
+// website, not from inside an installed app), so they get their own,
+// tighter limits keyed by IP+email rather than the desktop app's CLIENT_KEY.
+const MAX_ACCOUNTS_PER_IP_PER_DAY = 5;
+const MAX_ACCOUNTS_PER_EMAIL_PER_DAY = 3;
+const MAX_BRANCHES_PER_BUSINESS_PER_DAY = 20;
+
+// Avoids visually-ambiguous characters (0/O, 1/I/L) since these keys are
+// read off a screen and typed by hand into another machine.
+const KEY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -25,16 +36,30 @@ function json(data, status = 200) {
   });
 }
 
+function randomGroup(length) {
+  const bytes = crypto.getRandomValues(new Uint8Array(length));
+  return Array.from(bytes, (b) => KEY_ALPHABET[b % KEY_ALPHABET.length]).join("");
+}
+
+function generateKey(prefix, groups = 3) {
+  const parts = Array.from({ length: groups }, () => randomGroup(4));
+  return `${prefix}-${parts.join("-")}`;
+}
+
 function escapeHtml(s) {
   return String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
-async function checkAndBumpRateLimit(env, to) {
-  const key = `rl:${to}:${new Date().toISOString().slice(0, 10)}`;
+async function checkAndBumpDailyLimit(env, bucket, id, max) {
+  const key = `rl:${bucket}:${id}:${new Date().toISOString().slice(0, 10)}`;
   const current = Number((await env.RATE_LIMIT.get(key)) || "0");
-  if (current >= MAX_SENDS_PER_RECIPIENT_PER_DAY) return false;
+  if (current >= max) return false;
   await env.RATE_LIMIT.put(key, String(current + 1), { expirationTtl: 60 * 60 * 26 });
   return true;
+}
+
+function checkAndBumpRateLimit(env, to) {
+  return checkAndBumpDailyLimit(env, "send", to, MAX_SENDS_PER_RECIPIENT_PER_DAY);
 }
 
 async function sendViaResend(env, { to, subject, text, html }) {
@@ -133,12 +158,117 @@ async function handleSendTest(request, env) {
   }
 }
 
+function buildAccountEmail(businessKey) {
+  const subject = "Your TechDesk HQ account key";
+  const text = [
+    "Your TechDesk HQ account has been created.",
+    "",
+    `Business Key: ${businessKey}`,
+    "",
+    "Paste this into Settings → Connect to HQ on the computer you want to use",
+    "as your HQ (head office) machine. Keep it somewhere safe — anyone with",
+    "this key can see combined data across your branches.",
+  ].join("\n");
+  const html = `
+    <div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#1e2a3a;max-width:480px;margin:0 auto">
+      <h2 style="margin:0 0 12px">Your TechDesk HQ account</h2>
+      <p style="color:#374151">Paste this key into <b>Settings → Connect to HQ</b> on the computer you want to
+      use as your HQ (head office) machine.</p>
+      <p style="margin:20px 0;padding:16px 20px;background:#f1f5f9;border-radius:12px;font:700 1.1rem/1.3 monospace;letter-spacing:1px">
+        ${escapeHtml(businessKey)}
+      </p>
+      <p style="color:#64748b;font-size:.85rem">Keep this safe — anyone with this key can see combined data across your branches.</p>
+    </div>
+  `;
+  return { subject, text, html };
+}
+
+async function handleCreateAccount(request, env) {
+  const payload = await request.json().catch(() => null);
+  const email = (payload && payload.email || "").trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return json({ ok: false, error: "Enter a valid email address" }, 400);
+
+  const ip = request.headers.get("cf-connecting-ip") || "unknown";
+  const ipOk = await checkAndBumpDailyLimit(env, "acct-ip", ip, MAX_ACCOUNTS_PER_IP_PER_DAY);
+  if (!ipOk) return json({ ok: false, error: "Too many accounts created from this network today" }, 429);
+  const emailOk = await checkAndBumpDailyLimit(env, "acct-email", email, MAX_ACCOUNTS_PER_EMAIL_PER_DAY);
+  if (!emailOk) return json({ ok: false, error: "Too many accounts requested for this email today" }, 429);
+
+  // vanishingly unlikely to collide, but a stored key is permanent, so check
+  let businessKey;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = generateKey("TDHQ");
+    if (!(await env.RATE_LIMIT.get(`biz:${candidate}`))) {
+      businessKey = candidate;
+      break;
+    }
+  }
+  if (!businessKey) return json({ ok: false, error: "Could not generate a key, try again" }, 500);
+
+  await env.RATE_LIMIT.put(`biz:${businessKey}`, JSON.stringify({ email, createdAt: new Date().toISOString() }));
+
+  try {
+    const { subject, text, html } = buildAccountEmail(businessKey);
+    await sendViaResend(env, { to: email, subject, text, html });
+  } catch (err) {
+    return json({ ok: false, error: `Account created, but the email failed to send: ${err.message}` }, 502);
+  }
+  return json({ ok: true });
+}
+
+async function handleCreateBranch(request, env) {
+  const payload = await request.json().catch(() => null);
+  const businessKey = (payload && payload.businessKey || "").trim().toUpperCase();
+  const branchName = (payload && payload.branchName || "").trim().slice(0, 80);
+  if (!businessKey) return json({ ok: false, error: "Business Key is required" }, 400);
+
+  const bizRecord = await env.RATE_LIMIT.get(`biz:${businessKey}`);
+  if (!bizRecord) return json({ ok: false, error: "Unknown Business Key" }, 404);
+
+  const branchesOk = await checkAndBumpDailyLimit(env, "branch-create", businessKey, MAX_BRANCHES_PER_BUSINESS_PER_DAY);
+  if (!branchesOk) return json({ ok: false, error: "Too many branches created today" }, 429);
+
+  let branchCode;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const candidate = generateKey("TDBR", 2);
+    if (!(await env.RATE_LIMIT.get(`branch:${candidate}`))) {
+      branchCode = candidate;
+      break;
+    }
+  }
+  if (!branchCode) return json({ ok: false, error: "Could not generate a code, try again" }, 500);
+
+  await env.RATE_LIMIT.put(
+    `branch:${branchCode}`,
+    JSON.stringify({ businessKey, branchName, createdAt: new Date().toISOString() })
+  );
+  return json({ ok: true, branchCode });
+}
+
 export default {
   async fetch(request, env) {
-    if (request.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
     const url = new URL(request.url);
-    if (url.pathname === "/send-digest") return handleSendDigest(request, env);
-    if (url.pathname === "/send-test") return handleSendTest(request, env);
-    return json({ ok: false, error: "Not found" }, 404);
+    if (request.method === "OPTIONS") {
+      return new Response(null, {
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "POST, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        },
+      });
+    }
+    if (request.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
+
+    let response;
+    if (url.pathname === "/send-digest") response = await handleSendDigest(request, env);
+    else if (url.pathname === "/send-test") response = await handleSendTest(request, env);
+    else if (url.pathname === "/hq/create-account") response = await handleCreateAccount(request, env);
+    else if (url.pathname === "/hq/create-branch") response = await handleCreateBranch(request, env);
+    else response = json({ ok: false, error: "Not found" }, 404);
+
+    // /hq/* routes are called directly from the public website's browser JS
+    // (not from the desktop app), so they need CORS headers.
+    if (url.pathname.startsWith("/hq/")) response.headers.set("Access-Control-Allow-Origin", "*");
+    return response;
   },
 };
