@@ -25,6 +25,17 @@ const MAX_ACCOUNTS_PER_IP_PER_DAY = 5;
 const MAX_ACCOUNTS_PER_EMAIL_PER_DAY = 3;
 const MAX_BRANCHES_PER_BUSINESS_PER_DAY = 20;
 
+// Activation code lookup is the most sensitive public endpoint here: the
+// underlying data is 5,000 real, valuable license codes. A 6-digit PIN
+// space (1,000,000 possible values, only 5,000 of them real) makes blind
+// enumeration the actual attack to defend against, since there's no
+// account or purchase proof at lookup time -- these two limits are what
+// make scripting through the PIN space impractical rather than just slow.
+const MAX_ACTIVATION_LOOKUPS_PER_IP_PER_DAY = 8;
+const MAX_ACTIVATION_LOOKUPS_PER_PIN_PER_DAY = 20;
+const PIN_RE = /^\d{6}$/;
+const ACTIVATION_VERSIONS = new Set(["solo"]); // business/enterprise: no codes issued yet
+
 // Avoids visually-ambiguous characters (0/O, 1/I/L) since these keys are
 // read off a screen and typed by hand into another machine.
 const KEY_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -245,6 +256,34 @@ async function handleCreateBranch(request, env) {
   return json({ ok: true, branchCode });
 }
 
+async function handleActivationLookup(request, env) {
+  const payload = await request.json().catch(() => null);
+  const version = String((payload && payload.version) || "").toLowerCase();
+  const pin = String((payload && payload.pin) || "").trim();
+
+  if (!ACTIVATION_VERSIONS.has(version)) {
+    return json({ ok: false, error: "Codes for this edition aren't available yet" }, 400);
+  }
+  if (!PIN_RE.test(pin)) return json({ ok: false, error: "Enter the 6-digit PIN shown on your Activate screen" }, 400);
+
+  const ip = request.headers.get("cf-connecting-ip") || "unknown";
+  const ipOk = await checkAndBumpDailyLimit(env, "actlookup-ip", ip, MAX_ACTIVATION_LOOKUPS_PER_IP_PER_DAY);
+  if (!ipOk) return json({ ok: false, error: "Too many lookups from this network today. Try again tomorrow, or contact us." }, 429);
+  const pinOk = await checkAndBumpDailyLimit(env, "actlookup-pin", `${version}:${pin}`, MAX_ACTIVATION_LOOKUPS_PER_PIN_PER_DAY);
+  if (!pinOk) return json({ ok: false, error: "Too many lookups for this PIN today. Try again tomorrow, or contact us." }, 429);
+
+  const raw = await env.RATE_LIMIT.get(`actpin:${version}:${pin}`);
+  if (!raw) return json({ ok: false, error: "No code found for that PIN. Double-check it against your Activate screen." }, 404);
+
+  let codes;
+  try {
+    codes = JSON.parse(raw);
+  } catch {
+    codes = [raw];
+  }
+  return json({ ok: true, codes });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -264,11 +303,14 @@ export default {
     else if (url.pathname === "/send-test") response = await handleSendTest(request, env);
     else if (url.pathname === "/hq/create-account") response = await handleCreateAccount(request, env);
     else if (url.pathname === "/hq/create-branch") response = await handleCreateBranch(request, env);
+    else if (url.pathname === "/activate/lookup") response = await handleActivationLookup(request, env);
     else response = json({ ok: false, error: "Not found" }, 404);
 
-    // /hq/* routes are called directly from the public website's browser JS
-    // (not from the desktop app), so they need CORS headers.
-    if (url.pathname.startsWith("/hq/")) response.headers.set("Access-Control-Allow-Origin", "*");
+    // /hq/* and /activate/* routes are called directly from the public
+    // website's browser JS (not from the desktop app), so they need CORS.
+    if (url.pathname.startsWith("/hq/") || url.pathname.startsWith("/activate/")) {
+      response.headers.set("Access-Control-Allow-Origin", "*");
+    }
     return response;
   },
 };

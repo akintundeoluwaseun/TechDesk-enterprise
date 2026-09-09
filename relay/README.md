@@ -75,3 +75,41 @@ on the daily digest by typing only their email address — no SMTP setup.
 digest + a little headroom for test sends). Raise it if that's too tight for
 your use case, but keep some cap — it's the main thing stopping the relay
 from being abused as a generic spam tool if `CLIENT_KEY` ever leaks.
+
+## Loading activation codes (PIN → code lookup)
+
+The website's Activate page (`POST /activate/lookup`) looks up a code by
+PIN against the *same* `RATE_LIMIT` KV namespace, under keys shaped
+`actpin:<version>:<pin>` (e.g. `actpin:solo:819865`), each holding a JSON
+array of one or more matching codes (an array because a 6-digit PIN space
+only has 1,000,000 possible values, so a handful of collisions among 5,000
+random PINs is expected — a couple of the 5,000 will share a PIN and map
+to two different codes; the lookup returns all of them and the app's own
+offline check rejects whichever one doesn't match).
+
+**The actual PIN/code pairs are never committed to this repo** — like
+`RESEND_API_KEY`, they're a real, valuable secret (5,000 license codes),
+and git history is forever, so a value that shouldn't leak shouldn't ever
+be a commit away from leaking. They live only in KV.
+
+To load them (after creating the `RATE_LIMIT` namespace above):
+```
+wrangler kv bulk put --binding=RATE_LIMIT solo_activation_kv_bulk.json
+```
+using the bulk-upload JSON file generated from your activation sheet
+(`[{"key": "actpin:solo:<pin>", "value": "[\"<code>\", ...]"}, ...]`) —
+keep that file itself out of git too once you've run this, the same as
+you would a password file.
+
+Repeat with a differently-prefixed file (`actpin:business:...`,
+`actpin:enterprise:...`) whenever those editions get their own codes, and
+add `"business"` / `"enterprise"` to the `ACTIVATION_VERSIONS` set at the
+top of `worker.js` once they're loaded — the lookup rejects any version
+not in that set so the UI can't be pointed at codes that don't exist yet.
+
+The lookup itself is public (no `CLIENT_KEY`, since the website has no
+embedded secret) and rate-limited by IP and by PIN
+(`MAX_ACTIVATION_LOOKUPS_PER_IP_PER_DAY` / `_PER_PIN_PER_DAY` in
+`worker.js`) — this is the main real defense here, since with no purchase
+proof at lookup time, an unlimited endpoint would let someone script
+through the PIN space and harvest codes.
