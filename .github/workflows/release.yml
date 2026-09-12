@@ -1,0 +1,47 @@
+name: Build and release desktop installers
+
+# Builds TechDesk Enterprise natively on Windows, macOS, and Linux runners,
+# then publishes each platform's installers directly to a GitHub Release
+# on this repo -- the build output never has to leave GitHub's own
+# infrastructure. Trigger by pushing a tag like v1.0.1, or manually from
+# the Actions tab (Run workflow).
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Build and publish installers (macOS)
+        if: runner.os == 'macOS'
+        run: npx electron-builder --mac dmg zip --x64 --arm64 --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and publish installers (Windows/Linux)
+        if: runner.os != 'macOS'
+        run: npx electron-builder --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
