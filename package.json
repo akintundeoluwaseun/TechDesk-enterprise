@@ -58,7 +58,8 @@
     "publish": {
       "provider": "github",
       "owner": "akintundeoluwaseun",
-      "repo": "TechDesk-enterprise"
+      "repo": "TechDesk-enterprise",
+      "releaseType": "release"
     },
     "win": {
       "target": "nsis"
