@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { X, ShieldCheck, Phone, Mail, Copy, Check } from "lucide-react";
+import { X, ShieldCheck, Phone, Mail, Globe, Copy, Check } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useLicense } from "../lib/LicenseContext";
 
@@ -86,8 +86,16 @@ export default function ActivationModal({ onClose }) {
               {checking ? "Checking..." : "Activate"}
             </button>
 
-            <div className={`text-xs mb-2 ${t.textMuted}`}>To get your activation code, contact:</div>
+            <div className={`text-xs mb-2 ${t.textMuted}`}>Get your activation code online, or contact us:</div>
             <div className="flex flex-col gap-2">
+              <a
+                href="https://techdesk-one.vercel.app/activate-enterprise.html"
+                target="_blank"
+                rel="noreferrer"
+                className={`flex items-center gap-2 text-sm font-medium ${t.textPrimary}`}
+              >
+                <Globe className="w-4 h-4" /> techdesk-one.vercel.app/activate-enterprise
+              </a>
               <a href="tel:+2348076911614" className={`flex items-center gap-2 text-sm ${t.textSecondary}`}>
                 <Phone className="w-4 h-4" /> +234 807 691 1614
               </a>
