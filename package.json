@@ -1,7 +1,7 @@
 {
   "name": "techdesk-enterprise",
   "productName": "TechDesk Enterprise",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Offline repair shop manager for larger teams - sales, repairs, inventory, customers, reports, with LAN activity sharing.",
   "author": {
     "name": "Oluwaseun Joshua",
@@ -58,7 +58,7 @@
     "publish": {
       "provider": "github",
       "owner": "akintundeoluwaseun",
-      "repo": "TechDesk-enterprise",
+      "repo": "TechDesk-releases-",
       "releaseType": "release"
     },
     "win": {

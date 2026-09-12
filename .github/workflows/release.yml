@@ -1,10 +1,12 @@
 name: Build and release desktop installers
 
 # Builds TechDesk Enterprise natively on Windows, macOS, and Linux runners,
-# then publishes each platform's installers directly to a GitHub Release
-# on this repo -- the build output never has to leave GitHub's own
-# infrastructure. Trigger by pushing a tag like v1.0.1, or manually from
-# the Actions tab (Run workflow).
+# then publishes each platform's installers to the public
+# TechDesk-releases- repo (this repo stays private -- only the compiled
+# installers go public, never the source). Needs a repo secret named
+# RELEASES_TOKEN: a token with write access to TechDesk-releases-, since
+# the default GITHUB_TOKEN only has access to this repo. Trigger by
+# pushing a tag like v1.0.1, or manually from the Actions tab.
 on:
   push:
     tags:
@@ -12,7 +14,7 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -38,10 +40,10 @@ jobs:
         if: runner.os == 'macOS'
         run: npx electron-builder --mac dmg zip --x64 --arm64 --publish always
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
 
       - name: Build and publish installers (Windows/Linux)
         if: runner.os != 'macOS'
         run: npx electron-builder --publish always
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
