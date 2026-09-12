@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, Upload, Trash2, Mail, Send, Network, QrCode, ShieldCheck, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Download, Upload, Trash2, Mail, Send, Database, Network, QrCode, ShieldCheck, Clock, CheckCircle2, XCircle } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
+import { findOtherEditions } from "../../lib/editionData";
+import DataMergeModal from "../../components/DataMergeModal";
 
 export default function DeviceTab() {
   const t = useThemeTokens();
@@ -26,6 +28,24 @@ export default function DeviceTab() {
       .catch(() => setNetwork({ ip: "Unavailable", url: "" }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const [mergeEditions, setMergeEditions] = useState([]);
+  const [scanning, setScanning] = useState(false);
+  const [scanMessage, setScanMessage] = useState("");
+
+  async function handleScanForEditions() {
+    setScanning(true);
+    setScanMessage("");
+    try {
+      const found = await findOtherEditions();
+      if (found.length) setMergeEditions(found);
+      else setScanMessage("No other TechDesk edition with saved data was found on this device.");
+    } catch {
+      setScanMessage("Couldn't check for other editions.");
+    } finally {
+      setScanning(false);
+    }
+  }
 
   function handleDownloadBackup() {
     const json = db.exportBackup();
@@ -143,6 +163,28 @@ export default function DeviceTab() {
           </button>
           <input ref={fileRef} type="file" accept="application/json" className="hidden" onChange={handleRestoreFile} />
         </div>
+      </div>
+
+      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
+        <div className="flex items-center gap-3">
+          <Database className={t.dark ? "text-blue-300" : "text-blue-500"} size={20} />
+          <div>
+            <h3 className={`font-semibold ${t.textPrimary}`}>Bring data from another TechDesk edition</h3>
+            <p className={`text-sm ${t.textSecondary}`}>
+              If another edition (Solo, Business or Enterprise) is installed on this device, its
+              sales, repairs, inventory and customers can be copied across. Records already here
+              are left as they are, and nothing is removed from the other edition.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleScanForEditions}
+          disabled={scanning}
+          className={`mt-4 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium disabled:opacity-50 ${t.pillBg}`}
+        >
+          <Database className="w-4 h-4" /> {scanning ? "Checking…" : "Check for other editions"}
+        </button>
+        {scanMessage && <p className={`text-xs mt-3 ${t.textMuted}`}>{scanMessage}</p>}
       </div>
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
@@ -284,6 +326,10 @@ export default function DeviceTab() {
           <Trash2 className="w-4 h-4" /> {confirmErase ? "Click again to confirm" : "Erase all data"}
         </button>
       </div>
+
+      {mergeEditions.length > 0 && (
+        <DataMergeModal editions={mergeEditions} onClose={() => setMergeEditions([])} />
+      )}
     </div>
   );
 }

@@ -349,6 +349,127 @@ export const db = {
       if (value != null) localStorage.setItem(key, value);
     });
   },
+  // Merges a backup from another TechDesk edition into this one instead of
+  // replacing (what restoreBackup does). Records are matched by id, so
+  // merging the same file twice adds nothing the second time. Invoice and
+  // ticket numbers restart at 1 in every edition, so incoming ones that
+  // clash with a number already in use here get reissued -- the record is
+  // kept, only its printed number changes.
+  mergeBackup: (json) => {
+    const parsed = JSON.parse(json);
+    const data = parsed.data || parsed;
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      throw new Error("Invalid backup file: missing data.");
+    }
+
+    const parseList = (key) => {
+      const raw = data[key];
+      if (raw == null) return [];
+      const list = typeof raw === "string" ? JSON.parse(raw) : raw;
+      return Array.isArray(list) ? list : [];
+    };
+
+    // parse everything before writing anything, so a malformed file can't
+    // leave a half-merged database behind
+    const incoming = {
+      [KEYS.inventory]: parseList(KEYS.inventory),
+      [KEYS.customers]: parseList(KEYS.customers),
+      [KEYS.sales]: parseList(KEYS.sales),
+      [KEYS.repairs]: parseList(KEYS.repairs),
+      [KEYS.activity]: parseList(KEYS.activity),
+      [KEYS.users]: parseList(KEYS.users),
+    };
+    if (Object.values(incoming).every((list) => list.length === 0)) {
+      throw new Error("Invalid backup file: no records to merge.");
+    }
+
+    const added = { inventory: 0, customers: 0, sales: 0, repairs: 0 };
+
+    function mergeById(key, countKey) {
+      const existing = read(key);
+      const seen = new Set(existing.map((r) => r?.id).filter(Boolean));
+      const fresh = incoming[key].filter((r) => r?.id && !seen.has(r.id));
+      if (countKey) added[countKey] = fresh.length;
+      if (!fresh.length) return existing;
+      const merged = [...existing, ...fresh];
+      write(key, merged);
+      return merged;
+    }
+
+    mergeById(KEYS.inventory, "inventory");
+    mergeById(KEYS.customers, "customers");
+    mergeById(KEYS.users, null);
+
+    // sales + repairs need their numbers checked for collisions
+    function mergeNumbered(key, field, prefix, countKey) {
+      const existing = read(key);
+      const seenIds = new Set(existing.map((r) => r?.id).filter(Boolean));
+      const usedNumbers = new Set(existing.map((r) => r?.[field]).filter(Boolean));
+      let highest = existing.reduce((max, r) => Math.max(max, parseNumericSuffix(r?.[field])), 0);
+
+      const fresh = incoming[key]
+        .filter((r) => r?.id && !seenIds.has(r.id))
+        .map((record) => {
+          if (!record[field] || usedNumbers.has(record[field])) {
+            highest += 1;
+            const reissued = `${prefix}-${String(highest).padStart(5, "0")}`;
+            usedNumbers.add(reissued);
+            return { ...record, [field]: reissued };
+          }
+          usedNumbers.add(record[field]);
+          highest = Math.max(highest, parseNumericSuffix(record[field]));
+          return record;
+        });
+
+      added[countKey] = fresh.length;
+      if (fresh.length) {
+        const merged = [...existing, ...fresh].sort(
+          (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+        );
+        write(key, merged);
+      }
+      return highest;
+    }
+
+    const highestInvoice = mergeNumbered(KEYS.sales, "invoice", "INV", "sales");
+    const highestTicket = mergeNumbered(KEYS.repairs, "ticket", "TKT", "repairs");
+
+    // activity is a log, not a keyed collection -- merge by id, newest first
+    const existingActivity = read(KEYS.activity);
+    const seenActivity = new Set(existingActivity.map((a) => a?.id).filter(Boolean));
+    const freshActivity = incoming[KEYS.activity].filter((a) => a?.id && !seenActivity.has(a.id));
+    if (freshActivity.length) {
+      write(
+        KEYS.activity,
+        [...existingActivity, ...freshActivity].sort(
+          (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+        )
+      );
+    }
+
+    // Counters must clear the highest number now present, or the next sale
+    // would reuse a number that just came in.
+    const storedCounters = read(KEYS.counters);
+    const counters = Array.isArray(storedCounters) ? {} : storedCounters;
+    write(KEYS.counters, {
+      ...counters,
+      invoice: Math.max(counters.invoice || 0, highestInvoice),
+      ticket: Math.max(counters.ticket || 0, highestTicket),
+    });
+
+    // Shop details (name, address, receipt text, labels) only come across if
+    // this device's settings were never touched -- otherwise merging would
+    // quietly rewrite settings the owner had already set here.
+    let settingsCopied = false;
+    if (localStorage.getItem(KEYS.settings) == null && data[KEYS.settings] != null) {
+      const raw = data[KEYS.settings];
+      JSON.parse(typeof raw === "string" ? raw : JSON.stringify(raw));
+      localStorage.setItem(KEYS.settings, typeof raw === "string" ? raw : JSON.stringify(raw));
+      settingsCopied = true;
+    }
+
+    return { added, settingsCopied };
+  },
   eraseAllData: () => {
     Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
   },

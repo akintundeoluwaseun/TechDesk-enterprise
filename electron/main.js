@@ -941,6 +941,90 @@ ipcMain.on("techdesk:quit", () => {
   app.quit();
 });
 
+// ---- Finding data from other TechDesk editions on this device ----
+// Each edition installs under its own userData folder (named after its
+// productName), so a device with more than one edition has sibling folders
+// next to ours. We never touch another edition's live localStorage -- we
+// only read the daily backup JSON it writes below, which is a stable,
+// documented format. "TechDesk 2.0" is the pre-rename Solo folder.
+const KNOWN_EDITION_DIRS = ["TechDesk Solo", "TechDesk Business", "TechDesk Enterprise", "TechDesk 2.0"];
+
+function otherEditionBackupDirs() {
+  const selfDir = app.getPath("userData");
+  const parent = path.dirname(selfDir);
+  const selfName = path.basename(selfDir);
+  return KNOWN_EDITION_DIRS.filter((name) => name !== selfName)
+    .map((name) => ({ edition: name, dir: path.join(parent, name, "backups") }))
+    .filter(({ dir }) => fs.existsSync(dir));
+}
+
+function newestBackupFile(dir) {
+  // file names are techdesk-backup-YYYY-MM-DD.json, so lexical sort is date order
+  const files = fs
+    .readdirSync(dir)
+    .filter((f) => f.startsWith("techdesk-backup-") && f.endsWith(".json"))
+    .sort();
+  return files.length ? path.join(dir, files[files.length - 1]) : null;
+}
+
+ipcMain.handle("techdesk:find-other-editions", () => {
+  try {
+    const editions = [];
+    otherEditionBackupDirs().forEach(({ edition, dir }) => {
+      const file = newestBackupFile(dir);
+      if (!file) return;
+      try {
+        const parsed = JSON.parse(fs.readFileSync(file, "utf-8"));
+        const data = parsed.data || {};
+        const countOf = (key) => {
+          try {
+            const arr = JSON.parse(data[key] || "[]");
+            return Array.isArray(arr) ? arr.length : 0;
+          } catch {
+            return 0;
+          }
+        };
+        const counts = {
+          sales: countOf("techdesk_sales"),
+          repairs: countOf("techdesk_repairs"),
+          inventory: countOf("techdesk_inventory"),
+          customers: countOf("techdesk_customers"),
+        };
+        // an empty backup isn't worth offering to merge
+        if (Object.values(counts).every((n) => n === 0)) return;
+        editions.push({
+          edition,
+          file,
+          savedAt: parsed.exportedAt || fs.statSync(file).mtime.toISOString(),
+          counts,
+        });
+      } catch {
+        // unreadable/corrupt backup -- skip this edition rather than fail the scan
+      }
+    });
+    return { ok: true, editions };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle("techdesk:read-edition-backup", (event, filePath) => {
+  try {
+    // Only ever hand back files that sit inside a known edition's backups
+    // folder -- the renderer supplies this path, so without this check it
+    // could ask for any file on the machine.
+    const allowedDirs = otherEditionBackupDirs().map(({ dir }) => path.resolve(dir));
+    const resolved = path.resolve(String(filePath || ""));
+    const isAllowed =
+      path.extname(resolved) === ".json" &&
+      allowedDirs.some((dir) => resolved.startsWith(dir + path.sep));
+    if (!isAllowed) return { ok: false, error: "Not an edition backup file." };
+    return { ok: true, json: fs.readFileSync(resolved, "utf-8") };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
 // ---- Automatic local backups ----
 // Renderer calls this roughly once a day; we keep the most recent 14 files.
 ipcMain.handle("techdesk:save-backup", (event, jsonString) => {

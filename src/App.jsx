@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider, useThemeTokens } from "./lib/ThemeContext";
 import { SettingsProvider } from "./lib/SettingsContext";
@@ -8,12 +8,14 @@ import { HelpProvider, useHelp } from "./lib/HelpContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import { useLanSync } from "./lib/useLanSync";
 import { useEmailSync } from "./lib/useEmailSync";
+import { findOtherEditions, getMergeDecision, hasLocalRecords } from "./lib/editionData";
 import Splash from "./components/Splash";
 import LoginScreen from "./pages/LoginScreen";
 import Sidebar from "./components/Sidebar";
 import RestrictedOverlay from "./components/RestrictedOverlay";
 import ActivationModal from "./components/ActivationModal";
 import TutorialModal from "./components/TutorialModal";
+import DataMergeModal from "./components/DataMergeModal";
 
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const SalesPage = lazy(() => import("./pages/SalesPage"));
@@ -32,11 +34,36 @@ function Guard({ path, children }) {
   return children;
 }
 
+// Offers to bring data across on the first run of a freshly installed
+// edition, when another edition on this device already has records. Asked
+// once: the answer is remembered either way. An install that already has its
+// own records is left alone -- that owner can still import from
+// Settings -> Device if they want to.
+function useFirstRunMergePrompt() {
+  const [editions, setEditions] = useState([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (getMergeDecision() || hasLocalRecords()) return undefined;
+    findOtherEditions()
+      .then((found) => {
+        if (!cancelled && found.length) setEditions(found);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return [editions, () => setEditions([])];
+}
+
 function Shell() {
   const t = useThemeTokens();
   const { restricted } = useLicense();
   const { open: helpOpen, dismiss: dismissHelp } = useHelp();
   const [showActivation, setShowActivation] = useState(false);
+  const [mergeEditions, dismissMerge] = useFirstRunMergePrompt();
   useAutoBackup();
   useLanSync();
   useEmailSync();
@@ -61,7 +88,11 @@ function Shell() {
         {restricted && <RestrictedOverlay onClick={() => setShowActivation(true)} />}
       </div>
       {showActivation && <ActivationModal onClose={() => setShowActivation(false)} />}
-      {helpOpen && <TutorialModal onClose={dismissHelp} />}
+      {mergeEditions.length > 0 ? (
+        <DataMergeModal editions={mergeEditions} onClose={dismissMerge} />
+      ) : (
+        helpOpen && <TutorialModal onClose={dismissHelp} />
+      )}
     </div>
   );
 }
