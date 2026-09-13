@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Search, Pencil, Trash2, Package, ChevronDown, FileSpreadsheet, AlertTriangle } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, ChevronDown, FileSpreadsheet } from "lucide-react";
 import Topbar from "../components/Topbar";
 import ProductModal from "../components/ProductModal";
 import { useThemeTokens } from "../lib/ThemeContext";
@@ -14,6 +14,7 @@ export default function InventoryPage() {
   const [tab, setTab] = useState("in-stock"); // in-stock | sold-out | low-stock
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
+  const [sort, setSort] = useState("recent");
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
 
@@ -40,14 +41,26 @@ export default function InventoryPage() {
   const soldOutCount = products.filter((p) => p.stock <= 0).length;
   const lowStockCount = products.filter(isLowStock).length;
 
-  const filtered = products.filter((p) => {
-    if (tab === "in-stock" && p.stock <= 0) return false;
-    if (tab === "sold-out" && p.stock > 0) return false;
-    if (tab === "low-stock" && !isLowStock(p)) return false;
-    if (category !== "All" && p.category !== category) return false;
-    if (search && !p.name?.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  });
+  const SORTS = {
+    recent: (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
+    "name-asc": (a, b) => (a.name || "").localeCompare(b.name || ""),
+    "name-desc": (a, b) => (b.name || "").localeCompare(a.name || ""),
+    "price-desc": (a, b) => Number(b.price || 0) - Number(a.price || 0),
+    "price-asc": (a, b) => Number(a.price || 0) - Number(b.price || 0),
+    "stock-asc": (a, b) => Number(a.stock || 0) - Number(b.stock || 0),
+    "stock-desc": (a, b) => Number(b.stock || 0) - Number(a.stock || 0),
+  };
+
+  const filtered = products
+    .filter((p) => {
+      if (tab === "in-stock" && p.stock <= 0) return false;
+      if (tab === "sold-out" && p.stock > 0) return false;
+      if (tab === "low-stock" && !isLowStock(p)) return false;
+      if (category !== "All" && p.category !== category) return false;
+      if (search && !p.name?.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
+    })
+    .sort(SORTS[sort] || SORTS.recent);
 
   function handleSaved() {
     setShowModal(false);
@@ -112,45 +125,6 @@ export default function InventoryPage() {
         }
       />
 
-      <div className={`flex rounded-xl p-1 mb-5 w-full max-w-md ${t.insetBg}`}>
-        <button
-          onClick={() => setTab("in-stock")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === "in-stock"
-              ? t.dark
-                ? "bg-[#1e222a] shadow-[2px_2px_4px_#14171d,-2px_-2px_4px_#282d37] text-white"
-                : "bg-[#e9ecf1] shadow-[2px_2px_4px_#c8cdd4,-2px_-2px_4px_#ffffff] text-slate-800"
-              : t.textSecondary
-          }`}
-        >
-          <Package className="w-4 h-4" /> In Stock ({inStockCount})
-        </button>
-        <button
-          onClick={() => setTab("sold-out")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === "sold-out"
-              ? t.dark
-                ? "bg-[#1e222a] shadow-[2px_2px_4px_#14171d,-2px_-2px_4px_#282d37] text-white"
-                : "bg-[#e9ecf1] shadow-[2px_2px_4px_#c8cdd4,-2px_-2px_4px_#ffffff] text-slate-800"
-              : t.textSecondary
-          }`}
-        >
-          <Package className="w-4 h-4" /> Sold Out ({soldOutCount})
-        </button>
-        <button
-          onClick={() => setTab("low-stock")}
-          className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${
-            tab === "low-stock"
-              ? t.dark
-                ? "bg-[#1e222a] shadow-[2px_2px_4px_#14171d,-2px_-2px_4px_#282d37] text-white"
-                : "bg-[#e9ecf1] shadow-[2px_2px_4px_#c8cdd4,-2px_-2px_4px_#ffffff] text-slate-800"
-              : t.textSecondary
-          }`}
-        >
-          <AlertTriangle className="w-4 h-4" /> Low Stock ({lowStockCount})
-        </button>
-      </div>
-
       <div className={`flex items-center gap-2 rounded-full px-4 py-3 mb-4 ${t.cardBg}`}>
         <Search className={`w-4 h-4 ${t.textMuted}`} />
         <input
@@ -161,19 +135,54 @@ export default function InventoryPage() {
         />
       </div>
 
-      <div className="relative mb-6">
-        <select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className={`w-full rounded-xl px-4 py-3 text-sm outline-none appearance-none ${t.inputBg}`}
-        >
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
-        <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
+      {/* Stock status, category and sort together -- the counts that used to
+          sit on the old tab strip are kept in the option labels. */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+        <div className="relative">
+          <select
+            value={tab}
+            onChange={(e) => setTab(e.target.value)}
+            className={`w-full rounded-xl px-4 py-3 text-sm outline-none appearance-none ${t.inputBg}`}
+          >
+            <option value="all">All stock ({products.length})</option>
+            <option value="in-stock">In stock ({inStockCount})</option>
+            <option value="sold-out">Sold out ({soldOutCount})</option>
+            <option value="low-stock">Low stock ({lowStockCount})</option>
+          </select>
+          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
+        </div>
+
+        <div className="relative">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className={`w-full rounded-xl px-4 py-3 text-sm outline-none appearance-none ${t.inputBg}`}
+          >
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c === "All" ? "All categories" : c}
+              </option>
+            ))}
+          </select>
+          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
+        </div>
+
+        <div className="relative">
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+            className={`w-full rounded-xl px-4 py-3 text-sm outline-none appearance-none ${t.inputBg}`}
+          >
+            <option value="recent">Newest first</option>
+            <option value="name-asc">Name (A–Z)</option>
+            <option value="name-desc">Name (Z–A)</option>
+            <option value="price-desc">Price (high to low)</option>
+            <option value="price-asc">Price (low to high)</option>
+            <option value="stock-asc">Stock (low to high)</option>
+            <option value="stock-desc">Stock (high to low)</option>
+          </select>
+          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
+        </div>
       </div>
 
       <div className={`rounded-2xl overflow-hidden ${t.cardBg}`}>

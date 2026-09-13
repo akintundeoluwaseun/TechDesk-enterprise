@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus, X, ChevronDown } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { useSettings } from "../../lib/SettingsContext";
 import { BUSINESS_PRESETS } from "../../data/businessPresets";
@@ -53,22 +53,19 @@ export default function BusinessTypeSection() {
         wording throughout the app (tickets, forms, receipts). You can fine-tune any term below afterward.
       </p>
 
-      <div className="grid grid-cols-2 gap-3 mb-5">
-        {Object.entries(BUSINESS_PRESETS).map(([key, preset]) => (
-          <button
-            key={key}
-            onClick={() => applyPreset(key)}
-            className={`text-left px-4 py-3 rounded-xl text-sm font-medium ${
-              settings.businessType === key
-                ? t.dark
-                  ? "bg-white text-black"
-                  : "bg-slate-900 text-white"
-                : t.pillBg
-            }`}
-          >
-            {preset.label}
-          </button>
-        ))}
+      <div className="relative mb-5">
+        <select
+          value={settings.businessType || "general"}
+          onChange={(e) => applyPreset(e.target.value)}
+          className={`w-full rounded-xl px-4 py-3 text-sm font-medium outline-none appearance-none ${t.inputBg}`}
+        >
+          {Object.entries(BUSINESS_PRESETS).map(([key, preset]) => (
+            <option key={key} value={key}>
+              {preset.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
       </div>
 
       <button onClick={() => setShowCustomize((s) => !s)} className={`text-sm font-medium mb-4 ${t.textSecondary} underline`}>

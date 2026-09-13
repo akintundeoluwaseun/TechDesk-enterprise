@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -46,6 +46,12 @@ function timeAgo(iso) {
   return `${Math.round(diffHr / 24)}d ago`;
 }
 
+// Ctrl on Windows/Linux, the Command glyph on a Mac -- shown on the search
+// badge and in the shortcuts list so the hint matches the keyboard in front
+// of you.
+export const IS_MAC = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform || "");
+export const MOD_KEY_LABEL = IS_MAC ? "\u2318" : "Ctrl";
+
 export default function Topbar({ title, subtitle, action }) {
   const { toggleDark } = useTheme();
   const t = useThemeTokens();
@@ -55,6 +61,24 @@ export default function Topbar({ title, subtitle, action }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const searchRef = useRef(null);
+
+  // The badge next to the search box advertised a shortcut that was never
+  // actually wired up -- this makes it real.
+  useEffect(() => {
+    function onKeyDown(e) {
+      if (e.key.toLowerCase() === "k" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        searchRef.current?.focus();
+        searchRef.current?.select();
+      } else if (e.key === "Escape" && document.activeElement === searchRef.current) {
+        setQuery("");
+        searchRef.current?.blur();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   const [clearedAt, setClearedAt] = useState(() => db.getNotifClearedAt());
 
@@ -148,9 +172,10 @@ export default function Topbar({ title, subtitle, action }) {
           <div className={`flex items-center gap-2 rounded-full px-4 py-2.5 w-64 ${t.cardBg}`}>
             <Search className={`w-4 h-4 ${t.textMuted}`} />
             <input
+              ref={searchRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={t.dark ? "Search..." : "Search anything..."}
+              placeholder="Search anything..."
               className="bg-transparent outline-none text-sm flex-1 min-w-0"
             />
             {query ? (
@@ -159,11 +184,12 @@ export default function Topbar({ title, subtitle, action }) {
               </button>
             ) : (
               <span
-                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                title={`Press ${MOD_KEY_LABEL}+K to search`}
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap ${
                   t.dark ? "bg-black/20 text-slate-300" : "bg-black/5 text-slate-500"
                 }`}
               >
-                {t.dark ? "/" : "\u2318K"}
+                {MOD_KEY_LABEL}+K
               </span>
             )}
           </div>

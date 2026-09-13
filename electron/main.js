@@ -662,11 +662,20 @@ document.querySelectorAll('.navbtn').forEach(function (btn) {
   btn.addEventListener('click', function () { showTab(btn.getAttribute('data-tab')); });
 });
 
+// A single failed poll doesn't mean the shop PC is gone -- a phone that just
+// woke, switched Wi-Fi band, or reused a connection the server had already
+// closed will drop one request and recover on the next. Only call it Offline
+// after two in a row, so the banner stops flickering on refresh.
+var failedPolls = 0;
+
 function poll() {
-  fetch('/activity.json').then(function (r) {
+  // cache-bust: some mobile browsers will serve a cached activity.json on a
+  // reload, which made the page look frozen even while connected
+  fetch('/activity.json?t=' + Date.now(), { cache: 'no-store' }).then(function (r) {
     if (!r.ok) throw new Error('bad status');
     return r.json();
   }).then(function (data) {
+    failedPolls = 0;
     document.getElementById('status').textContent = 'Connected';
     document.getElementById('status').className = 'status online';
     var snap = JSON.stringify(data);
@@ -675,6 +684,8 @@ function poll() {
       render(data);
     }
   }).catch(function () {
+    failedPolls += 1;
+    if (failedPolls < 2) return;
     document.getElementById('status').textContent = 'Offline';
     document.getElementById('status').className = 'status offline';
   });
@@ -688,6 +699,15 @@ document.getElementById('markRead').addEventListener('click', function () {
 
 poll();
 setInterval(poll, 5000);
+
+// Phones suspend timers while the screen is off or the tab is in the
+// background, so without this the view sits on stale data (and often a stale
+// Offline banner) for a few seconds after you come back to it.
+document.addEventListener('visibilitychange', function () {
+  if (!document.hidden) poll();
+});
+window.addEventListener('online', poll);
+window.addEventListener('pageshow', poll);
 </script>`;
 }
 
@@ -741,8 +761,11 @@ async function startActivityServer() {
 
   const requestHandler = (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
-    if (req.url === "/activity.json") {
+    // match on the path only -- the page appends a cache-busting query string
+    const route = (req.url || "/").split("?")[0];
+    if (route === "/activity.json") {
       res.setHeader("Content-Type", "application/json; charset=utf-8");
+      res.setHeader("Cache-Control", "no-store");
       res.end(
         JSON.stringify({
           shopName,
@@ -755,12 +778,12 @@ async function startActivityServer() {
       );
       return;
     }
-    if (req.url === "/sw.js") {
+    if (route === "/sw.js") {
       res.setHeader("Content-Type", "application/javascript; charset=utf-8");
       res.end(SERVICE_WORKER_JS);
       return;
     }
-    if (req.method === "POST" && req.url === "/subscribe") {
+    if (req.method === "POST" && route === "/subscribe") {
       let body = "";
       req.on("data", (chunk) => {
         body += chunk;
@@ -792,15 +815,27 @@ async function startActivityServer() {
     console.error("LAN activity server failed to start:", err.message);
   };
 
+  // Node closes idle keep-alive sockets after 5s by default -- exactly the
+  // page's poll interval, so a poll could land on a socket the server was
+  // closing at that moment and fail for no real reason. Holding connections
+  // open longer than the poll gap removes that race.
+  const applyTimeouts = (server) => {
+    server.keepAliveTimeout = 65000;
+    server.headersTimeout = 70000;
+    return server;
+  };
+
   try {
     const certOptions = await getOrCreateCert();
-    networkServer = https.createServer(certOptions, requestHandler).on("error", onError).listen(47821, "0.0.0.0");
+    networkServer = applyTimeouts(https.createServer(certOptions, requestHandler))
+      .on("error", onError)
+      .listen(47821, "0.0.0.0");
     serverScheme = "https";
   } catch (err) {
     // No TLS cert could be generated/loaded -- fall back to plain HTTP so the
     // read-only activity view still works, just without notification support.
     console.error("Falling back to HTTP for LAN activity server:", err.message);
-    networkServer = http.createServer(requestHandler).on("error", onError).listen(47821, "0.0.0.0");
+    networkServer = applyTimeouts(http.createServer(requestHandler)).on("error", onError).listen(47821, "0.0.0.0");
     serverScheme = "http";
   }
   return `${serverScheme}://${ip}:47821`;
