@@ -288,7 +288,7 @@ export default function DeviceTab() {
             </div>
             <div className={`mt-1 text-xs ${t.textMuted}`}>Use the QR code or enter the address manually.</div>
             <div className={`mt-1 text-xs ${t.textMuted}`}>
-              First visit: the browser shows a security warning (self-signed certificate, needed for notifications) — tap Advanced → Proceed.
+              Works on any phone on this Wi-Fi — no app to install, and nothing on the phone can change your data.
             </div>
           </div>
         </div>

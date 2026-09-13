@@ -213,12 +213,19 @@ function getLanIp() {
 // self-signed one and caches it in userData so it's stable across restarts
 // (a phone that already accepted it once won't need to keep re-trusting a
 // new one every launch).
-async function getOrCreateCert() {
+// Only used when TECHDESK_LAN_TLS=1 (see startActivityServer). The cert is
+// tied to the current LAN IP: a certificate with no matching subjectAltName
+// is rejected outright by modern browsers, which is what the old
+// commonName-only cert did.
+async function getOrCreateCert(ip) {
   const dir = path.join(app.getPath("userData"), "lan-cert");
   const keyPath = path.join(dir, "key.pem");
   const certPath = path.join(dir, "cert.pem");
+  const ipPath = path.join(dir, "issued-for.txt");
   try {
-    if (fs.existsSync(keyPath) && fs.existsSync(certPath)) {
+    // a DHCP lease change makes the stored cert wrong for the new address
+    const issuedFor = fs.existsSync(ipPath) ? fs.readFileSync(ipPath, "utf-8").trim() : null;
+    if (issuedFor === ip && fs.existsSync(keyPath) && fs.existsSync(certPath)) {
       return { key: fs.readFileSync(keyPath, "utf-8"), cert: fs.readFileSync(certPath, "utf-8") };
     }
   } catch {
@@ -226,14 +233,17 @@ async function getOrCreateCert() {
   }
   const notAfterDate = new Date();
   notAfterDate.setFullYear(notAfterDate.getFullYear() + 10);
-  const pems = await selfsigned.generate([{ name: "commonName", value: "techdesk.local" }], {
+  const altNames = [{ type: 2, value: "techdesk.local" }];
+  if (ip) altNames.push({ type: 7, ip }); // type 7 = iPAddress
+  const pems = await selfsigned.generate([{ name: "commonName", value: ip || "techdesk.local" }], {
     keySize: 2048,
     notAfterDate,
-    extensions: [{ name: "basicConstraints", cA: true }],
+    extensions: [{ name: "basicConstraints", cA: true }, { name: "subjectAltName", altNames }],
   });
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(keyPath, pems.private, "utf-8");
   fs.writeFileSync(certPath, pems.cert, "utf-8");
+  fs.writeFileSync(ipPath, String(ip || ""), "utf-8");
   return { key: pems.private, cert: pems.cert };
 }
 
@@ -739,7 +749,7 @@ self.addEventListener('notificationclick', function (event) {
 
 // Small read-only server so another device on the same Wi-Fi can view recent
 // activity — nothing here accepts writes.
-let serverScheme = "https";
+let serverScheme = "http";
 
 async function startActivityServer() {
   const ip = getLanIp();
@@ -825,16 +835,31 @@ async function startActivityServer() {
     return server;
   };
 
-  try {
-    const certOptions = await getOrCreateCert();
-    networkServer = applyTimeouts(https.createServer(certOptions, requestHandler))
-      .on("error", onError)
-      .listen(47821, "0.0.0.0");
-    serverScheme = "https";
-  } catch (err) {
-    // No TLS cert could be generated/loaded -- fall back to plain HTTP so the
-    // read-only activity view still works, just without notification support.
-    console.error("Falling back to HTTP for LAN activity server:", err.message);
+  // Plain HTTP by default. This used to be HTTPS so the phone page could
+  // register a service worker for push notifications, but a self-signed cert
+  // can't be trusted by a phone without installing a CA on it -- so every
+  // visit hit a full-page "Your connection is not private" warning, and
+  // browsers refuse to register service workers on a cert-error origin
+  // anyway, meaning the notifications it existed for couldn't arrive.
+  // A read-only view on the shop's own Wi-Fi doesn't justify that. Set
+  // TECHDESK_LAN_TLS=1 to serve HTTPS instead and try push again.
+  const useTls = process.env.TECHDESK_LAN_TLS === "1";
+  let started = false;
+
+  if (useTls) {
+    try {
+      const certOptions = await getOrCreateCert(ip);
+      networkServer = applyTimeouts(https.createServer(certOptions, requestHandler))
+        .on("error", onError)
+        .listen(47821, "0.0.0.0");
+      serverScheme = "https";
+      started = true;
+    } catch (err) {
+      console.error("Falling back to HTTP for LAN activity server:", err.message);
+    }
+  }
+
+  if (!started) {
     networkServer = applyTimeouts(http.createServer(requestHandler)).on("error", onError).listen(47821, "0.0.0.0");
     serverScheme = "http";
   }
