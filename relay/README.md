@@ -7,8 +7,21 @@ SMTP server.
 
 ## One-time setup (you, the developer — not each shop)
 
-You need a Cloudflare account (free) and a Resend account (free tier: 3,000
-emails/month, 100/day).
+You need a Cloudflare account (free), a Resend account (free tier: 3,000
+emails/month, 100/day), Node installed locally, and — realistically — a
+domain you own.
+
+**About the domain.** Resend lets you send from the shared `onboarding@resend.dev`
+sender without verifying anything, but that shared sender is meant for testing
+and Resend restricts who it will deliver to (expect it to reach only the address
+you signed up with). That is fine for proving the pipe works end to end; it is
+not fine for real shops, whose digests would silently never arrive. Before any
+customer turns the digest on, verify a domain you own in Resend and send from
+that. Check the current restriction on your own Resend dashboard rather than
+taking this paragraph's word for it — their free-tier rules change.
+
+Total cost: Cloudflare Workers, KV and Resend all have free tiers that comfortably
+cover this. The domain (roughly $10–15/year) is the only real expense.
 
 1. **Resend** — sign up at https://resend.com, then either:
    - Quick start: skip domain verification and use the shared sender
@@ -47,9 +60,18 @@ emails/month, 100/day).
    # rate limit in worker.js, not from this key.
    ```
 
-5. **(Optional) Set your own from-address** in `wrangler.toml`'s `[vars]`
-   block — must be on a domain you verified in Resend, otherwise leave it
-   as the default and Resend will reject sends from an unverified domain.
+5. **Set the from-address — this one is not optional.** `wrangler.toml` ships
+   with the placeholder `FROM_ADDRESS = "TechDesk <digest@yourdomain.com>"`.
+   That domain does not exist, so if you deploy without touching it **every
+   send fails** with a Resend "domain is not verified" error. Set it to either:
+   - `onboarding@resend.dev` — works immediately, no DNS, testing only (see the
+     delivery restriction noted above), or
+   - an address on a domain you verified in step 1, e.g.
+     `TechDesk <digest@techdesk.ng>` — what you want for real use.
+
+   (`worker.js` falls back to `digest@techdesk.app` only when `FROM_ADDRESS` is
+   *unset*. Since `wrangler.toml` sets it, that fallback never fires — and it is
+   not a domain you own either. Set the var.)
 
 6. **Deploy:**
    ```
@@ -66,8 +88,43 @@ module.exports = {
   CLIENT_KEY: "the same random string you set as the CLIENT_KEY secret above",
 };
 ```
+Enterprise only — the daily digest is an Enterprise feature, and Business and
+Solo ship no `relayConfig.js` at all. If the digest is ever added to Business,
+it reuses this same Worker URL and client key.
+
 Rebuild/repackage the app. Every shop that installs it from then on can turn
 on the daily digest by typing only their email address — no SMTP setup.
+
+## Wiring it into the website
+
+The website calls the same Worker for HQ signup. In `techdesk-website-/app.js`,
+`API_BASE` is currently the literal placeholder
+`https://REPLACE-WITH-YOUR-WORKER.workers.dev`, so the form on `hq.html` fails
+for anyone who fills it in. Replace it with the Worker URL from step 6.
+
+(The Activate page is unaffected — it calls a relative `/api/activate/lookup`
+that Vercel serves, not the Worker.)
+
+## Checking it actually works
+
+Before rebuilding anything, confirm the deployed Worker can send. From any
+machine:
+
+```
+curl -X POST https://techdesk-email-relay.<you>.workers.dev/send-test \
+  -H "Content-Type: application/json" \
+  -d '{"clientKey":"<your CLIENT_KEY>","to":"<your email>","shopName":"Test"}'
+```
+
+- `{"ok":true}` and an email arrives — done.
+- `{"ok":false,...}` mentioning the domain — `FROM_ADDRESS` is wrong (step 5).
+- `Unauthorized` — the `CLIENT_KEY` you sent doesn't match the secret you set.
+- Nothing arrives but you got `ok:true` — check Resend → Logs; this is usually
+  the shared-sender delivery restriction described at the top.
+
+If anything is wrong, fix it and `wrangler deploy` again. Only once this passes
+is it worth rebuilding the desktop apps, since a bad value means re-cutting
+every installer.
 
 ## Changing the rate limit
 
