@@ -37,6 +37,7 @@ export default function Sidebar({ onOpenActivation }) {
   const { settings } = useSettings();
   const { user, signOut } = useAuth();
   const { activated, restricted, daysLeft } = useLicense();
+  const trialLabel = `Trial: ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`;
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("techdesk_sidebar_collapsed") === "1");
 
   function toggleCollapsed() {
@@ -123,13 +124,13 @@ export default function Sidebar({ onOpenActivation }) {
         {!activated && (
           <button
             onClick={onOpenActivation}
-            title={collapsed ? (restricted ? "Activate" : `Trial: ${daysLeft}d left`) : undefined}
+            title={collapsed ? (restricted ? "Activate" : trialLabel) : undefined}
             className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold ${
               restricted ? "bg-red-500 text-white animate-pulse" : t.dark ? "bg-white text-slate-900" : "bg-slate-900 text-white"
             }`}
           >
             {restricted ? <ShieldAlert className="w-4 h-4 shrink-0" /> : <ShieldCheck className="w-4 h-4 shrink-0" />}
-            {!collapsed && (restricted ? "Activate" : `Trial: ${daysLeft}d left`)}
+            {!collapsed && (restricted ? "Activate" : trialLabel)}
           </button>
         )}
 

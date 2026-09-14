@@ -1085,6 +1085,39 @@ ipcMain.handle("techdesk:read-edition-backup", (event, filePath) => {
   }
 });
 
+// ---- Trial clock ----
+// The renderer keeps its copy in localStorage, but that can be cleared from
+// dev tools or lost with the profile, which would either hand out a fresh
+// trial or throw away one already part-spent. This file in userData is the
+// durable record; the renderer reconciles the two and keeps the furthest-along.
+const TRIAL_FILE = () => path.join(app.getPath("userData"), "trial.json");
+
+ipcMain.handle("techdesk:read-trial", () => {
+  try {
+    const file = TRIAL_FILE();
+    if (!fs.existsSync(file)) return { ok: true, state: null };
+    return { ok: true, state: JSON.parse(fs.readFileSync(file, "utf-8")) };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle("techdesk:write-trial", (event, state) => {
+  try {
+    // Store only the three fields the trial clock actually uses, so a
+    // compromised renderer can't stash arbitrary content in userData.
+    const safe = {
+      startedAt: String(state?.startedAt || ""),
+      daysUsed: Math.max(0, Math.min(365, Math.floor(Number(state?.daysUsed) || 0))),
+      lastDay: String(state?.lastDay || ""),
+    };
+    fs.writeFileSync(TRIAL_FILE(), JSON.stringify(safe), "utf-8");
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
 // ---- Automatic local backups ----
 // Renderer calls this roughly once a day; we keep the most recent 14 files.
 ipcMain.handle("techdesk:save-backup", (event, jsonString) => {

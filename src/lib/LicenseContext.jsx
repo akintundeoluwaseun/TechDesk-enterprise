@@ -1,13 +1,13 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import codeHashes from "../data/activationHashes.json";
+import { TRIAL_DAYS, dayKey, normalizeState, advance, mergeStates, describe } from "./trial";
 
 const LicenseContext = createContext(null);
 
 const KEY_ASSIGNED_INDEX = "techdesk_license_index";
-const KEY_TRIAL_START = "techdesk_trial_start";
+const KEY_TRIAL = "techdesk_trial";
+const KEY_TRIAL_START_LEGACY = "techdesk_trial_start";
 const KEY_ACTIVATED = "techdesk_activated";
-
-const TRIAL_DAYS = 7;
 
 async function sha256Hex(text) {
   const data = new TextEncoder().encode(text);
@@ -26,31 +26,77 @@ function getOrAssignEntry() {
   return codeHashes[Number(index)];
 }
 
-function getOrStartTrial() {
-  let start = localStorage.getItem(KEY_TRIAL_START);
-  if (!start) {
-    start = new Date().toISOString();
-    localStorage.setItem(KEY_TRIAL_START, start);
+function readLocalTrial() {
+  try {
+    const raw = localStorage.getItem(KEY_TRIAL);
+    if (raw) return normalizeState(JSON.parse(raw));
+    // Pre-1.0.3 installs stored only the install timestamp.
+    const legacy = localStorage.getItem(KEY_TRIAL_START_LEGACY);
+    if (legacy) return normalizeState(legacy);
+  } catch {
+    /* fall through to a fresh trial */
   }
-  return start;
+  return null;
+}
+
+function writeLocalTrial(state) {
+  try {
+    localStorage.setItem(KEY_TRIAL, JSON.stringify(state));
+  } catch {
+    // Out of quota, or storage blocked. The userData file is the durable
+    // copy, so losing this mirror is survivable.
+  }
 }
 
 export function LicenseProvider({ children }) {
   const [activated, setActivated] = useState(() => localStorage.getItem(KEY_ACTIVATED) === "1");
   const assignedEntry = useMemo(() => getOrAssignEntry(), []);
-  const trialStart = useMemo(() => getOrStartTrial(), []);
-  const [now, setNow] = useState(Date.now());
 
-  // keep trial countdown live without needing a reload
+  // Render immediately from local storage; the userData file is read a tick
+  // later and reconciled, so the sidebar never waits on IPC to show a number.
+  const [trial, setTrial] = useState(() => advance(normalizeState(readLocalTrial())));
+  const trialRef = useRef(trial);
+  trialRef.current = trial;
+
+  function commit(next) {
+    setTrial(next);
+    trialRef.current = next;
+    writeLocalTrial(next);
+    window.techdesk?.writeTrial?.(next);
+  }
+
+  // Reconcile with the durable copy on disk. Whichever record is further
+  // along wins, so clearing localStorage cannot buy a second trial and a
+  // wiped profile cannot lose one.
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 60000);
+    let cancelled = false;
+    Promise.resolve(window.techdesk?.readTrial?.())
+      .then((res) => {
+        if (cancelled) return;
+        const fromDisk = res?.ok && res.state ? normalizeState(res.state) : null;
+        const merged = advance(mergeStates(trialRef.current, fromDisk));
+        commit(merged);
+      })
+      .catch(() => {
+        // No Electron bridge (browser/dev). localStorage stands alone.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Roll the day over while the app stays open -- a shop leaves this running
+  // for weeks, so the count has to move at midnight without a restart.
+  useEffect(() => {
+    const t = setInterval(() => {
+      const next = advance(trialRef.current, dayKey());
+      if (next !== trialRef.current) commit(next);
+    }, 60000);
     return () => clearInterval(t);
   }, []);
 
-  const daysElapsed = (now - new Date(trialStart).getTime()) / (1000 * 60 * 60 * 24);
-  const daysLeft = Math.max(0, Math.ceil(TRIAL_DAYS - daysElapsed));
-  const trialExpired = daysElapsed >= TRIAL_DAYS;
-  const restricted = !activated && trialExpired;
+  const { daysLeft, expired } = describe(trial);
+  const restricted = !activated && expired;
 
   async function verifyCode(input) {
     const clean = (input || "").trim().toUpperCase();
@@ -68,8 +114,10 @@ export function LicenseProvider({ children }) {
       value={{
         activated,
         pin: assignedEntry.pin,
+        trialDays: TRIAL_DAYS,
+        daysUsed: trial.daysUsed,
         daysLeft,
-        trialExpired,
+        trialExpired: expired,
         restricted,
         verifyCode,
       }}
