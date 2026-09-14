@@ -1118,6 +1118,66 @@ ipcMain.handle("techdesk:write-trial", (event, state) => {
   }
 });
 
+// ---- Activation ----
+// Activation used to live only in the renderer's localStorage. That is the
+// least durable store on the machine: Chromium commits it to disk lazily, so
+// a power cut or a force-quit soon after activating can lose the write, and
+// the shop opens the next morning back on "Activate".
+//
+// Two things must survive, not one. `activated` is the obvious half. The
+// other is `licenseIndex` -- the device's PIN is picked at random from the
+// table on first run and stored, and the activation code the customer paid
+// for is only valid for THAT pin. Lose the index and the device silently
+// draws a different PIN, which invalidates a code that was already bought.
+//
+// Both now go through fs.writeFileSync here, which is durable the moment it
+// returns.
+const LICENSE_FILE = () => path.join(app.getPath("userData"), "license.json");
+
+ipcMain.handle("techdesk:read-license", () => {
+  try {
+    const file = LICENSE_FILE();
+    if (!fs.existsSync(file)) return { ok: true, state: null };
+    return { ok: true, state: JSON.parse(fs.readFileSync(file, "utf-8")) };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle("techdesk:write-license", (event, state) => {
+  try {
+    const existing = (() => {
+      try {
+        return JSON.parse(fs.readFileSync(LICENSE_FILE(), "utf-8"));
+      } catch {
+        return {};
+      }
+    })();
+
+    const index = Number(state?.licenseIndex);
+    const safe = {
+      // Activation is one-way. Nothing in the app revokes a licence, so a
+      // renderer that comes up with an empty localStorage must not be able
+      // to write `false` over a device that is already paid for.
+      activated: existing.activated === true || state?.activated === true,
+      licenseIndex: Number.isInteger(index) && index >= 0
+        ? index
+        : Number.isInteger(existing.licenseIndex)
+          ? existing.licenseIndex
+          : null,
+    };
+
+    // Write-then-rename, so a power cut mid-write can't leave a truncated
+    // file where the licence used to be.
+    const tmp = LICENSE_FILE() + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify(safe), "utf-8");
+    fs.renameSync(tmp, LICENSE_FILE());
+    return { ok: true, state: safe };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
 // ---- Automatic local backups ----
 // Renderer calls this roughly once a day; we keep the most recent 14 files.
 ipcMain.handle("techdesk:save-backup", (event, jsonString) => {

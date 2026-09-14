@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld("techdesk", {
   readEditionBackup: (filePath) => ipcRenderer.invoke("techdesk:read-edition-backup", filePath),
   readTrial: () => ipcRenderer.invoke("techdesk:read-trial"),
   writeTrial: (state) => ipcRenderer.invoke("techdesk:write-trial", state),
+  readLicense: () => ipcRenderer.invoke("techdesk:read-license"),
+  writeLicense: (state) => ipcRenderer.invoke("techdesk:write-license", state),
   getNetworkInfo: () => ipcRenderer.invoke("techdesk:network-info"),
   syncActivity: (activities) => ipcRenderer.send("techdesk:sync-activity", activities),
   showNetworkQr: (url) => ipcRenderer.invoke("techdesk:show-network-qr", url),
