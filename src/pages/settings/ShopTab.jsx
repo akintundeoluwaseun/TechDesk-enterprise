@@ -107,7 +107,7 @@ export default function ShopTab() {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Phone</label>
             <input
@@ -126,7 +126,7 @@ export default function ShopTab() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Website</label>
             <input
@@ -147,7 +147,7 @@ export default function ShopTab() {
         </div>
 
         <h4 className={`text-sm font-semibold mt-2 mb-3 ${t.textPrimary}`}>Bank details (for transfer payments)</h4>
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Bank name</label>
             <input

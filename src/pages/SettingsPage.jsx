@@ -21,15 +21,18 @@ export default function SettingsPage() {
   const Active = TABS.find((x) => x.key === tab)?.Component || ShopTab;
 
   return (
-    <div className="flex-1 p-8">
+    <div className="flex-1 p-4 md:p-8">
       <Topbar title="Settings" />
 
-      <div className={`inline-flex rounded-xl p-1 mb-6 ${t.insetBg}`}>
+      {/* Five tabs don't fit a phone, so the strip scrolls sideways there
+          rather than pushing the whole page wider than the screen. */}
+      <div className="-mx-4 md:mx-0 px-4 md:px-0 mb-6 overflow-x-auto">
+      <div className={`inline-flex rounded-xl p-1 ${t.insetBg}`}>
         {TABS.map((x) => (
           <button
             key={x.key}
             onClick={() => setTab(x.key)}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`px-4 md:px-5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
               tab === x.key
                 ? t.dark
                   ? "bg-[#1e222a] shadow-[2px_2px_4px_#14171d,-2px_-2px_4px_#282d37] text-white"
@@ -40,6 +43,7 @@ export default function SettingsPage() {
             {x.label}
           </button>
         ))}
+      </div>
       </div>
 
       <Active />

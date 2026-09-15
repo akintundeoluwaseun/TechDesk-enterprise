@@ -102,7 +102,7 @@ export default function UsersTab() {
           cost prices and settings.
         </p>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           <div>
             <label htmlFor="new-user-name" className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Full name</label>
             <input
@@ -191,7 +191,7 @@ export default function UsersTab() {
               <div key={u.id} className={`rounded-2xl p-5 ${t.insetBg}`}>
                 {editingId === u.id ? (
                   <div className="flex flex-col gap-3">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <input
                         value={editDraft.name}
                         onChange={(e) => setEditDraft((d) => ({ ...d, name: e.target.value }))}

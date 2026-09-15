@@ -93,7 +93,7 @@ export default function DashboardPage() {
     <div className="flex-1 p-4 md:p-8">
       <Topbar title="Dashboard" subtitle="Welcome back, Admin 👋" />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
         {stats.map((s) => {
           const Icon = s.icon;
           return (
@@ -186,7 +186,7 @@ export default function DashboardPage() {
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <h3 className={`font-semibold ${t.textPrimary} mb-5`}>Quick Actions</h3>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {quickActions.map((qa) => {
             const Icon = qa.icon;
             return (

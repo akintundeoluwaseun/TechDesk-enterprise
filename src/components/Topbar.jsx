@@ -167,8 +167,11 @@ export default function Topbar({ title, subtitle, action }) {
         {subtitle && <p className={`${t.textSecondary} mt-1`}>{subtitle}</p>}
       </div>
 
-      <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto">
-        <div className="relative flex-1 sm:flex-none min-w-0">
+      <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full sm:w-auto">
+        {/* On a phone the search takes its own line -- sharing one with the
+            theme, bell, avatar and any page actions crushed it to a circle
+            and pushed the page actions off the right edge. */}
+        <div className="relative basis-full sm:basis-auto sm:flex-none min-w-0 order-last sm:order-none">
           <div className={`flex items-center gap-2 rounded-full px-4 py-2.5 w-full sm:w-64 ${t.cardBg}`}>
             <Search className={`w-4 h-4 ${t.textMuted}`} />
             <input

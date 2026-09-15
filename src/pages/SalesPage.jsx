@@ -69,7 +69,7 @@ export default function SalesPage() {
   }
 
   return (
-    <div className="flex-1 p-8">
+    <div className="flex-1 p-4 md:p-8">
       <Topbar
         title="Sales"
         subtitle={`${sales.length} total transactions`}
@@ -147,7 +147,7 @@ export default function SalesPage() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <select
                   value={sale.paymentStatus}
                   onChange={(e) => updateStatus(sale.id, "paymentStatus", e.target.value)}

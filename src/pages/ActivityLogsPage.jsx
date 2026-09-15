@@ -80,10 +80,10 @@ export default function ActivityLogsPage() {
   });
 
   return (
-    <div className="flex-1 p-8">
+    <div className="flex-1 p-4 md:p-8">
       <Topbar title="Activity Logs" />
 
-      <div className="grid grid-cols-7 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-4 mb-6">
         {CATEGORIES.map((c) => {
           const Icon = c.icon;
           return (

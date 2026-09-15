@@ -40,7 +40,7 @@ export default function ReportsPage() {
   ];
 
   return (
-    <div className="flex-1 p-8">
+    <div className="flex-1 p-4 md:p-8">
       <Topbar
         title="Reports"
         action={
@@ -79,7 +79,7 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
         {statCards.map((c) => (
           <div key={c.label} className={`rounded-2xl p-5 ${t.cardBg}`}>
             <div className={`text-sm ${t.textSecondary} mb-1`}>{c.label}</div>
@@ -89,7 +89,7 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-3 gap-5 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
         {secondaryCards.map((c) => (
           <div key={c.label} className={`rounded-2xl p-5 ${t.cardBg}`}>
             <div className={`text-sm ${t.textSecondary} mb-1`}>{c.label}</div>
@@ -132,10 +132,10 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-5 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-5">
         <div className={`rounded-2xl p-6 ${t.cardBg}`}>
           <h3 className={`font-semibold mb-4 ${t.textPrimary}`}>Top products</h3>
-          <div className={`grid grid-cols-4 text-xs font-medium ${t.textMuted} mb-2`}>
+          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 text-xs font-medium ${t.textMuted} mb-2`}>
             <span>Product</span>
             <span>Qty</span>
             <span className="text-right">Revenue</span>
@@ -145,7 +145,7 @@ export default function ReportsPage() {
             <div className={`text-sm py-4 ${t.textMuted}`}>No sales yet</div>
           ) : (
             report.topProducts.map((p) => (
-              <div key={p.name} className={`grid grid-cols-4 text-sm py-2 ${t.textPrimary}`}>
+              <div key={p.name} className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 text-sm py-2 ${t.textPrimary}`}>
                 <span>{p.name}</span>
                 <span>{p.qty}</span>
                 <span className="text-right">&#8358;{p.revenue.toLocaleString()}</span>
@@ -157,7 +157,7 @@ export default function ReportsPage() {
 
         <div className={`rounded-2xl p-6 ${t.cardBg}`}>
           <h3 className={`font-semibold mb-4 ${t.textPrimary}`}>Payment methods</h3>
-          <div className={`grid grid-cols-3 text-xs font-medium ${t.textMuted} mb-2`}>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 text-xs font-medium ${t.textMuted} mb-2`}>
             <span>Method</span>
             <span>Sales</span>
             <span className="text-right">Total</span>
@@ -166,7 +166,7 @@ export default function ReportsPage() {
             <div className={`text-sm py-4 ${t.textMuted}`}>No sales yet</div>
           ) : (
             report.paymentMethods.map((m) => (
-              <div key={m.method} className={`grid grid-cols-3 text-sm py-2 ${t.textPrimary}`}>
+              <div key={m.method} className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 text-sm py-2 ${t.textPrimary}`}>
                 <span className="font-medium">{m.method}</span>
                 <span>{m.sales}</span>
                 <span className="text-right">&#8358;{m.total.toLocaleString()}</span>
@@ -176,10 +176,10 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className={`rounded-2xl p-6 ${t.cardBg}`}>
           <h3 className={`font-semibold mb-4 ${t.textPrimary}`}>Repair status</h3>
-          <div className={`grid grid-cols-2 text-xs font-medium ${t.textMuted} mb-2`}>
+          <div className={`grid grid-cols-1 md:grid-cols-2 text-xs font-medium ${t.textMuted} mb-2`}>
             <span>Status</span>
             <span className="text-right">Count</span>
           </div>
@@ -187,7 +187,7 @@ export default function ReportsPage() {
             <div className={`text-sm py-4 ${t.textMuted}`}>No repairs yet</div>
           ) : (
             report.repairStatus.map((s) => (
-              <div key={s.status} className={`grid grid-cols-2 text-sm py-2 ${t.textPrimary}`}>
+              <div key={s.status} className={`grid grid-cols-1 md:grid-cols-2 text-sm py-2 ${t.textPrimary}`}>
                 <span>{s.status}</span>
                 <span className="text-right">{s.count}</span>
               </div>
@@ -197,14 +197,14 @@ export default function ReportsPage() {
 
         <div className={`rounded-2xl p-6 ${t.cardBg}`}>
           <h3 className={`font-semibold mb-4 ${t.textPrimary}`}>Staff performance</h3>
-          <div className={`grid grid-cols-4 text-xs font-medium ${t.textMuted} mb-2`}>
+          <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 text-xs font-medium ${t.textMuted} mb-2`}>
             <span>Staff</span>
             <span>Sales</span>
             <span>Revenue</span>
             <span>Repairs</span>
           </div>
           {report.staffPerformance.map((s) => (
-            <div key={s.staff} className={`grid grid-cols-4 text-sm py-2 ${t.textPrimary}`}>
+            <div key={s.staff} className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 text-sm py-2 ${t.textPrimary}`}>
               <span className="font-medium">{s.staff}</span>
               <span>{s.sales}</span>
               <span>&#8358;{s.revenue.toLocaleString()}</span>

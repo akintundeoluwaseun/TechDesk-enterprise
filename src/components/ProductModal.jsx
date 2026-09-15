@@ -62,7 +62,7 @@ export default function ProductModal({ product, onClose, onSaved }) {
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>SKU</label>
             <input
@@ -88,7 +88,7 @@ export default function ProductModal({ product, onClose, onSaved }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
               Selling Price (&#8358;) <span className="text-red-500">*</span>
@@ -113,7 +113,7 @@ export default function ProductModal({ product, onClose, onSaved }) {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
               Stock Quantity <span className="text-red-500">*</span>

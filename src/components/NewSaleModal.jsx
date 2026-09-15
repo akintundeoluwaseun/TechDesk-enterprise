@@ -334,7 +334,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                   className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Price</label>
                   <input
@@ -458,7 +458,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                 ))}
               </div>
             )}
-            <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Name</label>
                 <input
@@ -478,7 +478,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Email</label>
                 <input
@@ -501,7 +501,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
           </div>
 
           {/* Payment */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
               <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Payment</label>
               <select

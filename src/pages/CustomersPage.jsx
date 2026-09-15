@@ -39,7 +39,7 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="flex-1 p-8">
+    <div className="flex-1 p-4 md:p-8">
       <Topbar
         title="Customers"
         action={

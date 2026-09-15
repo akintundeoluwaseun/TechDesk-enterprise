@@ -62,7 +62,7 @@ export default function RepairsPage() {
   }
 
   return (
-    <div className="flex-1 p-8">
+    <div className="flex-1 p-4 md:p-8">
       <Topbar
         title={labels.navRepairs}
         action={
@@ -148,7 +148,7 @@ export default function RepairsPage() {
                   {r.customerName} &middot; {r.customerPhone} &middot; {formatTime(r.createdAt)}
                 </div>
 
-                <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                   <div>
                     <label className={`text-xs font-medium block mb-1.5 ${t.textPrimary}`}>{labels.ticketSingular} status</label>
                     <select
@@ -180,7 +180,7 @@ export default function RepairsPage() {
                 </div>
 
                 {isOpen && (
-                  <div className="grid grid-cols-2 gap-4 mt-4 text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 text-sm">
                     <div className={t.textSecondary}>
                       IMEI: <span className={t.textPrimary}>{r.imei || "N/A"}</span>
                     </div>

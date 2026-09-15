@@ -73,7 +73,7 @@ export default function BusinessTypeSection() {
       </button>
 
       {showCustomize && (
-        <div className="grid grid-cols-2 gap-4 mb-2">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-2">
           {LABEL_FIELDS.map(([field, hint]) => (
             <div key={field}>
               <label className={`text-xs font-medium block mb-1.5 ${t.textPrimary}`}>{hint}</label>
