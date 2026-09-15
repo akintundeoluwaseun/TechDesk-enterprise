@@ -1,7 +1,7 @@
 {
   "name": "techdesk-enterprise",
   "productName": "TechDesk Enterprise",
-  "version": "1.0.2",
+  "version": "3.0.0",
   "description": "Offline repair shop manager for larger teams - sales, repairs, inventory, customers, reports, with LAN activity sharing.",
   "author": {
     "name": "Oluwaseun Joshua",
@@ -65,10 +65,17 @@
       "target": "nsis"
     },
     "mac": {
-      "target": ["dmg", "zip"]
+      "target": [
+        "dmg",
+        "zip"
+      ]
     },
     "linux": {
-      "target": ["AppImage", "deb", "rpm"],
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
       "category": "Office"
     },
     "nsis": {
