@@ -52,7 +52,7 @@ export default function MobileAppBar({ onOpenActivation }) {
     <>
       <header
         className={`md:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-14 border-b ${t.divider} ${
-          dark ? "bg-black" : "bg-white"
+          dark ? "bg-[#1f232b]" : "bg-white"
         }`}
       >
         <button onClick={() => setDrawer(true)} aria-label="Menu" className={t.textPrimary}>
@@ -100,7 +100,7 @@ export default function MobileAppBar({ onOpenActivation }) {
             className="absolute inset-0 bg-black/50"
             onClick={() => setDrawer(false)}
           />
-          <div className={`relative w-72 max-w-[85%] h-full p-4 flex flex-col ${dark ? "bg-[#0d0f12]" : "bg-white"}`}>
+          <div className={`relative w-72 max-w-[85%] h-full p-4 flex flex-col ${dark ? "bg-[#1f232b]" : "bg-white"}`}>
             <div className="flex items-start justify-between mb-5">
               <div className="min-w-0">
                 <div className={`text-base font-bold truncate ${t.textPrimary}`}>{user?.name}</div>

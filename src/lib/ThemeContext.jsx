@@ -40,15 +40,15 @@ export function useThemeTokens() {
     // the neumorphic shadows only switch on from `md`. Soft 16px shadow pairs
     // read as smudges on a 390px screen and cost a lot of vertical space for
     // depth nobody can see; the desktop keeps them because there they work.
-    bg: dark ? "bg-black md:bg-[#1e222a]" : "bg-[#f4f5f7] md:bg-[#e9ecf1]",
+    bg: dark ? "bg-[#181b22] md:bg-[#1e222a]" : "bg-[#f4f5f7] md:bg-[#e9ecf1]",
     sidebarBg: dark
-      ? "bg-[#0d0f12] md:bg-[#1a1d24] md:shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.5)]"
+      ? "bg-[#1f232b] md:bg-[#1a1d24] md:shadow-[inset_-8px_0_12px_-8px_rgba(0,0,0,0.5)]"
       : "bg-white md:bg-[#e3e7ed] md:shadow-[inset_-8px_0_12px_-8px_rgba(163,177,198,0.4)]",
     cardBg: dark
-      ? "bg-[#121418] border border-white/10 md:border-0 md:bg-[#1e222a] md:shadow-[8px_8px_16px_#14171d,-8px_-8px_16px_#282d37]"
+      ? "bg-[#252932] border border-white/10 md:border-0 md:bg-[#1e222a] md:shadow-[8px_8px_16px_#14171d,-8px_-8px_16px_#282d37]"
       : "bg-white border border-black/[0.07] md:border-0 md:bg-[#e9ecf1] md:shadow-[8px_8px_16px_#c8cdd4,-8px_-8px_16px_#ffffff]",
     insetBg: dark
-      ? "bg-[#0d0f12] border border-white/10 md:border-0 md:bg-[#1e222a] md:shadow-[inset_4px_4px_8px_#14171d,inset_-4px_-4px_8px_#282d37]"
+      ? "bg-[#1e222a] border border-white/10 md:border-0 md:bg-[#1e222a] md:shadow-[inset_4px_4px_8px_#14171d,inset_-4px_-4px_8px_#282d37]"
       : "bg-[#f4f5f7] border border-black/[0.06] md:border-0 md:bg-[#e9ecf1] md:shadow-[inset_4px_4px_8px_#c8cdd4,inset_-4px_-4px_8px_#ffffff]",
     inputBg: dark
       ? "bg-[#121418] border border-white/10 text-white placeholder:text-slate-500 md:border-0 md:bg-[#1e222a] md:shadow-[inset_3px_3px_6px_#14171d,inset_-3px_-3px_6px_#282d37]"

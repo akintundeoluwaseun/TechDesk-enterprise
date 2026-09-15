@@ -57,7 +57,8 @@ export default function TutorialModal({ onClose }) {
             </div>
           ))}
 
-          <div className={`mt-2 pt-4 ${t.dark ? "border-t border-white/10" : "border-t border-white/50"}`}>
+          {/* No keyboard on a phone, so the shortcut list is desktop-only. */}
+          <div className={`hidden md:block mt-2 pt-4 ${t.dark ? "border-t border-white/10" : "border-t border-white/50"}`}>
             <div className="flex items-center gap-2 mb-3">
               <Keyboard className={`w-4 h-4 ${t.textPrimary}`} />
               <h3 className={`text-sm font-semibold ${t.textPrimary}`}>Keyboard shortcuts</h3>
