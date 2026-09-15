@@ -12,6 +12,7 @@ import { findOtherEditions, getMergeDecision, hasLocalRecords } from "./lib/edit
 import Splash from "./components/Splash";
 import LoginScreen from "./pages/LoginScreen";
 import Sidebar from "./components/Sidebar";
+import MobileNav from "./components/MobileNav";
 import RestrictedOverlay from "./components/RestrictedOverlay";
 import ActivationModal from "./components/ActivationModal";
 import TutorialModal from "./components/TutorialModal";
@@ -71,7 +72,8 @@ function Shell() {
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>
       <Sidebar onOpenActivation={() => setShowActivation(true)} />
-      <div className="flex-1 relative">
+      <MobileNav onOpenActivation={() => setShowActivation(true)} />
+      <div className="flex-1 relative pb-16 md:pb-0 min-w-0">
         <Suspense fallback={null}>
           <Routes>
             <Route path="/" element={<Guard path="/"><DashboardPage /></Guard>} />

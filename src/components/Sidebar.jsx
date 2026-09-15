@@ -61,7 +61,7 @@ export default function Sidebar({ onOpenActivation }) {
 
   return (
     <aside
-      className={`shrink-0 flex flex-col justify-between p-3 h-screen sticky top-0 transition-all duration-200 ${
+      className={`shrink-0 hidden md:flex flex-col justify-between p-3 h-screen sticky top-0 transition-all duration-200 ${
         collapsed ? "w-[72px]" : "w-60"
       } ${t.sidebarBg}`}
     >

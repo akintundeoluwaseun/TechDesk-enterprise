@@ -90,10 +90,10 @@ export default function DashboardPage() {
   const recentSales = sales.slice(0, 3);
 
   return (
-    <div className="flex-1 p-8">
+    <div className="flex-1 p-4 md:p-8">
       <Topbar title="Dashboard" subtitle="Welcome back, Admin 👋" />
 
-      <div className="grid grid-cols-4 gap-5 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
         {stats.map((s) => {
           const Icon = s.icon;
           return (
@@ -110,7 +110,7 @@ export default function DashboardPage() {
         })}
       </div>
 
-      <div className="grid grid-cols-2 gap-5 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
         <div className={`rounded-2xl p-6 ${t.cardBg}`}>
           <div className="flex items-center justify-between mb-6">
             <h3 className={`font-semibold ${t.textPrimary}`}>Recent {labels.ticketPlural}</h3>
@@ -186,7 +186,7 @@ export default function DashboardPage() {
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <h3 className={`font-semibold ${t.textPrimary} mb-5`}>Quick Actions</h3>
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {quickActions.map((qa) => {
             const Icon = qa.icon;
             return (

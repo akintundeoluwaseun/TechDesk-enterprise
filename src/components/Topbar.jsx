@@ -161,15 +161,15 @@ export default function Topbar({ title, subtitle, action }) {
   }
 
   return (
-    <div className="flex items-center justify-between mb-8 gap-4 flex-wrap">
+    <div className="flex items-center justify-between mb-5 md:mb-8 gap-3 md:gap-4 flex-wrap">
       <div>
-        <h1 className={`text-3xl font-bold ${t.textPrimary}`}>{title}</h1>
+        <h1 className={`text-2xl md:text-3xl font-bold ${t.textPrimary}`}>{title}</h1>
         {subtitle && <p className={`${t.textSecondary} mt-1`}>{subtitle}</p>}
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative">
-          <div className={`flex items-center gap-2 rounded-full px-4 py-2.5 w-64 ${t.cardBg}`}>
+      <div className="flex items-center gap-2 md:gap-3 w-full sm:w-auto">
+        <div className="relative flex-1 sm:flex-none min-w-0">
+          <div className={`flex items-center gap-2 rounded-full px-4 py-2.5 w-full sm:w-64 ${t.cardBg}`}>
             <Search className={`w-4 h-4 ${t.textMuted}`} />
             <input
               ref={searchRef}
