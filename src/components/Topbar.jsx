@@ -163,11 +163,14 @@ export default function Topbar({ title, subtitle, action }) {
   return (
     <div className="flex items-center justify-between mb-5 md:mb-8 gap-3 md:gap-4 flex-wrap">
       <div>
-        <h1 className={`text-2xl md:text-3xl font-bold ${t.textPrimary}`}>{title}</h1>
-        {subtitle && <p className={`${t.textSecondary} mt-1`}>{subtitle}</p>}
+        <h1 className={`text-[22px] md:text-3xl font-bold leading-tight ${t.textPrimary}`}>{title}</h1>
+        {subtitle && <p className={`text-[13px] md:text-base ${t.textSecondary} mt-0.5 md:mt-1`}>{subtitle}</p>}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 md:gap-3 w-full sm:w-auto">
+        {/* On phones these controls live in MobileAppBar instead, so the
+            wrapper below is hidden rather than rendering them twice. */}
+        <div className="hidden md:flex flex-wrap items-center gap-2 md:gap-3">
         {/* On a phone the search takes its own line -- sharing one with the
             theme, bell, avatar and any page actions crushed it to a circle
             and pushed the page actions off the right edge. */}
@@ -377,6 +380,8 @@ export default function Topbar({ title, subtitle, action }) {
               </button>
             </div>
           )}
+        </div>
+
         </div>
 
         {action}

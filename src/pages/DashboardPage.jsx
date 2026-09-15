@@ -93,26 +93,26 @@ export default function DashboardPage() {
     <div className="flex-1 p-4 md:p-8">
       <Topbar title="Dashboard" subtitle="Welcome back, Admin 👋" />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
         {stats.map((s) => {
           const Icon = s.icon;
           return (
-            <button key={s.label} onClick={s.onClick} className={`rounded-2xl p-5 relative text-left ${t.cardBg}`}>
-              <ArrowUpRight className={`absolute top-5 right-5 w-4 h-4 ${t.textMuted}`} />
-              <div className={`w-11 h-11 rounded-full flex items-center justify-center mb-4 ${s.iconBg}`}>
-                <Icon className={`w-5 h-5 ${s.iconColor}`} />
+            <button key={s.label} onClick={s.onClick} className={`rounded-2xl p-3.5 md:p-5 relative text-left ${t.cardBg}`}>
+              <ArrowUpRight className={`absolute top-3.5 right-3.5 md:top-5 md:right-5 w-3.5 h-3.5 md:w-4 md:h-4 ${t.textMuted}`} />
+              <div className={`w-9 h-9 md:w-11 md:h-11 rounded-full flex items-center justify-center mb-2.5 md:mb-4 ${s.iconBg}`}>
+                <Icon className={`w-[18px] h-[18px] md:w-5 md:h-5 ${s.iconColor}`} />
               </div>
-              <div className={`text-sm ${t.textSecondary} mb-1`}>{s.label}</div>
-              <div className={`text-3xl font-bold ${t.textPrimary} mb-1`}>{s.value}</div>
-              <div className={`text-sm ${t.textMuted}`}>{s.sub}</div>
+              <div className={`text-[12px] md:text-sm ${t.textSecondary} mb-0.5 md:mb-1`}>{s.label}</div>
+              <div className={`text-xl md:text-3xl font-bold ${t.textPrimary} mb-0.5 md:mb-1 truncate`}>{s.value}</div>
+              <div className={`text-[11px] md:text-sm ${t.textMuted} truncate`}>{s.sub}</div>
             </button>
           );
         })}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
-        <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-          <div className="flex items-center justify-between mb-6">
+        <div className={`rounded-2xl p-4 md:p-6 ${t.cardBg}`}>
+          <div className="flex items-center justify-between mb-4 md:mb-6">
             <h3 className={`font-semibold ${t.textPrimary}`}>Recent {labels.ticketPlural}</h3>
             <button onClick={() => navigate("/repairs")} className={`text-xs font-medium px-3 py-1.5 rounded-full ${t.pillBg}`}>
               View all
@@ -147,8 +147,8 @@ export default function DashboardPage() {
           )}
         </div>
 
-        <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-          <div className="flex items-center justify-between mb-6">
+        <div className={`rounded-2xl p-4 md:p-6 ${t.cardBg}`}>
+          <div className="flex items-center justify-between mb-4 md:mb-6">
             <h3 className={`font-semibold ${t.textPrimary}`}>Recent Sales</h3>
             <button onClick={() => navigate("/sales")} className={`text-xs font-medium px-3 py-1.5 rounded-full ${t.pillBg}`}>
               View all
@@ -184,9 +184,9 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
+      <div className={`rounded-2xl p-4 md:p-6 ${t.cardBg}`}>
         <h3 className={`font-semibold ${t.textPrimary} mb-5`}>Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {quickActions.map((qa) => {
             const Icon = qa.icon;
             return (
