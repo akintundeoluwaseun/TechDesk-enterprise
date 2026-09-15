@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { savePdf } from "./saveFile";
 import autoTable from "jspdf-autotable";
 import { db } from "./db";
 import { pdfSafe } from "./pdfSafe";
@@ -244,7 +245,7 @@ export function generateInvoicePdf(sale, { autoOpen = true } = {}) {
 
   const filename = `${sale.invoice}.pdf`;
   if (autoOpen) {
-    doc.save(filename);
+    savePdf(doc, filename);
   }
   return doc;
 }

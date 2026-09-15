@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { savePdf } from "./saveFile";
 import autoTable from "jspdf-autotable";
 import { db } from "./db";
 import { pdfSafe } from "./pdfSafe";
@@ -133,6 +134,6 @@ export function generateReportPdf(report, filter, { autoOpen = true } = {}) {
     });
   }
 
-  if (autoOpen) doc.save(`techdesk-report-${filter}.pdf`);
+  if (autoOpen) savePdf(doc, `techdesk-report-${filter}.pdf`);
   return doc;
 }

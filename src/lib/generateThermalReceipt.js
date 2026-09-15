@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { savePdf } from "./saveFile";
 import { db } from "./db";
 import { pdfSafe } from "./pdfSafe";
 
@@ -118,6 +119,6 @@ export function generateThermalReceiptPdf(sale, { autoOpen = true } = {}) {
   y += 1;
   center(`Powered by ${pdfSafe(settings.shopName || "TechDesk")}`, 6);
 
-  if (autoOpen) doc.save(`${sale.invoice}-receipt-58mm.pdf`);
+  if (autoOpen) savePdf(doc, `${sale.invoice}-receipt-58mm.pdf`);
   return doc;
 }

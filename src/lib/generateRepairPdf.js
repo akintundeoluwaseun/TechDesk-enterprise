@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { savePdf } from "./saveFile";
 import autoTable from "jspdf-autotable";
 import { db } from "./db";
 import { pdfSafe } from "./pdfSafe";
@@ -230,7 +231,7 @@ export function generateRepairTicketPdf(repair, { autoOpen = true } = {}) {
   doc.text("CUSTOMER SIGNATURE", marginX + (boxW2 + 20) * 2 + 10, sigY + 16);
   doc.line(marginX + (boxW2 + 20) * 2 + 10, sigY + sigH - 16, pageW - marginX - 10, sigY + sigH - 16);
 
-  if (autoOpen) doc.save(`${repair.ticket}.pdf`);
+  if (autoOpen) savePdf(doc, `${repair.ticket}.pdf`);
   return doc;
 }
 
@@ -552,6 +553,6 @@ export function generateBlankRepairFormPdf({ autoOpen = true } = {}) {
   doc.setFontSize(7);
   if (settings.phone) doc.text(pdfSafe(settings.phone), pageW - marginX, y + 22, { align: "right" });
 
-  if (autoOpen) doc.save("repair-ticket-form.pdf");
+  if (autoOpen) savePdf(doc, "repair-ticket-form.pdf");
   return doc;
 }
