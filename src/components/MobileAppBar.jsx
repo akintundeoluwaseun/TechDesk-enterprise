@@ -33,7 +33,7 @@ const DRAWER_ITEMS = [
 
 export default function MobileAppBar({ onOpenActivation }) {
   const t = useThemeTokens();
-  const { dark, toggle } = useTheme();
+  const { dark, toggleDark } = useTheme();
   const { settings } = useSettings();
   const { user, signOut } = useAuth();
   const { activated, restricted, daysLeft } = useLicense();
@@ -68,7 +68,7 @@ export default function MobileAppBar({ onOpenActivation }) {
           </div>
         </div>
 
-        <button onClick={toggle} aria-label="Toggle theme" className={t.textSecondary}>
+        <button onClick={toggleDark} aria-label="Toggle theme" className={t.textSecondary}>
           {dark ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
         </button>
 
