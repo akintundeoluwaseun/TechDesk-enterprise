@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld("techdesk", {
   hqRead: () => ipcRenderer.invoke("techdesk:hq-read"),
   hqSave: (payload) => ipcRenderer.invoke("techdesk:hq-save", payload),
   hqDisconnect: () => ipcRenderer.invoke("techdesk:hq-disconnect"),
+  hqSync: (payload) => ipcRenderer.invoke("techdesk:hq-sync", payload),
   getNetworkInfo: () => ipcRenderer.invoke("techdesk:network-info"),
   syncActivity: (activities) => ipcRenderer.send("techdesk:sync-activity", activities),
   showNetworkQr: (url) => ipcRenderer.invoke("techdesk:show-network-qr", url),

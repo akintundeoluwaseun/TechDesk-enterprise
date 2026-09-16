@@ -1158,6 +1158,47 @@ ipcMain.handle("techdesk:hq-save", (event, payload) => {
   }
 });
 
+// Sync runs in the main process because that is where the token is. Handing
+// the token to the renderer so it could post for itself would undo the whole
+// reason for keeping it here.
+ipcMain.handle("techdesk:hq-sync", async (event, payload) => {
+  try {
+    const state = readHqState();
+    if (!state.token) return { ok: false, error: "not_connected" };
+
+    const res = await fetch(`${payload.url}/functions/v1/sync-push`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${payload.key}`,
+        "apikey": payload.key,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token: state.token, records: payload.records || [] }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (data?.ok) {
+      // The cursor comes from the renderer, on this device's clock, and only
+      // when records were actually sent. Storing the server's timestamp would
+      // silently skip anything written in the gap between the two clocks.
+      if (payload.cursor) writeHqState({ ...state, lastSyncAt: payload.cursor });
+      return { ok: true, accepted: data.accepted, syncedAt: data.syncedAt };
+    }
+    // HQ no longer recognises this device: disconnected there, or removed.
+    // The token is dead, so it is cleared rather than retried forever -- the
+    // owner is shown "not connected" and can connect again.
+    if (data?.error === "unknown_device") {
+      writeHqState({ installId: state.installId });
+      return { ok: false, error: "unknown_device" };
+    }
+    return { ok: false, error: data?.error || "sync_failed" };
+  } catch (err) {
+    // Offline is the normal case for a shop, not an exception. It is reported
+    // plainly and the cursor is left alone so nothing is skipped.
+    return { ok: false, error: "offline", detail: String(err) };
+  }
+});
+
 ipcMain.handle("techdesk:hq-disconnect", () => {
   try {
     const state = readHqState();

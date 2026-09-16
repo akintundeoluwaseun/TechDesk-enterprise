@@ -17,6 +17,7 @@ import RestrictedOverlay from "./components/RestrictedOverlay";
 import ActivationModal from "./components/ActivationModal";
 import TutorialModal from "./components/TutorialModal";
 import DataMergeModal from "./components/DataMergeModal";
+import { useHqSync } from "./lib/useHqSync";
 
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const SalesPage = lazy(() => import("./pages/SalesPage"));
@@ -67,6 +68,7 @@ function Shell() {
   const [mergeEditions, dismissMerge] = useFirstRunMergePrompt();
   useAutoBackup();
   useLanSync();
+  useHqSync();
 
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>

@@ -10,7 +10,32 @@ const KEYS = {
   settings: "techdesk_settings",
   users: "techdesk_users",
   counters: "techdesk_counters",
+  // Deleting a record removes it from the list, which leaves HQ no way to
+  // learn it is gone -- the row would sit there forever. A tombstone is the
+  // note that says so.
+  tombstones: "techdesk_tombstones",
 };
+
+// Every record carries updatedAt so sync can send only what changed. Without
+// it an edited sale keeps its original createdAt and is never sent again --
+// HQ would show the first version of it forever.
+function stamp(record) {
+  return { ...record, updatedAt: new Date().toISOString() };
+}
+
+// Remembers that a record existed and was deleted, so the next sync can say so.
+function tombstone(kind, id) {
+  try {
+    const raw = localStorage.getItem(KEYS.tombstones);
+    const list = raw ? JSON.parse(raw) : [];
+    list.push({ id, kind, deletedAt: new Date().toISOString() });
+    // A shop that deletes constantly should not grow this without bound. The
+    // oldest entries are the ones HQ has certainly already seen.
+    localStorage.setItem(KEYS.tombstones, JSON.stringify(list.slice(-2000)));
+  } catch {
+    // A full disk must not stop the delete itself from happening.
+  }
+}
 
 function read(key) {
   try {
@@ -70,7 +95,7 @@ export const db = {
   findInventoryItem: (id) => read(KEYS.inventory).find((i) => i.id === id),
   addInventoryItem: (product) => {
     const items = read(KEYS.inventory);
-    const record = { id: uid("prod"), createdAt: new Date().toISOString(), ...product };
+    const record = stamp({ id: uid("prod"), createdAt: new Date().toISOString(), ...product });
     items.unshift(record);
     write(KEYS.inventory, items);
     return record;
@@ -79,7 +104,7 @@ export const db = {
     const items = read(KEYS.inventory);
     const idx = items.findIndex((i) => i.id === id);
     if (idx > -1) {
-      items[idx] = { ...items[idx], ...patch };
+      items[idx] = stamp({ ...items[idx], ...patch });
       write(KEYS.inventory, items);
       return items[idx];
     }
@@ -87,6 +112,7 @@ export const db = {
   },
   deleteInventoryItem: (id) => {
     write(KEYS.inventory, read(KEYS.inventory).filter((i) => i.id !== id));
+    tombstone("product", id);
   },
 
   // ---- Customers ----
@@ -99,14 +125,14 @@ export const db = {
       if (existing) return existing;
     }
     if (!name && !phone) return null;
-    const customer = {
+    const customer = stamp({
       id: uid("cust"),
       name: name || "Walk-in",
       phone: phone || "",
       email: email || "",
       address: address || "",
       createdAt: new Date().toISOString(),
-    };
+    });
     customers.push(customer);
     write(KEYS.customers, customers);
     return customer;
@@ -117,12 +143,12 @@ export const db = {
   nextInvoiceNumber,
   createSale: (sale) => {
     const sales = read(KEYS.sales);
-    const record = {
+    const record = stamp({
       id: uid("sale"),
       invoice: nextInvoiceNumber(),
       createdAt: new Date().toISOString(),
       ...sale,
-    };
+    });
     sales.unshift(record);
     write(KEYS.sales, sales);
 
@@ -145,7 +171,7 @@ export const db = {
     const sales = read(KEYS.sales);
     const idx = sales.findIndex((s) => s.id === id);
     if (idx > -1) {
-      sales[idx] = { ...sales[idx], ...patch };
+      sales[idx] = stamp({ ...sales[idx], ...patch });
       write(KEYS.sales, sales);
       return sales[idx];
     }
@@ -171,6 +197,7 @@ export const db = {
   deleteSale: (id) => {
     const sales = read(KEYS.sales).filter((s) => s.id !== id);
     write(KEYS.sales, sales);
+    tombstone("sale", id);
   },
 
   // ---- Repairs ----
@@ -179,14 +206,14 @@ export const db = {
   nextTicketNumber,
   createRepair: (repair) => {
     const repairs = read(KEYS.repairs);
-    const record = {
+    const record = stamp({
       id: uid("rep"),
       ticket: nextTicketNumber(),
       createdAt: new Date().toISOString(),
       status: "received",
       paymentStatus: "Unpaid",
       ...repair,
-    };
+    });
     repairs.unshift(record);
     write(KEYS.repairs, repairs);
     return record;
@@ -195,7 +222,7 @@ export const db = {
     const repairs = read(KEYS.repairs);
     const idx = repairs.findIndex((r) => r.id === id);
     if (idx > -1) {
-      repairs[idx] = { ...repairs[idx], ...patch };
+      repairs[idx] = stamp({ ...repairs[idx], ...patch });
       write(KEYS.repairs, repairs);
       return repairs[idx];
     }
@@ -203,12 +230,13 @@ export const db = {
   },
   deleteRepair: (id) => {
     write(KEYS.repairs, read(KEYS.repairs).filter((r) => r.id !== id));
+    tombstone("repair", id);
   },
 
   // ---- Activity log ----
   logActivity: (entry) => {
     const activity = read(KEYS.activity);
-    activity.unshift({ id: uid("act"), createdAt: new Date().toISOString(), ...entry });
+    activity.unshift(stamp({ id: uid("act"), createdAt: new Date().toISOString(), ...entry }));
     write(KEYS.activity, activity);
     db.syncToLan(activity);
   },
@@ -454,6 +482,73 @@ export const db = {
 
     return { added, settingsCopied };
   },
+  // ---- Sync ----
+  // What HQ is shown. Activity is included because the mockup's feed is built
+  // from it; users, settings and counters are not -- HQ has no business
+  // holding a branch's PINs, and nothing at HQ reads them.
+  SYNC_KINDS: [
+    { kind: "sale", key: KEYS.sales },
+    { kind: "repair", key: KEYS.repairs },
+    { kind: "product", key: KEYS.inventory },
+    { kind: "customer", key: KEYS.customers },
+    { kind: "activity", key: KEYS.activity },
+  ],
+
+  /**
+   * Everything changed at or after `since`, as records and tombstones.
+   *
+   * At or after, not after: two records can share a millisecond, and a strict
+   * comparison would drop the second one forever. Re-sending the boundary
+   * record costs nothing -- the push is idempotent and refuses to go
+   * backwards -- while skipping one loses a sale.
+   *
+   * `since` must be a LOCAL clock value, never the server's. A desktop whose
+   * clock differs from the server's by a few minutes would otherwise skip
+   * everything written inside that gap.
+   *
+   * A record with no updatedAt predates this feature, so its createdAt stands
+   * in -- otherwise a shop's entire existing history would look unchanged and
+   * never be sent at all.
+   */
+  getSyncBatch: (since, limit = 400) => {
+    const after = since ? new Date(since).getTime() : 0;
+    const changed = [];
+
+    for (const { kind, key } of db.SYNC_KINDS) {
+      for (const row of read(key)) {
+        const at = row.updatedAt || row.createdAt;
+        if (!at) continue;
+        const t = new Date(at).getTime();
+        if (!Number.isFinite(t) || t < after) continue;
+        changed.push({ id: row.id, kind, updatedAt: new Date(t).toISOString(), payload: row });
+      }
+    }
+
+    const deleted = [];
+    try {
+      const raw = localStorage.getItem(KEYS.tombstones);
+      for (const t of raw ? JSON.parse(raw) : []) {
+        const at = new Date(t.deletedAt).getTime();
+        if (!Number.isFinite(at) || at < after) continue;
+        deleted.push({ id: t.id, kind: t.kind, updatedAt: new Date(at).toISOString(), deleted: true });
+      }
+    } catch { /* an unreadable tombstone list must not block the rest */ }
+
+    // Oldest first, so a batch that is cut short leaves a cursor that can be
+    // resumed from without skipping anything in the middle.
+    const all = [...changed, ...deleted].sort(
+      (a, b) => new Date(a.updatedAt) - new Date(b.updatedAt),
+    );
+    const records = all.slice(0, limit);
+    return {
+      records,
+      more: all.length > limit,
+      // The cursor to store once these have landed: the newest thing actually
+      // sent, on this device's own clock. Never the server's reply.
+      cursor: records.length ? records[records.length - 1].updatedAt : since || null,
+    };
+  },
+
   eraseAllData: () => {
     Object.values(KEYS).forEach((k) => localStorage.removeItem(k));
   },

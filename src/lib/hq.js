@@ -11,6 +11,7 @@
 // connection exists.
 
 import { IS_DESKTOP_APP } from "./platform";
+import { db } from "./db";
 
 // Public by design. This gets a request to the door; the database decides what
 // it is allowed through it. Nothing secret ships in the app.
@@ -134,6 +135,36 @@ export const hq = {
       };
     }
     return { ok: true };
+  },
+
+  /**
+   * Sends everything changed since the last successful sync.
+   *
+   * The token never comes back here -- the main process holds it and does the
+   * posting. This decides WHAT to send and moves the cursor only on a
+   * confirmed success, so a failed push is retried rather than skipped.
+   */
+  async sync({ appVersion } = {}) {
+    if (!IS_DESKTOP_APP) return { ok: false, error: "not_desktop" };
+
+    const state = await this.status();
+    if (!state?.connected) return { ok: false, error: "not_connected" };
+
+    const batch = db.getSyncBatch(state.lastSyncAt);
+
+    // An empty push is still worth making: it is how a branch says "still
+    // here", and it is what keeps HQ's online dot honest. The cursor does not
+    // move, because nothing was sent.
+    const res = await window.techdesk.hqSync({
+      url: SUPABASE_URL,
+      key: PUBLISHABLE_KEY,
+      records: batch.records,
+      // Moved only on a confirmed success, and only to a time from this
+      // device's own clock -- the server's reply would drift against it.
+      cursor: batch.records.length ? batch.cursor : null,
+    });
+    if (!res?.ok) return { ...res, sent: 0, more: batch.more };
+    return { ok: true, sent: batch.records.length, more: batch.more, appVersion };
   },
 
   /** Forgets the connection locally. The install id survives. */
