@@ -1,0 +1,139 @@
+import React, { useCallback, useEffect, useState } from "react";
+import { Monitor, RefreshCw } from "lucide-react";
+import { api } from "./api";
+import { session } from "./session";
+import BottomNav from "./components/BottomNav";
+import LoginScreen from "./screens/LoginScreen";
+import HomeScreen from "./screens/HomeScreen";
+import DevicesScreen from "./screens/DevicesScreen";
+import BranchScreen from "./screens/BranchScreen";
+import ReportsScreen from "./screens/ReportsScreen";
+import SettingsScreen from "./screens/SettingsScreen";
+
+// Often enough that the dashboard feels live when an owner is watching it,
+// rare enough not to eat a data bundle sitting in a pocket.
+const REFRESH_MS = 60_000;
+
+export default function App() {
+  const [token, setToken] = useState(undefined);   // undefined = still looking
+  const [data, setData] = useState(null);
+  const [tab, setTab] = useState("home");
+  const [branch, setBranch] = useState(null);
+  const [error, setError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+
+  useEffect(() => {
+    session.get().then((t) => setToken(t || null));
+  }, []);
+
+  const load = useCallback(async (t, { quiet = false } = {}) => {
+    if (!t) return;
+    if (!quiet) setRefreshing(true);
+    const res = await api.summary(t);
+    setRefreshing(false);
+
+    if (res.ok) {
+      setData(res);
+      setError("");
+      return;
+    }
+    // The session ended -- expired, or signed out from elsewhere. Clearing it
+    // sends them to the sign-in screen instead of leaving a dead app that
+    // refreshes into nothing.
+    if (res.error === "no_session") {
+      await session.clear();
+      setToken(null);
+      setData(null);
+      return;
+    }
+    // Anything else, including being offline: keep showing what is already on
+    // screen. Stale numbers are more use to a shop owner than an error page.
+    setError(res.message || "Couldn't refresh just now.");
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    load(token);
+    const id = setInterval(() => load(token, { quiet: true }), REFRESH_MS);
+    return () => clearInterval(id);
+  }, [token, load]);
+
+  if (token === undefined) {
+    return (
+      <div className="min-h-screen grid place-items-center">
+        <Monitor className="text-blue-500 animate-pulse" size={32} />
+      </div>
+    );
+  }
+
+  if (token === null) {
+    return (
+      <LoginScreen
+        onSignedIn={async (t) => {
+          await session.set(t);
+          setToken(t);
+        }}
+      />
+    );
+  }
+
+  async function signOut() {
+    await api.logout(token);
+    await session.clear();
+    setToken(null);
+    setData(null);
+    setTab("home");
+    setBranch(null);
+  }
+
+  function openBranch(branchId) {
+    const found = (data?.branches || []).find((b) => b.id === branchId);
+    if (found) setBranch(found);
+  }
+
+  const screen = branch ? (
+    <BranchScreen token={token} branch={branch} onBack={() => setBranch(null)} />
+  ) : tab === "home" ? (
+    <HomeScreen data={data} onOpenBranch={openBranch} onSeeAll={() => setTab("devices")} />
+  ) : tab === "devices" ? (
+    <DevicesScreen data={data} onOpenBranch={openBranch} />
+  ) : tab === "reports" ? (
+    <ReportsScreen data={data} />
+  ) : (
+    <SettingsScreen data={data} onSignOut={signOut} />
+  );
+
+  return (
+    <div className="min-h-screen">
+      <header className="flex items-center gap-3 px-4 pt-5 pb-4">
+        <div className="w-10 h-10 rounded-xl bg-blue-500 grid place-items-center shadow-raised-sm">
+          <Monitor className="text-white" size={20} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="font-bold leading-tight">TechDesk</div>
+          <div className="text-xs text-ink-faint">HQ Monitoring</div>
+        </div>
+        <button
+          onClick={() => load(token)}
+          aria-label="Refresh"
+          className="w-10 h-10 rounded-full bg-card shadow-raised-sm grid place-items-center text-ink-soft"
+        >
+          <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
+        </button>
+      </header>
+
+      {error && (
+        <p className="mx-4 mb-3 px-3 py-2 rounded-xl bg-amber-50 text-amber-700 text-xs">
+          {error} Showing the last update.
+        </p>
+      )}
+
+      {/* Clears the floating nav, plus the gesture bar underneath it. */}
+      <main style={{ paddingBottom: `calc(112px + env(safe-area-inset-bottom))` }}>
+        {screen}
+      </main>
+
+      {!branch && <BottomNav tab={tab} onChange={setTab} />}
+    </div>
+  );
+}

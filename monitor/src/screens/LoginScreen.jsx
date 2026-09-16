@@ -1,0 +1,123 @@
+import React, { useState } from "react";
+import { Monitor, Phone, ArrowRight } from "lucide-react";
+import { api } from "../api";
+import { Card } from "../components/ui";
+
+export default function LoginScreen({ onSignedIn }) {
+  const [step, setStep] = useState("phone");
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [sentTo, setSentTo] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const field =
+    "w-full rounded-2xl px-4 py-3.5 bg-sunk shadow-pressed outline-none text-ink placeholder:text-ink-faint";
+
+  async function askForCode(e) {
+    e.preventDefault();
+    setError("");
+    if (!phone.trim()) return setError("Enter your phone number.");
+    setBusy(true);
+    const res = await api.loginStart(phone.trim());
+    setBusy(false);
+    if (!res.ok) return setError(res.message || "That didn't work. Try again.");
+    setSentTo(res.phone || phone);
+    setStep("code");
+  }
+
+  async function signIn(e) {
+    e.preventDefault();
+    setError("");
+    if (!/^\d{6}$/.test(code.trim())) return setError("The code is 6 digits.");
+    setBusy(true);
+    const res = await api.loginVerify(phone.trim(), code.trim());
+    setBusy(false);
+    if (!res.ok) return setError(res.message || "That didn't work. Try again.");
+    onSignedIn(res.token);
+  }
+
+  return (
+    <div className="min-h-screen flex flex-col justify-center px-6 py-10">
+      <div className="flex flex-col items-center mb-8">
+        <div className="w-16 h-16 rounded-2xl bg-blue-500 grid place-items-center shadow-raised mb-4">
+          <Monitor className="text-white" size={30} />
+        </div>
+        <h1 className="text-xl font-bold">TechDesk Monitor</h1>
+        <p className="text-sm text-ink-soft mt-1">Your branches, on your phone.</p>
+      </div>
+
+      <Card className="p-6">
+        {step === "phone" ? (
+          <form onSubmit={askForCode}>
+            <label className="block mb-4">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-ink-soft mb-2">
+                <Phone size={13} /> Your HQ phone number
+              </span>
+              <input
+                className={field}
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                placeholder="08012345678"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </label>
+            <p className="text-xs text-ink-faint mb-4 leading-relaxed">
+              The number you registered your business with. We&rsquo;ll text you a code.
+            </p>
+            {error && <p className="text-sm text-rose-500 mb-3">{error}</p>}
+            <button
+              type="submit"
+              disabled={busy}
+              className={`w-full py-3.5 rounded-2xl bg-blue-500 text-white font-semibold flex items-center justify-center gap-2 ${
+                busy ? "opacity-60" : ""
+              }`}
+            >
+              {busy ? "Sending…" : "Send me a code"} {!busy && <ArrowRight size={17} />}
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={signIn}>
+            <p className="text-sm text-ink-soft mb-5 leading-relaxed">
+              We texted a 6-digit code to <b className="text-ink">{sentTo}</b>.
+            </p>
+            {/* No maxLength: it would cut a code pasted with spaces before the
+                handler strips them. Six digits is enforced here instead. */}
+            <input
+              className={`${field} text-center text-2xl font-bold tracking-[0.35em] pl-[0.35em]`}
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              placeholder="000000"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              autoFocus
+            />
+            {error && <p className="text-sm text-rose-500 mt-3">{error}</p>}
+            <button
+              type="submit"
+              disabled={busy}
+              className={`w-full mt-5 py-3.5 rounded-2xl bg-blue-500 text-white font-semibold ${
+                busy ? "opacity-60" : ""
+              }`}
+            >
+              {busy ? "Checking…" : "Sign in"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStep("phone");
+                setCode("");
+                setError("");
+              }}
+              className="w-full mt-3 py-3 rounded-2xl text-ink-soft text-sm font-medium"
+            >
+              Use a different number
+            </button>
+          </form>
+        )}
+      </Card>
+    </div>
+  );
+}
