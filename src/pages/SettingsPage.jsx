@@ -5,6 +5,7 @@ import ShopTab from "./settings/ShopTab";
 import ReceiptsTab from "./settings/ReceiptsTab";
 import UsersTab from "./settings/UsersTab";
 import DeviceTab from "./settings/DeviceTab";
+import ConnectHqTab from "./settings/ConnectHqTab";
 import DeveloperTab from "./settings/DeveloperTab";
 
 const TABS = [
@@ -12,6 +13,7 @@ const TABS = [
   { key: "receipts", label: "Receipts", Component: ReceiptsTab },
   { key: "users", label: "Users", Component: UsersTab },
   { key: "device", label: "Device", Component: DeviceTab },
+  { key: "hq", label: "Connect to HQ", Component: ConnectHqTab },
   { key: "developer", label: "Developer", Component: DeveloperTab },
 ];
 
@@ -24,7 +26,7 @@ export default function SettingsPage() {
     <div className="flex-1 p-4 md:p-8">
       <Topbar title="Settings" />
 
-      {/* Five tabs don't fit a phone, so the strip scrolls sideways there
+      {/* Six tabs don't fit a phone, so the strip scrolls sideways there
           rather than pushing the whole page wider than the screen. */}
       <div className="-mx-4 md:mx-0 px-4 md:px-0 mb-6 overflow-x-auto">
       <div className={`inline-flex rounded-xl p-1 ${t.insetBg}`}>

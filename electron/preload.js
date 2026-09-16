@@ -9,6 +9,13 @@ contextBridge.exposeInMainWorld("techdesk", {
   writeTrial: (state) => ipcRenderer.invoke("techdesk:write-trial", state),
   readLicense: () => ipcRenderer.invoke("techdesk:read-license"),
   writeLicense: (state) => ipcRenderer.invoke("techdesk:write-license", state),
+
+  // HQ connection. The device token is written and read in the main process
+  // only -- hqRead deliberately reports whether a token exists, not what it is.
+  hqInstallId: () => ipcRenderer.invoke("techdesk:hq-install-id"),
+  hqRead: () => ipcRenderer.invoke("techdesk:hq-read"),
+  hqSave: (payload) => ipcRenderer.invoke("techdesk:hq-save", payload),
+  hqDisconnect: () => ipcRenderer.invoke("techdesk:hq-disconnect"),
   getNetworkInfo: () => ipcRenderer.invoke("techdesk:network-info"),
   syncActivity: (activities) => ipcRenderer.send("techdesk:sync-activity", activities),
   showNetworkQr: (url) => ipcRenderer.invoke("techdesk:show-network-qr", url),

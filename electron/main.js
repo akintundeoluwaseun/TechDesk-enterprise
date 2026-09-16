@@ -4,6 +4,7 @@ const https = require("https");
 const os = require("os");
 const path = require("path");
 const fs = require("fs");
+const nodeCrypto = require("crypto");
 const QRCode = require("qrcode");
 const selfsigned = require("selfsigned");
 const webpush = require("web-push");
@@ -1064,6 +1065,107 @@ ipcMain.handle("techdesk:write-license", (event, state) => {
     fs.writeFileSync(tmp, JSON.stringify(safe), "utf-8");
     fs.renameSync(tmp, LICENSE_FILE());
     return { ok: true, state: safe };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+// ---- HQ connection ----
+// The install id and the device token live here rather than in localStorage,
+// for the same reason the licence does: Chromium commits localStorage lazily,
+// so a power cut can lose the last few minutes of writes. Losing the install
+// id would make the shop look like a brand new device to HQ; losing the token
+// would silently disconnect them.
+//
+// The token is a credential. It is written to userData, never sent to the
+// renderer except when the renderer itself just obtained it, and never logged.
+const HQ_FILE = () => path.join(app.getPath("userData"), "hq.json");
+
+function readHqState() {
+  try {
+    return JSON.parse(fs.readFileSync(HQ_FILE(), "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+function writeHqState(next) {
+  // Write-then-rename, so a power cut mid-write cannot leave a truncated file
+  // where the connection used to be.
+  const tmp = HQ_FILE() + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(next), "utf-8");
+  fs.renameSync(tmp, HQ_FILE());
+}
+
+ipcMain.handle("techdesk:hq-install-id", () => {
+  try {
+    const state = readHqState();
+    if (typeof state.installId === "string" && state.installId.length >= 16) {
+      return { ok: true, installId: state.installId };
+    }
+    // Generated once and never again. Everything HQ knows about this shop
+    // hangs off it.
+    const installId = nodeCrypto.randomUUID();
+    writeHqState({ ...state, installId });
+    return { ok: true, installId };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle("techdesk:hq-read", () => {
+  try {
+    const s = readHqState();
+    // The token stays here. The renderer needs to know whether it is
+    // connected and to whom, not the credential itself.
+    return {
+      ok: true,
+      state: {
+        installId: s.installId || null,
+        connected: typeof s.token === "string" && s.token.length > 0,
+        businessId: s.businessId || null,
+        branchId: s.branchId || null,
+        hqPhone: s.hqPhone || null,
+        branchName: s.branchName || null,
+        connectedAt: s.connectedAt || null,
+        lastSyncAt: s.lastSyncAt || null,
+      },
+    };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle("techdesk:hq-save", (event, payload) => {
+  try {
+    const { token, businessId, branchId, hqPhone, branchName } = payload || {};
+    if (typeof token !== "string" || token.length < 16) {
+      return { ok: false, error: "Refusing to store an implausible token." };
+    }
+    const state = readHqState();
+    writeHqState({
+      ...state,
+      token,
+      businessId: businessId || null,
+      branchId: branchId || null,
+      hqPhone: hqPhone || null,
+      branchName: branchName || null,
+      connectedAt: new Date().toISOString(),
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle("techdesk:hq-disconnect", () => {
+  try {
+    const state = readHqState();
+    // The install id survives. Disconnecting is not becoming a different
+    // shop, and reconnecting later should land on the same device record
+    // rather than leaving an orphan behind at HQ.
+    writeHqState({ installId: state.installId });
+    return { ok: true };
   } catch (err) {
     return { ok: false, error: String(err) };
   }
