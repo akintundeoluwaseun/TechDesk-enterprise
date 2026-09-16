@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, Upload, Trash2, Mail, Send, Database, Network, QrCode, ShieldCheck } from "lucide-react";
+import { Download, Upload, Trash2, Database, Network, QrCode, ShieldCheck } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import { findOtherEditions } from "../../lib/editionData";
@@ -9,8 +9,6 @@ export default function DeviceTab() {
   const t = useThemeTokens();
   const fileRef = useRef(null);
   const [confirmErase, setConfirmErase] = useState(false);
-  const [notificationEmail, setNotificationEmail] = useState(() => db.getSettings?.().notificationEmail || "");
-  const [emailSaved, setEmailSaved] = useState(false);
   const isDesktopApp = typeof window !== "undefined" && !!window.techdesk;
   const [network, setNetwork] = useState({ ip: isDesktopApp ? "Loading..." : "Desktop app only", url: "" });
 
@@ -81,21 +79,6 @@ export default function DeviceTab() {
     window.location.reload();
   }
 
-  function saveNotificationEmail(value = notificationEmail) {
-    db.saveSettings({ ...db.getSettings(), notificationEmail: value });
-    setEmailSaved(true);
-    setTimeout(() => setEmailSaved(false), 1800);
-  }
-
-  function sendActivityEmail() {
-    const recent = db.getActivity().slice(0, 20);
-    const lines = recent.map((a) => `- ${new Date(a.createdAt).toLocaleString()}: ${a.message}`).join("\n");
-    const subject = encodeURIComponent("Activity report");
-    const body = encodeURIComponent(`Recent activity:\n\n${lines || "No activity yet."}`);
-    const to = encodeURIComponent(notificationEmail || "");
-    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
-  }
-
   const input = `w-full rounded-xl px-3 py-2.5 text-sm outline-none ${t.inputBg}`;
 
   return (
@@ -144,36 +127,6 @@ export default function DeviceTab() {
           <Database className="w-4 h-4" /> {scanning ? "Checking…" : "Check for other editions"}
         </button>
         {scanMessage && <p className={`text-xs mt-3 ${t.textMuted}`}>{scanMessage}</p>}
-      </div>
-
-      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-        <div className="flex items-center gap-3">
-          <Mail className={t.dark ? "text-amber-300" : "text-amber-500"} size={20} />
-          <div>
-            <h3 className={`font-semibold ${t.textPrimary}`}>Email activity report</h3>
-            <p className={`text-sm ${t.textSecondary}`}>
-              Opens your own Mail app with recent activity pre-filled — you review and hit send. Nothing is
-              stored or sent automatically, and no password is needed.
-            </p>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-col sm:flex-row gap-3">
-          <input
-            className={input}
-            placeholder="Email to send the report to"
-            value={notificationEmail}
-            onChange={(e) => {
-              setNotificationEmail(e.target.value);
-              saveNotificationEmail(e.target.value);
-            }}
-          />
-          <button
-            onClick={sendActivityEmail}
-            className={`shrink-0 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${t.pillBg}`}
-          >
-            <Send className="w-4 h-4" /> {emailSaved ? "Saved" : "Email activity report"}
-          </button>
-        </div>
       </div>
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>

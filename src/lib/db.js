@@ -274,7 +274,6 @@ export const db = {
       businessType: "general",
       labels: DEFAULT_LABELS,
       categories: BUSINESS_PRESETS.general.defaultCategories,
-      notificationEmail: "",
     };
     // merge so shops that saved settings before these fields existed still get sane defaults
     return { ...defaults, ...stored, labels: { ...defaults.labels, ...(stored.labels || {}) } };
