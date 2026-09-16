@@ -7,7 +7,6 @@ const fs = require("fs");
 const QRCode = require("qrcode");
 const selfsigned = require("selfsigned");
 const webpush = require("web-push");
-const relayConfig = require("./relayConfig");
 
 const isDev = !app.isPackaged;
 app.disableHardwareAcceleration();
@@ -19,91 +18,6 @@ let inventorySnapshot = [];
 let shopInfoSnapshot = {};
 let shopName = "TechDesk Enterprise";
 let networkServer;
-
-// Daily-digest recipient + schedule, pushed from the renderer's Settings
-// page whenever it changes (see db.js's syncEmailSettings). No SMTP
-// credentials live here at all -- sending goes through the developer-run
-// relay (relay/worker.js) so a shop only ever types their email address.
-let emailSettings = { to: "", dailyDigestEnabled: false, dailyDigestTime: "08:00" };
-
-// Tracks the last date (toDateString()) a digest was actually sent, so a
-// restart around the trigger minute can't send a duplicate. Persisted
-// because a shop that closes overnight and reopens near digest time the
-// next morning is a completely normal use pattern, not an edge case.
-const lastDigestPath = path.join(app.getPath("userData"), "email", "last-digest.json");
-let lastDigestSentDate = null;
-try {
-  lastDigestSentDate = JSON.parse(fs.readFileSync(lastDigestPath, "utf-8")).date || null;
-} catch {
-  lastDigestSentDate = null;
-}
-function saveLastDigestSentDate(dateStr) {
-  try {
-    fs.mkdirSync(path.dirname(lastDigestPath), { recursive: true });
-    fs.writeFileSync(lastDigestPath, JSON.stringify({ date: dateStr }), "utf-8");
-  } catch (err) {
-    console.error("Failed to persist last digest date:", err.message);
-  }
-}
-
-function relayConfigured() {
-  return !!(relayConfig.RELAY_URL && relayConfig.CLIENT_KEY);
-}
-
-async function postToRelay(path, body) {
-  if (!relayConfigured()) {
-    throw new Error("Email relay isn't configured yet (see relay/README.md and electron/relayConfig.js).");
-  }
-  const res = await fetch(relayConfig.RELAY_URL.replace(/\/$/, "") + path, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ clientKey: relayConfig.CLIENT_KEY, ...body }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data.ok) throw new Error(data.error || `Relay request failed (${res.status})`);
-}
-
-function buildDigestPayload() {
-  const todayStr = new Date().toDateString();
-  const activityLines = activitySnapshot
-    .filter((a) => new Date(a.createdAt).toDateString() === todayStr)
-    .map((a) => `${new Date(a.createdAt).toLocaleTimeString()}: ${a.message}${a.actor ? " (" + a.actor + ")" : ""}`);
-  const lowStockLines = lowStockSnapshot.map((p) => `${p.name}: ${p.stock} left`);
-  return {
-    shopName,
-    date: new Date().toLocaleDateString(),
-    activityLines,
-    lowStockLines,
-    activeRepairsCount: repairsSnapshot.length,
-  };
-}
-
-async function sendDailyDigest() {
-  await postToRelay("/send-digest", { to: emailSettings.to, ...buildDigestPayload() });
-}
-
-async function sendTestEmail(to) {
-  await postToRelay("/send-test", { to, shopName });
-}
-
-// Checked once a minute; only actually sends when the digest is enabled,
-// a recipient is configured, the clock matches the configured time, and
-// today's digest hasn't already gone out.
-function checkDailyDigest() {
-  if (!emailSettings.dailyDigestEnabled) return;
-  if (!emailSettings.to) return;
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-  if (`${hh}:${mm}` !== emailSettings.dailyDigestTime) return;
-  const todayStr = now.toDateString();
-  if (lastDigestSentDate === todayStr) return;
-  lastDigestSentDate = todayStr;
-  saveLastDigestSentDate(todayStr);
-  sendDailyDigest().catch((err) => {
-    console.error("Daily digest send failed:", err.message);
-  });
-}
 
 // Notification titles shown in real push popups -- kept separate from the
 // page's ICONS map (which also carries colors/emoji irrelevant to a push
@@ -915,7 +829,6 @@ function createWindow() {
 app.whenReady().then(() => {
   startActivityServer();
   createWindow();
-  setInterval(checkDailyDigest, 60000);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -930,28 +843,6 @@ app.on("window-all-closed", () => {
 ipcMain.handle("techdesk:network-info", () => {
   const ip = getLanIp();
   return { ip, url: `${serverScheme}://${ip}:47821` };
-});
-
-ipcMain.on("techdesk:sync-email-settings", (event, payload) => {
-  const { shopName: name, to, dailyDigestEnabled, dailyDigestTime } = payload || {};
-  emailSettings = {
-    to: typeof to === "string" ? to : "",
-    dailyDigestEnabled: !!dailyDigestEnabled,
-    dailyDigestTime: typeof dailyDigestTime === "string" && dailyDigestTime ? dailyDigestTime : "08:00",
-  };
-  if (typeof name === "string" && name.trim()) shopName = name;
-});
-
-// Used by the Settings page's "Send test email" button.
-ipcMain.handle("techdesk:send-email", async (event, payload) => {
-  const { to } = payload || {};
-  if (!to) return { ok: false, error: "Enter an email address first." };
-  try {
-    await sendTestEmail(to);
-    return { ok: true };
-  } catch (err) {
-    return { ok: false, error: err.message };
-  }
 });
 
 ipcMain.on("techdesk:sync-activity", (event, payload) => {

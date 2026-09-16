@@ -7,7 +7,6 @@ import { LicenseProvider, useLicense } from "./lib/LicenseContext";
 import { HelpProvider, useHelp } from "./lib/HelpContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import { useLanSync } from "./lib/useLanSync";
-import { useEmailSync } from "./lib/useEmailSync";
 import { findOtherEditions, getMergeDecision, hasLocalRecords } from "./lib/editionData";
 import Splash from "./components/Splash";
 import LoginScreen from "./pages/LoginScreen";
@@ -68,7 +67,6 @@ function Shell() {
   const [mergeEditions, dismissMerge] = useFirstRunMergePrompt();
   useAutoBackup();
   useLanSync();
-  useEmailSync();
 
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>

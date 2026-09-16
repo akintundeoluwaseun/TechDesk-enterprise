@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, Upload, Trash2, Mail, Send, Database, Network, QrCode, ShieldCheck, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Download, Upload, Trash2, Mail, Send, Database, Network, QrCode, ShieldCheck } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import { findOtherEditions } from "../../lib/editionData";
@@ -14,11 +14,6 @@ export default function DeviceTab() {
   const isDesktopApp = typeof window !== "undefined" && !!window.techdesk;
   const [network, setNetwork] = useState({ ip: isDesktopApp ? "Loading..." : "Desktop app only", url: "" });
 
-  const [dailyDigestEnabled, setDailyDigestEnabled] = useState(() => !!db.getSettings?.().dailyDigestEnabled);
-  const [dailyDigestTime, setDailyDigestTime] = useState(() => db.getSettings?.().dailyDigestTime || "08:00");
-  const [digestSaved, setDigestSaved] = useState(false);
-  const [testSending, setTestSending] = useState(false);
-  const [testResult, setTestResult] = useState(null);
 
   useEffect(() => {
     if (!isDesktopApp) return;
@@ -101,42 +96,6 @@ export default function DeviceTab() {
     window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
   }
 
-  function saveDigestSettings(patch = {}) {
-    const next = { ...db.getSettings(), dailyDigestEnabled, dailyDigestTime, ...patch };
-    db.saveSettings(next);
-    setDigestSaved(true);
-    setTimeout(() => setDigestSaved(false), 1800);
-  }
-
-  function toggleDailyDigest() {
-    const next = !dailyDigestEnabled;
-    setDailyDigestEnabled(next);
-    saveDigestSettings({ dailyDigestEnabled: next });
-  }
-
-  function handleDigestTimeChange(e) {
-    const value = e.target.value;
-    setDailyDigestTime(value);
-    saveDigestSettings({ dailyDigestTime: value });
-  }
-
-  async function handleSendTestEmail() {
-    if (!isDesktopApp || !window.techdesk?.sendTestEmail) {
-      alert("Sending email only works in the installed desktop app.");
-      return;
-    }
-    if (!notificationEmail) {
-      setTestResult({ ok: false, error: "Enter an email address above first." });
-      return;
-    }
-    saveNotificationEmail();
-    setTestSending(true);
-    setTestResult(null);
-    const result = await window.techdesk.sendTestEmail({ to: notificationEmail });
-    setTestSending(false);
-    setTestResult(result);
-  }
-
   const input = `w-full rounded-xl px-3 py-2.5 text-sm outline-none ${t.inputBg}`;
 
   return (
@@ -215,57 +174,6 @@ export default function DeviceTab() {
             <Send className="w-4 h-4" /> {emailSaved ? "Saved" : "Email activity report"}
           </button>
         </div>
-      </div>
-
-      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-        <div className="flex items-center gap-3">
-          <Clock className={t.dark ? "text-amber-300" : "text-amber-500"} size={20} />
-          <div>
-            <h3 className={`font-semibold ${t.textPrimary}`}>Automatic daily digest<span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-300">Coming soon</span></h3>
-            <p className={`text-sm ${t.textSecondary}`}>
-              Sends a real email every day with today's activity, active repairs, and low stock — to the address
-              above. Nothing else to set up.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-4 flex items-center gap-3 flex-wrap pointer-events-none opacity-50" aria-disabled="true">
-          <button
-            onClick={toggleDailyDigest}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${
-              dailyDigestEnabled ? "bg-emerald-500 text-white" : t.pillBg
-            }`}
-          >
-            {dailyDigestEnabled ? "Digest: On" : "Digest: Off"}
-          </button>
-          {dailyDigestEnabled && (
-            <label className="flex items-center gap-2 text-sm">
-              <span className={t.textSecondary}>Send at</span>
-              <input
-                type="time"
-                value={dailyDigestTime}
-                onChange={handleDigestTimeChange}
-                className={`rounded-lg px-3 py-1.5 text-sm outline-none ${t.inputBg}`}
-              />
-            </label>
-          )}
-          <button
-            onClick={handleSendTestEmail}
-            disabled={testSending}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${t.pillBg} ${testSending ? "opacity-60" : ""}`}
-          >
-            <Send className="w-4 h-4" /> {testSending ? "Sending…" : digestSaved ? "Saved" : "Send test email"}
-          </button>
-        </div>
-        {testResult && (
-          <p className={`mt-3 flex items-center gap-1.5 text-sm ${testResult.ok ? "text-emerald-500" : "text-red-500"}`}>
-            {testResult.ok ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
-            {testResult.ok ? "Sent successfully." : testResult.error || "Send failed."}
-          </p>
-        )}
-        {!isDesktopApp && (
-          <p className={`mt-3 text-xs ${t.textMuted}`}>Sending only works in the installed desktop app, not in a browser tab.</p>
-        )}
       </div>
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
