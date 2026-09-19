@@ -1,9 +1,13 @@
-import React from "react";
-import { Building2, LogOut, Phone, ShieldCheck } from "lucide-react";
+import React, { useState } from "react";
+import { Building2, Coins, LogOut, Phone, ShieldCheck } from "lucide-react";
 import { Card, IconBubble } from "../components/ui";
+import { CURRENCIES, currencyCode, setCurrency, money } from "../currency";
 
 export default function SettingsScreen({ data, onSignOut }) {
   const business = data?.business || {};
+  // Held in state as well as storage so the sample below updates as soon as
+  // it is changed, rather than on the next screen.
+  const [currency, setCurrencyState] = useState(currencyCode);
   const branches = data?.branches || [];
 
   return (
@@ -19,6 +23,32 @@ export default function SettingsScreen({ data, onSignOut }) {
             {branches.length} branch{branches.length === 1 ? "" : "es"}
           </div>
         </div>
+      </Card>
+
+      <Card className="p-5 mb-4">
+        <div className="flex items-center gap-3 mb-2">
+          <Coins className="text-amber-500" size={18} />
+          <h2 className="font-semibold">Currency</h2>
+        </div>
+        <p className="text-sm text-ink-soft leading-relaxed mb-3">
+          Branches send up figures, not a currency, so pick the one your shops sell in. It only
+          changes how the numbers here are labelled.
+        </p>
+        <select
+          value={currency}
+          onChange={(e) => {
+            setCurrency(e.target.value);
+            setCurrencyState(e.target.value);
+          }}
+          className="w-full rounded-xl px-3 py-2.5 text-sm bg-surface-sunk text-ink outline-none"
+        >
+          {CURRENCIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.symbol}  {c.name} ({c.code})
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-ink-soft mt-2">Totals show as {money(45000, currency)}.</p>
       </Card>
 
       <Card className="p-5 mb-4">

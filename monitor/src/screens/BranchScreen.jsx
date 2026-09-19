@@ -3,6 +3,7 @@ import { ArrowLeft } from "lucide-react";
 import { api } from "../api";
 import { Card, Empty } from "../components/ui";
 import { ago } from "../format";
+import { money } from "../currency";
 
 const TABS = [
   { kind: "sale", label: "Sales" },
@@ -16,7 +17,7 @@ function line(kind, p) {
     return {
       title: p.invoice || "Sale",
       detail: p.customerName || p.customer || "Walk-in",
-      right: p.total != null ? `₦${Number(p.total).toLocaleString()}` : "",
+      right: p.total != null ? money(p.total) : "",
     };
   }
   if (kind === "repair") {
