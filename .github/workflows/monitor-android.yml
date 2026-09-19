@@ -108,6 +108,25 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           ls -la "$DEST"
 
+      # Published to the releases repo, not just attached to the run. The
+      # APK used to exist only as a workflow artifact, which needs a GitHub
+      # login to download and expires after a few weeks -- so there was
+      # nowhere to send an owner who asked for the monitoring app. Same
+      # destination and same token as every other TechDesk build.
+      - name: Upload to the public releases repo
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          TAG: monitor-v${{ steps.apk.outputs.version }}
+          APK: ${{ steps.apk.outputs.path }}
+          VERSION_LABEL: ${{ steps.apk.outputs.version }}
+        run: |
+          gh release view "$TAG" --repo akintundeoluwaseun/TechDesk-releases- >/dev/null 2>&1 \
+            || gh release create "$TAG" --repo akintundeoluwaseun/TechDesk-releases- \
+                 --title "TechDesk Monitor $VERSION_LABEL" \
+                 --notes "The head-office app: every branch's sales and repairs, read-only, on your phone."
+          gh release upload "$TAG" "$APK" --repo akintundeoluwaseun/TechDesk-releases- --clobber
+
       - uses: actions/upload-artifact@v4
         with:
           name: techdesk-monitor-apk

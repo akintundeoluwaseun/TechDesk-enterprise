@@ -1,7 +1,7 @@
 {
   "name": "techdesk-enterprise",
   "productName": "TechDesk Enterprise",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "Offline repair shop manager for larger teams - sales, repairs, inventory, customers, reports, with LAN activity sharing.",
   "author": {
     "name": "Oluwaseun Joshua",
