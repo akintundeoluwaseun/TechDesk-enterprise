@@ -3,6 +3,7 @@ import { UserPlus, KeyRound, Pencil, Trash2, Check, X } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { useSettings } from "../../lib/SettingsContext";
 import { db } from "../../lib/db";
+import PinRecoverySetup from "../../components/PinRecoverySetup";
 
 function toggleRole0(draft, setDraft, r) {
   setDraft((d) => {
@@ -90,6 +91,8 @@ export default function UsersTab() {
           </button>
         </div>
       </div>
+
+      <PinRecoverySetup />
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <div className="flex items-center justify-between mb-1">

@@ -4,6 +4,7 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
+import ForgotPinModal from "../components/ForgotPinModal";
 
 export default function LoginScreen() {
   const t = useThemeTokens();
@@ -14,6 +15,8 @@ export default function LoginScreen() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
+  const [showForgot, setShowForgot] = useState(false);
+  const [notice, setNotice] = useState("");
 
   function trySubmit(nextPin) {
     const result = signIn(nextPin);
@@ -124,6 +127,7 @@ export default function LoginScreen() {
             </div>
 
             {error && <div className="text-red-500 text-sm mb-3">{error}</div>}
+            {notice && <div className="text-emerald-500 text-sm mb-3">{notice}</div>}
 
             <div className="grid grid-cols-3 gap-3 mb-4">
               {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((d) => (
@@ -151,9 +155,33 @@ export default function LoginScreen() {
                 <Delete className="w-5 h-5" />
               </button>
             </div>
+
+            {/* Admin only. A staff PIN is reset by the admin in Settings;
+                answering the owner's questions must not hand out a till
+                account to whoever is standing at the counter. */}
+            {selectedUser.id === "admin" && (
+              <button
+                onClick={() => setShowForgot(true)}
+                className={`text-sm underline underline-offset-4 ${t.textSecondary}`}
+              >
+                Forgot your PIN?
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {showForgot && (
+        <ForgotPinModal
+          onClose={() => setShowForgot(false)}
+          onReset={() => {
+            setShowForgot(false);
+            setPin("");
+            setError("");
+            setNotice("PIN changed. Sign in with your new PIN.");
+          }}
+        />
+      )}
     </div>
   );
 }
