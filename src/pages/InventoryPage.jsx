@@ -6,9 +6,12 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { db } from "../lib/db";
 import { rowsToCsv, downloadCsv } from "../lib/csv";
+import { money } from "../lib/currency";
+import { useSettings } from "../lib/SettingsContext";
 
 export default function InventoryPage() {
   const t = useThemeTokens();
+  const { settings } = useSettings();
   const { isAdmin } = useAuth();
   const [products, setProducts] = useState(() => db.getInventory());
   const [tab, setTab] = useState("in-stock"); // in-stock | sold-out | low-stock
@@ -97,9 +100,9 @@ export default function InventoryPage() {
         title="Inventory"
         subtitle={
           isAdmin
-            ? `${inStockCount} in stock \u00b7 ${soldOutCount} sold out \u00b7 Total value \u20A6${products
+            ? `${inStockCount} in stock \u00b7 ${soldOutCount} sold out \u00b7 Total value ${money(products
                 .reduce((sum, p) => sum + Number(p.price || 0) * Number(p.stock || 0), 0)
-                .toLocaleString()}`
+                , settings)}`
             : `${inStockCount} in stock \u00b7 ${soldOutCount} sold out`
         }
         action={
@@ -214,7 +217,7 @@ export default function InventoryPage() {
                   {p.sku || "\u2014"} &middot; {p.category}
                 </div>
               </div>
-              <div className={t.textPrimary}>&#8358;{Number(p.price).toLocaleString()}</div>
+              <div className={t.textPrimary}>{money(Number(p.price), settings)}</div>
               <div className={p.stock <= (p.lowStockThreshold || 5) ? "text-orange-500 font-medium" : t.textPrimary}>
                 {p.stock}
               </div>

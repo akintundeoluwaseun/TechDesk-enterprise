@@ -7,6 +7,8 @@
 // recipient. So: WhatsApp for "send it to this number now", Share PDF for
 // "give them the actual document".
 
+import { money as formatMoney } from "./currency";
+
 const DEFAULT_COUNTRY = "234"; // Nigeria
 
 /**
@@ -42,8 +44,8 @@ export function waNumber(raw, country = DEFAULT_COUNTRY) {
   return digits.length >= 11 ? digits : "";
 }
 
-function money(n) {
-  return `₦${Number(n || 0).toLocaleString()}`;
+function money(n, settings) {
+  return formatMoney(n, settings);
 }
 
 /**
@@ -65,7 +67,7 @@ export function saleMessage(sale, settings = {}) {
     name: sale.customerName || "",
     shop,
     invoice: sale.invoice || "",
-    total: money(sale.total),
+    total: money(sale.total, settings),
   };
 
   if (settings.whatsappTemplate?.trim()) {
@@ -80,10 +82,10 @@ export function saleMessage(sale, settings = {}) {
   ];
 
   (sale.items || []).forEach((item) => {
-    lines.push(`- ${item.name} x${item.qty}  ${money(item.price * item.qty)}`);
+    lines.push(`- ${item.name} x${item.qty}  ${money(item.price * item.qty, settings)}`);
   });
 
-  lines.push(`Total: ${money(sale.total)}`);
+  lines.push(`Total: ${money(sale.total, settings)}`);
   if (settings.receiptFooter) lines.push("", settings.receiptFooter);
   return lines.filter((l) => l !== null).join("\n");
 }
@@ -101,7 +103,7 @@ export function repairMessage(repair, settings = {}) {
     shop,
     ticket: repair.ticket || "",
     device: repair.device || "",
-    total: money(total),
+    total: money(total, settings),
   };
 
   if (settings.whatsappTemplate?.trim()) {
@@ -119,10 +121,10 @@ export function repairMessage(repair, settings = {}) {
   ];
 
   (repair.parts || []).forEach((part) => {
-    lines.push(`- ${part.name} x${part.qty}  ${money(part.price * part.qty)}`);
+    lines.push(`- ${part.name} x${part.qty}  ${money(part.price * part.qty, settings)}`);
   });
 
-  if (total) lines.push(`Total: ${money(total)}`);
+  if (total) lines.push(`Total: ${money(total, settings)}`);
   if (settings.receiptFooter) lines.push("", settings.receiptFooter);
   return lines.filter((l) => l !== null).join("\n");
 }

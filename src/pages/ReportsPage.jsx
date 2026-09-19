@@ -6,6 +6,8 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { computeReport, reportToCsv } from "../lib/reports";
 import { generateReportPdf } from "../lib/generateReportPdf";
 import { downloadCsv } from "../lib/csv";
+import { money } from "../lib/currency";
+import { useSettings } from "../lib/SettingsContext";
 
 const FILTERS = [
   { key: "today", label: "Today" },
@@ -16,6 +18,7 @@ const FILTERS = [
 
 export default function ReportsPage() {
   const t = useThemeTokens();
+  const { settings } = useSettings();
   const [filter, setFilter] = useState("30d");
   const report = useMemo(() => computeReport(filter), [filter]);
 
@@ -28,9 +31,9 @@ export default function ReportsPage() {
   }
 
   const statCards = [
-    { label: `Revenue (${FILTERS.find((f) => f.key === filter)?.label})`, value: `\u20A6${report.revenue.toLocaleString()}`, sub: `Sales \u20A6${report.revenue.toLocaleString()} \u00b7 Repairs \u20A6${report.repairRevenue.toLocaleString()}` },
-    { label: "Profit", value: `\u20A6${report.profit.toLocaleString()}`, sub: "Revenue minus item cost" },
-    { label: "Outstanding", value: `\u20A6${report.outstanding.toLocaleString()}`, sub: "Unpaid sales & repairs" },
+    { label: `Revenue (${FILTERS.find((f) => f.key === filter)?.label})`, value: `${money(report.revenue, settings)}`, sub: `Sales ${money(report.revenue, settings)} \u00b7 Repairs ${money(report.repairRevenue, settings)}` },
+    { label: "Profit", value: `${money(report.profit, settings)}`, sub: "Revenue minus item cost" },
+    { label: "Outstanding", value: `${money(report.outstanding, settings)}`, sub: "Unpaid sales & repairs" },
   ];
 
   const secondaryCards = [
@@ -148,8 +151,8 @@ export default function ReportsPage() {
               <div key={p.name} className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 text-sm py-2 ${t.textPrimary}`}>
                 <span>{p.name}</span>
                 <span>{p.qty}</span>
-                <span className="text-right">&#8358;{p.revenue.toLocaleString()}</span>
-                <span className="text-right">&#8358;{p.profit.toLocaleString()}</span>
+                <span className="text-right">{money(p.revenue, settings)}</span>
+                <span className="text-right">{money(p.profit, settings)}</span>
               </div>
             ))
           )}
@@ -169,7 +172,7 @@ export default function ReportsPage() {
               <div key={m.method} className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 text-sm py-2 ${t.textPrimary}`}>
                 <span className="font-medium">{m.method}</span>
                 <span>{m.sales}</span>
-                <span className="text-right">&#8358;{m.total.toLocaleString()}</span>
+                <span className="text-right">{money(m.total, settings)}</span>
               </div>
             ))
           )}
@@ -207,7 +210,7 @@ export default function ReportsPage() {
             <div key={s.staff} className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 text-sm py-2 ${t.textPrimary}`}>
               <span className="font-medium">{s.staff}</span>
               <span>{s.sales}</span>
-              <span>&#8358;{s.revenue.toLocaleString()}</span>
+              <span>{money(s.revenue, settings)}</span>
               <span>
                 {s.repairs} ({s.done} done)
               </span>

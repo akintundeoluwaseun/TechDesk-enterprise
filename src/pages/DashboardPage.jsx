@@ -14,6 +14,7 @@ import Topbar from "../components/Topbar";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
+import { money } from "../lib/currency";
 
 function isToday(iso) {
   const d = new Date(iso);
@@ -43,7 +44,7 @@ export default function DashboardPage() {
   const stats = [
     {
       label: "Sales Today",
-      value: `\u20A6${salesTodayTotal.toLocaleString()}`,
+      value: `${money(salesTodayTotal, settings)}`,
       sub: `${salesToday.length} transactions`,
       icon: ShoppingCart,
       iconBg: t.dark ? "bg-white/5" : "bg-blue-100",
@@ -176,7 +177,7 @@ export default function DashboardPage() {
                     <div className={`text-sm font-medium ${t.textPrimary}`}>{s.invoice}</div>
                     <div className={`text-xs ${t.textMuted}`}>{s.customerName}</div>
                   </div>
-                  <span className={`text-sm font-semibold ${t.textPrimary}`}>&#8358;{Number(s.total).toLocaleString()}</span>
+                  <span className={`text-sm font-semibold ${t.textPrimary}`}>{money(Number(s.total), settings)}</span>
                 </button>
               ))}
             </div>

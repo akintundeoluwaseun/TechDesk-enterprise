@@ -3,11 +3,13 @@ import { savePdf } from "./saveFile";
 import autoTable from "jspdf-autotable";
 import { db } from "./db";
 import { pdfSafe } from "./pdfSafe";
+import { currencyPdfSymbol } from "./currency";
 
 const FILTER_LABELS = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days", month: "This month" };
 
 export function generateReportPdf(report, filter, { autoOpen = true } = {}) {
   const settings = db.getSettings();
+  const cur = currencyPdfSymbol(settings);
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 40;
@@ -27,9 +29,9 @@ export function generateReportPdf(report, filter, { autoOpen = true } = {}) {
   y += 28;
 
   const statCards = [
-    ["Revenue", `N${report.revenue.toLocaleString()}`],
-    ["Profit", `N${report.profit.toLocaleString()}`],
-    ["Outstanding", `N${report.outstanding.toLocaleString()}`],
+    ["Revenue", `${cur}${report.revenue.toLocaleString()}`],
+    ["Profit", `${cur}${report.profit.toLocaleString()}`],
+    ["Outstanding", `${cur}${report.outstanding.toLocaleString()}`],
     ["Sales", String(report.salesCount)],
     ["Repairs", String(report.repairsCount)],
     ["Completed", String(report.completed)],
@@ -63,8 +65,8 @@ export function generateReportPdf(report, filter, { autoOpen = true } = {}) {
       body: report.topProducts.map((p) => [
         p.name,
         String(p.qty),
-        `N${p.revenue.toLocaleString()}`,
-        `N${p.profit.toLocaleString()}`,
+        `${cur}${p.revenue.toLocaleString()}`,
+        `${cur}${p.profit.toLocaleString()}`,
       ]),
       theme: "striped",
       styles: { fontSize: 9.5 },
@@ -82,7 +84,7 @@ export function generateReportPdf(report, filter, { autoOpen = true } = {}) {
       startY: y,
       margin: { left: marginX, right: marginX },
       head: [["Method", "Sales", "Total"]],
-      body: report.paymentMethods.map((m) => [m.method, String(m.sales), `N${m.total.toLocaleString()}`]),
+      body: report.paymentMethods.map((m) => [m.method, String(m.sales), `${cur}${m.total.toLocaleString()}`]),
       theme: "striped",
       styles: { fontSize: 9.5 },
       headStyles: { fillColor: [15, 15, 15] },
@@ -124,7 +126,7 @@ export function generateReportPdf(report, filter, { autoOpen = true } = {}) {
       body: report.staffPerformance.map((s) => [
         s.staff,
         String(s.sales),
-        `N${s.revenue.toLocaleString()}`,
+        `${cur}${s.revenue.toLocaleString()}`,
         String(s.repairs),
         String(s.done),
       ]),

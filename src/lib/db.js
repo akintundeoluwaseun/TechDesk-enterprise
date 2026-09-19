@@ -315,6 +315,9 @@ export const db = {
       returnPolicy: "",
       receiptFooter: "",
       whatsappTemplate: "",
+      // Naira unless the shop changes it. A shop that upgraded from a build
+      // with no currency setting keeps exactly what it had.
+      currency: "NGN",
       businessType: "general",
       labels: DEFAULT_LABELS,
       categories: BUSINESS_PRESETS.general.defaultCategories,

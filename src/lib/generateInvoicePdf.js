@@ -3,9 +3,11 @@ import { savePdf } from "./saveFile";
 import autoTable from "jspdf-autotable";
 import { db } from "./db";
 import { pdfSafe } from "./pdfSafe";
+import { currencyPdfSymbol } from "./currency";
 
 export function generateInvoicePdf(sale, { autoOpen = true } = {}) {
   const settings = db.getSettings();
+  const cur = currencyPdfSymbol(settings);
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 40;
@@ -128,8 +130,8 @@ export function generateInvoicePdf(sale, { autoOpen = true } = {}) {
     pdfSafe(item.name),
     item.imei ? `Serial No: ${pdfSafe(item.imei)}` : "N/A",
     String(item.qty),
-    `N${Number(item.price).toLocaleString()}`,
-    `N${Number(item.price * item.qty).toLocaleString()}`,
+    `${cur}${Number(item.price).toLocaleString()}`,
+    `${cur}${Number(item.price * item.qty).toLocaleString()}`,
   ]);
 
   autoTable(doc, {
@@ -168,11 +170,11 @@ export function generateInvoicePdf(sale, { autoOpen = true } = {}) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10.5);
   doc.text("Subtotal", totalsX, y);
-  doc.text(`N${Number(sale.subtotal).toLocaleString()}`, pageW - marginX, y, { align: "right" });
+  doc.text(`${cur}${Number(sale.subtotal).toLocaleString()}`, pageW - marginX, y, { align: "right" });
   y += 18;
   if (sale.discount) {
     doc.text("Discount", totalsX, y);
-    doc.text(`- N${Number(sale.discount).toLocaleString()}`, pageW - marginX, y, { align: "right" });
+    doc.text(`- ${cur}${Number(sale.discount).toLocaleString()}`, pageW - marginX, y, { align: "right" });
     y += 18;
   }
   doc.setLineWidth(0.75);
@@ -181,7 +183,7 @@ export function generateInvoicePdf(sale, { autoOpen = true } = {}) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.text("TOTAL", totalsX, y);
-  doc.text(`N${Number(sale.total).toLocaleString()}`, pageW - marginX, y, { align: "right" });
+  doc.text(`${cur}${Number(sale.total).toLocaleString()}`, pageW - marginX, y, { align: "right" });
   y += 30;
 
   // ---- Payment details ----
@@ -207,9 +209,9 @@ export function generateInvoicePdf(sale, { autoOpen = true } = {}) {
 
   doc.setFont("helvetica", "normal");
   doc.text(`: ${pdfSafe(sale.paymentMethod) || "-"}`, marginX + 115, payBoxTop + 22);
-  doc.text(`: N${Number(sale.amountPaid || 0).toLocaleString()}`, marginX + 115, payBoxTop + 40);
+  doc.text(`: ${cur}${Number(sale.amountPaid || 0).toLocaleString()}`, marginX + 115, payBoxTop + 40);
   const balance = Math.max(0, Number(sale.total) - Number(sale.amountPaid || 0));
-  doc.text(`: N${balance.toLocaleString()}`, col2X + 55, payBoxTop + 22);
+  doc.text(`: ${cur}${balance.toLocaleString()}`, col2X + 55, payBoxTop + 22);
 
   y = payBoxTop + payBoxH + 22;
 

@@ -10,6 +10,7 @@ import { generateInvoicePdf } from "../lib/generateInvoicePdf";
 import { generateThermalReceiptPdf } from "../lib/generateThermalReceipt";
 import { openWhatsApp, saleMessage } from "../lib/share";
 import { IS_ANDROID_APP } from "../lib/platform";
+import { money } from "../lib/currency";
 
 const PAYMENT_STATUSES = ["Paid", "Pending", "Partial"];
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "POS", "Transfer + Cash"];
@@ -57,7 +58,7 @@ export default function SalesPage() {
     db.deleteSale(sale.id);
     db.logActivity({
       type: "sale",
-      message: `Sale ${sale.invoice} deleted (${sale.customerName || "Walk-in"}, \u20A6${Number(sale.total).toLocaleString()})`,
+      message: `Sale ${sale.invoice} deleted (${sale.customerName || "Walk-in"}, ${money(Number(sale.total), settings)})`,
       refId: sale.id,
       actor: user?.name,
     });
@@ -126,7 +127,7 @@ export default function SalesPage() {
                       {item.name} &times; {item.qty}
                     </span>
                     <span className={`font-medium ${t.textPrimary}`}>
-                      &#8358;{(item.price * item.qty).toLocaleString()}
+                      {money((item.price * item.qty), settings)}
                     </span>
                   </div>
                 ))}
@@ -134,7 +135,7 @@ export default function SalesPage() {
 
               <div className="flex items-center justify-between mb-2">
                 <span className={`text-lg font-bold ${t.textPrimary}`}>
-                  &#8358;{sale.total.toLocaleString()}
+                  {money(sale.total, settings)}
                 </span>
                 <span
                   className={`text-xs font-semibold px-3 py-1 rounded-full ${

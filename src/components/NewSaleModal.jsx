@@ -3,11 +3,14 @@ import { X, Search, Plus, Minus, Trash2 } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { db } from "../lib/db";
+import { currencySymbol, money } from "../lib/currency";
+import { useSettings } from "../lib/SettingsContext";
 
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "POS", "Transfer + Cash"];
 
 export default function NewSaleModal({ sale, onClose, onCompleted }) {
   const t = useThemeTokens();
+  const { settings } = useSettings();
   const { user } = useAuth();
   const isEdit = !!sale;
   const [tab, setTab] = useState("inventory"); // inventory | manual
@@ -313,7 +316,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                         </div>
                       </div>
                       <div className={`font-semibold text-sm ${t.textPrimary}`}>
-                        &#8358;{Number(p.price).toLocaleString()}
+                        {money(Number(p.price), settings)}
                       </div>
                     </button>
                   );
@@ -389,7 +392,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                       <div>
                         <div className={`text-sm font-medium ${t.textPrimary}`}>{item.name}</div>
                         <div className={`text-xs ${t.textMuted}`}>
-                          &#8358;{item.price.toLocaleString()}
+                          {money(item.price, settings)}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
@@ -517,7 +520,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
               </select>
             </div>
             <div>
-              <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Discount (&#8358;)</label>
+              <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Discount ({currencySymbol(settings)})</label>
               <input
                 type="number"
                 value={discount}
@@ -529,7 +532,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
           </div>
 
           <div className="mb-5">
-            <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Amount Paid (&#8358;)</label>
+            <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Amount Paid ({currencySymbol(settings)})</label>
             <input
               type="number"
               value={amountPaid}
@@ -542,15 +545,15 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
           <div className={`rounded-xl p-4 mb-5 ${t.cardBg}`}>
             <div className="flex items-center justify-between text-sm mb-2">
               <span className={t.textSecondary}>Subtotal</span>
-              <span className={t.textPrimary}>&#8358;{subtotal.toLocaleString()}</span>
+              <span className={t.textPrimary}>{money(subtotal, settings)}</span>
             </div>
             <div className="flex items-center justify-between mb-2">
               <span className={`font-bold ${t.textPrimary}`}>Total</span>
-              <span className={`font-bold ${t.textPrimary}`}>&#8358;{total.toLocaleString()}</span>
+              <span className={`font-bold ${t.textPrimary}`}>{money(total, settings)}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className={t.textSecondary}>Paid</span>
-              <span className={t.textPrimary}>&#8358;{(Number(amountPaid) || 0).toLocaleString()}</span>
+              <span className={t.textPrimary}>{money((Number(amountPaid) || 0), settings)}</span>
             </div>
           </div>
 

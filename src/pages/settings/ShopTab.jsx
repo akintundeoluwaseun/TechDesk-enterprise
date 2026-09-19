@@ -3,6 +3,7 @@ import { Sun, Moon, Monitor as MonitorIcon, Upload } from "lucide-react";
 import { useTheme, useThemeTokens } from "../../lib/ThemeContext";
 import { useSettings } from "../../lib/SettingsContext";
 import BusinessTypeSection from "./BusinessTypeSection";
+import { CURRENCIES, DEFAULT_CURRENCY, money } from "../../lib/currency";
 
 const APPEARANCE_OPTIONS = [
   { key: "light", label: "Light", icon: Sun },
@@ -61,6 +62,32 @@ export default function ShopTab() {
             );
           })}
         </div>
+      </div>
+
+      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
+        <h3 className={`font-semibold mb-1 ${t.textPrimary}`}>Currency</h3>
+        <p className={`text-sm mb-4 ${t.textSecondary}`}>
+          Used everywhere money appears &mdash; sales, inventory, repairs, reports, receipts and
+          the messages you send customers. Changing it re-labels existing figures; it does not
+          convert them.
+        </p>
+        <select
+          id="shop-currency"
+          value={settings.currency || DEFAULT_CURRENCY}
+          onChange={(e) => updateSettings({ currency: e.target.value })}
+          className={`w-full sm:w-80 rounded-xl px-3 py-2.5 text-sm outline-none ${
+            t.dark ? "bg-white/5 border border-white/10 text-white" : "bg-slate-50 border border-slate-200 text-slate-900"
+          }`}
+        >
+          {CURRENCIES.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.symbol}  {c.name} ({c.code})
+            </option>
+          ))}
+        </select>
+        <p className={`text-xs mt-3 ${t.textMuted}`}>
+          Prices show as {money(45000, settings)}.
+        </p>
       </div>
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>

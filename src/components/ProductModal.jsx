@@ -4,6 +4,7 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
+import { currencySymbol } from "../lib/currency";
 
 export default function ProductModal({ product, onClose, onSaved }) {
   const t = useThemeTokens();
@@ -91,7 +92,7 @@ export default function ProductModal({ product, onClose, onSaved }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div>
             <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
-              Selling Price (&#8358;) <span className="text-red-500">*</span>
+              Selling Price ({currencySymbol(settings)}) <span className="text-red-500">*</span>
             </label>
             <input
               type="number"
@@ -102,7 +103,7 @@ export default function ProductModal({ product, onClose, onSaved }) {
           </div>
           {isAdmin && (
             <div>
-              <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Cost Price (&#8358;)</label>
+              <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Cost Price ({currencySymbol(settings)})</label>
               <input
                 type="number"
                 value={costPrice}

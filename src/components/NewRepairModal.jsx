@@ -4,6 +4,7 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
+import { currencySymbol, money } from "../lib/currency";
 
 const STATUSES = ["received", "in progress", "awaiting parts", "completed", "delivered"];
 
@@ -191,7 +192,7 @@ export default function NewRepairModal({ onClose, onCompleted }) {
           </div>
           <div>
             <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
-              {labels.ticketSingular} cost (&#8358;){parts.length > 0 && <span className={`font-normal ${t.textMuted}`}> &mdash; labour</span>}
+              {labels.ticketSingular} cost ({currencySymbol(settings)}){parts.length > 0 && <span className={`font-normal ${t.textMuted}`}> &mdash; labour</span>}
             </label>
             <input
               type="number"
@@ -201,7 +202,7 @@ export default function NewRepairModal({ onClose, onCompleted }) {
             />
             {parts.length > 0 && (
               <p className={`text-xs mt-1.5 tabular-nums ${t.textSecondary}`}>
-                Customer total &#8358;{((Number(cost) || 0) + partsTotal).toLocaleString()}
+                Customer total {money(((Number(cost) || 0) + partsTotal), settings)}
                 <span className={t.textMuted}> (labour + parts)</span>
               </p>
             )}
@@ -262,7 +263,7 @@ export default function NewRepairModal({ onClose, onCompleted }) {
                     className={`w-16 rounded-lg px-2 py-1 text-sm text-center outline-none ${t.inputBg}`}
                   />
                   <span className={`text-sm tabular-nums w-24 text-right ${t.textSecondary}`}>
-                    &#8358;{(item.price * item.qty).toLocaleString()}
+                    {money((item.price * item.qty), settings)}
                   </span>
                   <button
                     type="button"
@@ -277,7 +278,7 @@ export default function NewRepairModal({ onClose, onCompleted }) {
               <div className="flex items-center justify-between px-3 py-2.5">
                 <span className={`text-sm font-medium ${t.textSecondary}`}>Parts total</span>
                 <span className={`text-sm font-semibold tabular-nums ${t.textPrimary}`}>
-                  &#8358;{partsTotal.toLocaleString()}
+                  {money(partsTotal, settings)}
                 </span>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { savePdf } from "./saveFile";
 import autoTable from "jspdf-autotable";
 import { db } from "./db";
 import { pdfSafe } from "./pdfSafe";
+import { currencyPdfSymbol } from "./currency";
 
 function contactLine(settings) {
   return [settings.phone, settings.address, settings.email]
@@ -68,6 +69,7 @@ function header(doc, marginX, settings, big = 22) {
 
 export function generateRepairTicketPdf(repair, { autoOpen = true } = {}) {
   const settings = db.getSettings();
+  const cur = currencyPdfSymbol(settings);
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 40;
@@ -153,10 +155,10 @@ export function generateRepairTicketPdf(repair, { autoOpen = true } = {}) {
         String(i + 1),
         c.description,
         String(c.qty),
-        `N${Number(c.unitPrice).toLocaleString()}`,
-        `N${Number(c.qty * c.unitPrice).toLocaleString()}`,
+        `${cur}${Number(c.unitPrice).toLocaleString()}`,
+        `${cur}${Number(c.qty * c.unitPrice).toLocaleString()}`,
       ])
-    : buildDefaultRows(repair);
+    : buildDefaultRows(repair, cur);
 
   autoTable(doc, {
     startY: y,
@@ -184,7 +186,7 @@ export function generateRepairTicketPdf(repair, { autoOpen = true } = {}) {
     0
   );
   const grandTotal = Number(repair.repairCost || 0) + partsTotal;
-  const estTotal = grandTotal ? `N${grandTotal.toLocaleString()}` : "N0 - NXX,XXX";
+  const estTotal = grandTotal ? `${cur}${grandTotal.toLocaleString()}` : `${cur}0 - ${cur}XX,XXX`;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
   doc.text("ESTIMATED TOTAL", totalsX, y);
@@ -192,7 +194,7 @@ export function generateRepairTicketPdf(repair, { autoOpen = true } = {}) {
   y += 16;
   doc.setFont("helvetica", "normal");
   doc.text("DEPOSIT PAID", totalsX, y);
-  doc.text(`N${Number(repair.depositPaid || 0).toLocaleString()}`, pageW - marginX, y, { align: "right" });
+  doc.text(`${cur}${Number(repair.depositPaid || 0).toLocaleString()}`, pageW - marginX, y, { align: "right" });
   y += 10;
   doc.line(totalsX, y, pageW - marginX, y);
   y += 18;
@@ -563,14 +565,14 @@ export function generateBlankRepairFormPdf({ autoOpen = true } = {}) {
  * after diagnosis)" -- which stayed on the customer's copy even for a job
  * where the parts were known, priced and already off the shelf.
  */
-function buildDefaultRows(repair) {
+function buildDefaultRows(repair, cur) {
   const rows = [
     [
       "1",
       "Labour",
       "1",
-      `N${Number(repair.repairCost || 0).toLocaleString()}`,
-      `N${Number(repair.repairCost || 0).toLocaleString()}`,
+      `${cur}${Number(repair.repairCost || 0).toLocaleString()}`,
+      `${cur}${Number(repair.repairCost || 0).toLocaleString()}`,
     ],
   ];
 
@@ -583,8 +585,8 @@ function buildDefaultRows(repair) {
         String(rows.length + 1),
         pdfSafe(part.name || "Part"),
         String(qty),
-        `N${price.toLocaleString()}`,
-        `N${(qty * price).toLocaleString()}`,
+        `${cur}${price.toLocaleString()}`,
+        `${cur}${(qty * price).toLocaleString()}`,
       ]);
     });
   } else {

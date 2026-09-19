@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { savePdf } from "./saveFile";
 import { db } from "./db";
 import { pdfSafe } from "./pdfSafe";
+import { currencyPdfSymbol } from "./currency";
 
 const WIDTH_MM = 58;
 const MARGIN_MM = 3;
@@ -9,6 +10,7 @@ const LINE_H = 4.2;
 
 export function generateThermalReceiptPdf(sale, { autoOpen = true } = {}) {
   const settings = db.getSettings();
+  const cur = currencyPdfSymbol(settings);
   const contentW = WIDTH_MM - MARGIN_MM * 2;
 
   const itemLines = (sale.items || []).length * 2;
@@ -91,24 +93,24 @@ export function generateThermalReceiptPdf(sale, { autoOpen = true } = {}) {
   // ---- Items ----
   (sale.items || []).forEach((item) => {
     left(pdfSafe(item.name), 8);
-    kv(`  ${item.qty} x N${Number(item.price).toLocaleString()}`, `N${Number(item.price * item.qty).toLocaleString()}`);
+    kv(`  ${item.qty} x ${cur}${Number(item.price).toLocaleString()}`, `${cur}${Number(item.price * item.qty).toLocaleString()}`);
   });
   divider();
 
   // ---- Totals ----
-  kv("Subtotal", `N${Number(sale.subtotal).toLocaleString()}`);
-  if (sale.discount) kv("Discount", `-N${Number(sale.discount).toLocaleString()}`);
+  kv("Subtotal", `${cur}${Number(sale.subtotal).toLocaleString()}`);
+  if (sale.discount) kv("Discount", `-${cur}${Number(sale.discount).toLocaleString()}`);
   divider(false);
-  kv("TOTAL", `N${Number(sale.total).toLocaleString()}`, true);
+  kv("TOTAL", `${cur}${Number(sale.total).toLocaleString()}`, true);
   y += 1;
   divider();
 
   // ---- Payment ----
   left("PAYMENT", 7.5, true);
   kv("Method", pdfSafe(sale.paymentMethod) || "-");
-  kv("Amount Paid", `N${Number(sale.amountPaid || 0).toLocaleString()}`);
+  kv("Amount Paid", `${cur}${Number(sale.amountPaid || 0).toLocaleString()}`);
   const balance = Math.max(0, Number(sale.total) - Number(sale.amountPaid || 0));
-  kv("Balance", `N${balance.toLocaleString()}`);
+  kv("Balance", `${cur}${balance.toLocaleString()}`);
   divider();
 
   // ---- Footer ----
