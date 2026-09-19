@@ -1,8 +1,10 @@
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { Sun, Moon, Monitor as MonitorIcon, Upload } from "lucide-react";
 import { useTheme, useThemeTokens } from "../../lib/ThemeContext";
 import { useSettings } from "../../lib/SettingsContext";
 import BusinessTypeSection from "./BusinessTypeSection";
+import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
+import { BUSINESS_PRESETS } from "../../data/businessPresets";
 import { CURRENCIES, DEFAULT_CURRENCY, money } from "../../lib/currency";
 
 const APPEARANCE_OPTIONS = [
@@ -16,6 +18,9 @@ export default function ShopTab() {
   const { dark, toggleDark } = useTheme();
   const { settings, updateSettings } = useSettings();
   const fileRef = useRef(null);
+  // Which section is open, or null. One at a time: these are separate
+  // decisions and stacking them would bury the one being made.
+  const [openSection, setOpenSection] = useState(null);
 
   function set(field, value) {
     updateSettings({ [field]: value });
@@ -31,6 +36,13 @@ export default function ShopTab() {
     }
   }
 
+  const currentPresetLabel =
+    BUSINESS_PRESETS[settings.businessType || "general"]?.label || "Electronics Repair";
+
+  const currentAppearance = settings.appearance || (dark ? "dark" : "light");
+  const currentAppearanceLabel =
+    APPEARANCE_OPTIONS.find((o) => o.key === currentAppearance)?.label || "Light";
+
   function handleLogoUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -41,28 +53,19 @@ export default function ShopTab() {
 
   return (
     <div className="flex flex-col gap-5">
-      <BusinessTypeSection />
+      <SettingsRow
+        title="Business type"
+        description="The trade you are in, the wording used throughout the app, and your inventory categories."
+        value={`${currentPresetLabel} \u00b7 ${(settings.categories || []).length} categories`}
+        onOpen={() => setOpenSection("businessType")}
+      />
 
-      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-        <h3 className={`font-semibold mb-4 ${t.textPrimary}`}>Appearance</h3>
-        <div className="flex items-center gap-3">
-          {APPEARANCE_OPTIONS.map((opt) => {
-            const Icon = opt.icon;
-            const active = (settings.appearance || (dark ? "dark" : "light")) === opt.key;
-            return (
-              <button
-                key={opt.key}
-                onClick={() => selectAppearance(opt.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
-                  active ? (t.dark ? "bg-white text-black" : "bg-slate-900 text-white") : t.pillBg
-                }`}
-              >
-                <Icon className="w-4 h-4" /> {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <SettingsRow
+        title="Appearance"
+        description="Light, dark, or whatever this computer is set to."
+        value={currentAppearanceLabel}
+        onOpen={() => setOpenSection("appearance")}
+      />
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <h3 className={`font-semibold mb-1 ${t.textPrimary}`}>Currency</h3>
@@ -204,6 +207,42 @@ export default function ShopTab() {
 
         <p className={`text-xs mt-4 ${t.textMuted}`}>Changes save automatically.</p>
       </div>
+      {openSection === "businessType" && (
+        <SettingsModal
+          title="Business type"
+          description="TechDesk works for any repair trade, not just phones and laptops. Pick the closest fit — this changes wording throughout the app (tickets, forms, receipts), and you can fine-tune any term afterwards."
+          onClose={() => setOpenSection(null)}
+        >
+          <BusinessTypeSection />
+        </SettingsModal>
+      )}
+
+      {openSection === "appearance" && (
+        <SettingsModal
+          title="Appearance"
+          description="Applies straight away, and to this computer only."
+          onClose={() => setOpenSection(null)}
+        >
+          <div className="flex flex-wrap items-center gap-3">
+            {APPEARANCE_OPTIONS.map((opt) => {
+              const Icon = opt.icon;
+              const active = currentAppearance === opt.key;
+              return (
+                <button
+                  key={opt.key}
+                  onClick={() => selectAppearance(opt.key)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
+                    active ? (t.dark ? "bg-white text-black" : "bg-slate-900 text-white") : t.pillBg
+                  }`}
+                >
+                  <Icon className="w-4 h-4" /> {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </SettingsModal>
+      )}
+
     </div>
   );
 }

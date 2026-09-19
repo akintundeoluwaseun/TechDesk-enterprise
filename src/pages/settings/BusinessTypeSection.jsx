@@ -45,14 +45,10 @@ export default function BusinessTypeSection() {
     updateSettings({ categories: settings.categories.filter((c) => c !== name) });
   }
 
+  // No card, no heading: this renders inside SettingsModal, which supplies
+  // both. Rendering its own would put a title under a title.
   return (
-    <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-      <h3 className={`font-semibold mb-1 ${t.textPrimary}`}>Business type</h3>
-      <p className={`text-sm mb-4 ${t.textSecondary}`}>
-        TechDesk works for any repair trade, not just phones and laptops. Pick the closest fit — this changes
-        wording throughout the app (tickets, forms, receipts). You can fine-tune any term below afterward.
-      </p>
-
+    <div>
       <div className="relative mb-5">
         <select
           value={settings.businessType || "general"}
