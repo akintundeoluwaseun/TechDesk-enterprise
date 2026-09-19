@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Delete, Monitor } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import ForgotPinModal from "../components/ForgotPinModal";
+
+// Matches the range the Users tab offers when a PIN is set.
+const MIN_PIN = 4;
+const MAX_PIN = 6;
 
 export default function LoginScreen() {
   const t = useThemeTokens();
@@ -18,22 +22,53 @@ export default function LoginScreen() {
   const [showForgot, setShowForgot] = useState(false);
   const [notice, setNotice] = useState("");
 
-  function trySubmit(nextPin) {
-    const result = signIn(nextPin);
-    if (!result) {
+  // PINs are 4 to 6 digits, so a 4-digit entry is not necessarily finished.
+  //
+  // This used to check at exactly four and clear the box when that failed,
+  // which made a 5- or 6-digit PIN impossible to type: the fourth digit was
+  // tested against the whole PIN, missed, and wiped what had been entered.
+  // The Users tab offers "PIN (4-6 digits)" and then the lock screen would
+  // not accept one. Anybody who set a longer PIN was locked out of their own
+  // shop with no way in.
+  //
+  // So a miss below the maximum is not reported at all -- they are still
+  // typing. Only a full six digits, or pressing Enter, is a finished attempt.
+  function attempt(candidate, { final }) {
+    if (signIn(candidate)) return true;
+    if (final) {
       setError("Incorrect PIN");
       setPin("");
     }
+    return false;
   }
 
+  // The longest PIN anyone on this device actually has. Below it, a miss just
+  // means they have not finished typing; at it, there is nothing left to type
+  // and the attempt is a real one. That keeps the immediate "Incorrect PIN"
+  // for a shop whose PINs are all four digits, without breaking the longer
+  // ones -- which is the whole bug.
+  const longestPin = useMemo(() => {
+    const lengths = [
+      String(settings.adminPin || "0000").length,
+      ...db.getUsers().map((u) => String(u.pin || "").length),
+    ].filter((n) => n >= MIN_PIN && n <= MAX_PIN);
+    return lengths.length ? Math.max(...lengths) : MAX_PIN;
+  }, [settings.adminPin]);
+
   function handleDigit(d) {
-    if (pin.length >= 6) return;
+    if (pin.length >= MAX_PIN) return;
     const next = pin + d;
     setPin(next);
     setError("");
-    if (next.length >= 4) {
-      setTimeout(() => trySubmit(next), 100);
+    if (next.length >= MIN_PIN) {
+      setTimeout(() => attempt(next, { final: next.length >= longestPin }), 100);
     }
+  }
+
+  /** Enter says "that is the whole PIN", for anyone who set a short one. */
+  function submitNow() {
+    if (pin.length < MIN_PIN) return;
+    attempt(pin, { final: true });
   }
 
   function backspace() {
@@ -49,6 +84,8 @@ export default function LoginScreen() {
         handleDigit(e.key);
       } else if (e.key === "Backspace") {
         backspace();
+      } else if (e.key === "Enter") {
+        submitNow();
       } else if (e.key === "Escape") {
         setSelectedUser(null);
         setPin("");
@@ -116,7 +153,7 @@ export default function LoginScreen() {
             </div>
 
             <div className="flex items-center gap-3 mb-6">
-              {[0, 1, 2, 3].map((i) => (
+              {Array.from({ length: MAX_PIN }, (_, i) => i).map((i) => (
                 <span
                   key={i}
                   className={`w-3 h-3 rounded-full ${
