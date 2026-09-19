@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import codeHashes from "../data/activationHashes.json";
 import { TRIAL_DAYS, dayKey, normalizeState, advance, mergeStates, describe } from "./trial";
+import { IS_ANDROID_APP } from "./platform";
 
 const LicenseContext = createContext(null);
 
@@ -172,7 +173,15 @@ export function LicenseProvider({ children }) {
   }, []);
 
   const { daysLeft, expired } = describe(trial);
-  const restricted = !activated && expired;
+
+  // The mobile app is free. The trial and the activation code belong to the
+  // desktop build, which is the one that is sold -- on a phone they are a
+  // countdown to nothing, and an Activate button with no way to pay.
+  //
+  // Read as "this build is free", not "this device has activated": nothing is
+  // written, nothing is checked, and the desktop build is untouched.
+  const freeEdition = IS_ANDROID_APP;
+  const restricted = !freeEdition && !activated && expired;
 
   async function verifyCode(input) {
     const clean = (input || "").trim().toUpperCase();
@@ -196,7 +205,9 @@ export function LicenseProvider({ children }) {
   return (
     <LicenseContext.Provider
       value={{
-        activated,
+        // On mobile there is nothing to activate, so nothing asks.
+        activated: activated || freeEdition,
+        freeEdition,
         pin: assignedEntry.pin,
         trialDays: TRIAL_DAYS,
         daysUsed: trial.daysUsed,
