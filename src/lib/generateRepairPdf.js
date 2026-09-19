@@ -156,17 +156,7 @@ export function generateRepairTicketPdf(repair, { autoOpen = true } = {}) {
         `N${Number(c.unitPrice).toLocaleString()}`,
         `N${Number(c.qty * c.unitPrice).toLocaleString()}`,
       ])
-    : [
-        ["1", "Diagnostic / Inspection", "1", "N5,000", "N5,000"],
-        [
-          "2",
-          "Labor Charges (If Applicable)",
-          "1",
-          `N${Number(repair.repairCost || 0).toLocaleString()}`,
-          `N${Number(repair.repairCost || 0).toLocaleString()}`,
-        ],
-        ["3", "Parts (To be added after diagnosis)", "-", "-", "-"],
-      ];
+    : buildDefaultRows(repair);
 
   autoTable(doc, {
     startY: y,
@@ -186,7 +176,15 @@ export function generateRepairTicketPdf(repair, { autoOpen = true } = {}) {
 
   y = doc.lastAutoTable.finalY + 18;
   const totalsX = pageW - marginX - 220;
-  const estTotal = repair.repairCost ? `N${Number(repair.repairCost).toLocaleString()}` : "N0 - NXX,XXX";
+  // Labour plus whatever parts went in. The table lists parts as their own
+  // priced lines, so a total of labour alone would not match the column above
+  // it -- the customer would be reading two different numbers for one job.
+  const partsTotal = (repair.parts || []).reduce(
+    (sum, part) => sum + Number(part.qty || 0) * Number(part.price || 0),
+    0
+  );
+  const grandTotal = Number(repair.repairCost || 0) + partsTotal;
+  const estTotal = grandTotal ? `N${grandTotal.toLocaleString()}` : "N0 - NXX,XXX";
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
   doc.text("ESTIMATED TOTAL", totalsX, y);
@@ -555,4 +553,43 @@ export function generateBlankRepairFormPdf({ autoOpen = true } = {}) {
 
   if (autoOpen) savePdf(doc, "repair-ticket-form.pdf");
   return doc;
+}
+
+/**
+ * The line items for a ticket that has no explicit `charges` list.
+ *
+ * Parts fitted from inventory are printed as their own lines. Before they were
+ * recorded at all this table carried a placeholder -- "Parts (To be added
+ * after diagnosis)" -- which stayed on the customer's copy even for a job
+ * where the parts were known, priced and already off the shelf.
+ */
+function buildDefaultRows(repair) {
+  const rows = [
+    [
+      "1",
+      "Labour",
+      "1",
+      `N${Number(repair.repairCost || 0).toLocaleString()}`,
+      `N${Number(repair.repairCost || 0).toLocaleString()}`,
+    ],
+  ];
+
+  const parts = repair.parts || [];
+  if (parts.length) {
+    parts.forEach((part) => {
+      const qty = Number(part.qty || 0);
+      const price = Number(part.price || 0);
+      rows.push([
+        String(rows.length + 1),
+        pdfSafe(part.name || "Part"),
+        String(qty),
+        `N${price.toLocaleString()}`,
+        `N${(qty * price).toLocaleString()}`,
+      ]);
+    });
+  } else {
+    rows.push([String(rows.length + 1), "Parts (To be added after diagnosis)", "-", "-", "-"]);
+  }
+
+  return rows;
 }

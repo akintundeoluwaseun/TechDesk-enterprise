@@ -4,9 +4,12 @@ import Topbar from "../components/Topbar";
 import NewSaleModal from "../components/NewSaleModal";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
+import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import { generateInvoicePdf } from "../lib/generateInvoicePdf";
 import { generateThermalReceiptPdf } from "../lib/generateThermalReceipt";
+import { openWhatsApp, saleMessage } from "../lib/share";
+import { IS_ANDROID_APP } from "../lib/platform";
 
 const PAYMENT_STATUSES = ["Paid", "Pending", "Partial"];
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "POS", "Transfer + Cash"];
@@ -23,6 +26,7 @@ function formatDate(iso) {
 export default function SalesPage() {
   const t = useThemeTokens();
   const { user } = useAuth();
+  const { settings } = useSettings();
   const [showModal, setShowModal] = useState(false);
   const [editingSale, setEditingSale] = useState(null);
   const [search, setSearch] = useState("");
@@ -61,11 +65,7 @@ export default function SalesPage() {
   }
 
   function sendWhatsApp(sale) {
-    const text = encodeURIComponent(
-      `Invoice ${sale.invoice}\n${sale.items.map((i) => `${i.name} x ${i.qty}`).join(", ")}\nTotal: \u20A6${sale.total.toLocaleString()}`
-    );
-    const phone = (sale.customerPhone || "").replace(/\D/g, "");
-    window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+    openWhatsApp(sale.customerPhone, saleMessage(sale, settings));
   }
 
   return (
@@ -182,14 +182,14 @@ export default function SalesPage() {
                 </button>
                 <button
                   onClick={() => generateInvoicePdf(sale)}
-                  title="A4 PDF"
+                  title={IS_ANDROID_APP ? "Share PDF receipt" : "A4 PDF"}
                   className={`w-9 h-9 rounded-full flex items-center justify-center ${t.pillBg}`}
                 >
                   <FileText className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => generateThermalReceiptPdf(sale)}
-                  title="58mm receipt"
+                  title={IS_ANDROID_APP ? "Share 58mm receipt" : "58mm receipt"}
                   className={`w-9 h-9 rounded-full flex items-center justify-center ${t.pillBg}`}
                 >
                   <Receipt className="w-4 h-4" />

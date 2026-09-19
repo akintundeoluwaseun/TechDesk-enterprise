@@ -6,6 +6,7 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import { generateRepairTicketPdf, generateBlankRepairFormPdf } from "../lib/generateRepairPdf";
+import { openWhatsApp, repairMessage } from "../lib/share";
 
 const STATUSES = ["received", "in progress", "awaiting parts", "completed", "delivered"];
 const PAYMENTS = ["Unpaid", "Paid", "Partial"];
@@ -54,11 +55,7 @@ export default function RepairsPage() {
   }
 
   function sendWhatsApp(repair) {
-    const text = encodeURIComponent(
-      `Repair ticket ${repair.ticket}\nDevice: ${repair.device}\nProblem: ${repair.problem}\nStatus: ${repair.status}`
-    );
-    const phone = (repair.customerPhone || "").replace(/\D/g, "");
-    window.open(`https://wa.me/${phone}?text=${text}`, "_blank");
+    openWhatsApp(repair.customerPhone, repairMessage(repair, settings));
   }
 
   return (

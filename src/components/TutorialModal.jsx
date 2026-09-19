@@ -16,7 +16,7 @@ import { MOD_KEY_LABEL } from "./Topbar";
 
 const STEPS = [
   { icon: LayoutGrid, text: "Dashboard — today's sales and repairs at a glance, plus quick actions to start a new sale or repair." },
-  { icon: ShoppingCart, text: "Sales (POS) — ring up a sale, take payment, and print or email the receipt." },
+  { icon: ShoppingCart, text: "Sales (POS) — ring up a sale, take payment, then print the receipt, share it on WhatsApp or save it as a PDF." },
   { icon: Wrench, text: "Repairs — log a device, track it from received to delivered, and print the repair ticket." },
   { icon: Box, text: "Inventory — track stock and cost vs. selling price, with alerts when something's running low." },
   { icon: Users, text: "Customers — every customer's contact details and their full sales & repair history." },

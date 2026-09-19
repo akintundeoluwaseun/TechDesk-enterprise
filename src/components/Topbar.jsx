@@ -17,7 +17,8 @@ import {
   User,
 } from "lucide-react";
 import { useTheme, useThemeTokens } from "../lib/ThemeContext";
-import { useAuth } from "../lib/AuthContext";
+import { useAuth, canAccess } from "../lib/AuthContext";
+import { searchDestinations } from "../lib/destinations";
 import { useHelp } from "../lib/HelpContext";
 import { db } from "../lib/db";
 
@@ -107,8 +108,14 @@ export default function Topbar({ title, subtitle, action }) {
   );
   const hasAlerts = isAdmin && unreadCount > 0;
 
+  // Closing and clearing are separate on purpose. They used to be the same
+  // action, so glancing at the bell and shutting it again wiped everything --
+  // including whatever you had opened it to go back and read properly.
   function closeNotifications() {
     setNotifOpen(false);
+  }
+
+  function clearNotifications() {
     db.clearNotifications();
     setClearedAt(db.getNotifClearedAt());
   }
@@ -116,6 +123,11 @@ export default function Topbar({ title, subtitle, action }) {
   const searchResults = useMemo(() => {
     if (!query) return [];
     const q = query.toLowerCase();
+
+    // Places first, then records. Someone who types "reports" wants the page;
+    // if a customer happens to be called Report they can scroll one line.
+    const places = searchDestinations(query, (path) => canAccess(user?.role, path));
+
     const results = [];
     // Optional-chained throughout: a record from an older backup or a
     // manually edited data file can be missing a field the UI normally
@@ -140,8 +152,10 @@ export default function Topbar({ title, subtitle, action }) {
         results.push({ type: "Customer", label: c.name || c.phone || "Customer", path: "/customers" });
       }
     });
-    return results.slice(0, 8);
-  }, [query]);
+    // Places are capped so a long record list cannot push them off, and the
+    // whole thing is capped so the panel never covers the page behind it.
+    return [...places.slice(0, 5), ...results].slice(0, 10);
+  }, [query, user?.role]);
 
   function goTo(path) {
     setQuery("");
@@ -253,9 +267,27 @@ export default function Topbar({ title, subtitle, action }) {
                     </span>
                   )}
                 </div>
-                <button onClick={closeNotifications} className={t.textMuted}>
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-1">
+                  {notifFeed.length > 0 && (
+                    <button
+                      onClick={clearNotifications}
+                      className={`text-xs font-medium px-2.5 py-1 rounded-lg ${t.textSecondary} ${
+                        t.dark ? "hover:bg-white/5" : "hover:bg-black/5"
+                      }`}
+                    >
+                      Clear
+                    </button>
+                  )}
+                  <button
+                    onClick={closeNotifications}
+                    aria-label="Close notifications"
+                    className={`p-1 rounded-lg ${t.textMuted} ${
+                      t.dark ? "hover:bg-white/5" : "hover:bg-black/5"
+                    }`}
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="max-h-96 overflow-y-auto">

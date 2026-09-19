@@ -3,6 +3,7 @@ import { Download, Upload, Trash2, Database, Network, QrCode, ShieldCheck } from
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import { findOtherEditions } from "../../lib/editionData";
+import { IS_DESKTOP_APP } from "../../lib/platform";
 import DataMergeModal from "../../components/DataMergeModal";
 
 export default function DeviceTab() {
@@ -107,27 +108,33 @@ export default function DeviceTab() {
         </div>
       </div>
 
-      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-        <div className="flex items-center gap-3">
-          <Database className={t.dark ? "text-blue-300" : "text-blue-500"} size={20} />
-          <div>
-            <h3 className={`font-semibold ${t.textPrimary}`}>Bring data from another TechDesk edition</h3>
-            <p className={`text-sm ${t.textSecondary}`}>
-              If another edition (Solo, Business or Enterprise) is installed on this device, its
-              sales, repairs, inventory and customers can be copied across. Records already here
-              are left as they are, and nothing is removed from the other edition.
-            </p>
+      {/* Desktop only. It looks for other editions installed on the same
+          computer, which is an Electron-only search -- on a phone it can
+          only ever answer "none found", so offering it there is a button
+          whose single outcome is disappointment. */}
+      {IS_DESKTOP_APP && (
+        <div className={`rounded-2xl p-6 ${t.cardBg}`}>
+          <div className="flex items-center gap-3">
+            <Database className={t.dark ? "text-blue-300" : "text-blue-500"} size={20} />
+            <div>
+              <h3 className={`font-semibold ${t.textPrimary}`}>Bring data from another TechDesk edition</h3>
+              <p className={`text-sm ${t.textSecondary}`}>
+                If another edition (Solo, Business or Enterprise) is installed on this device, its
+                sales, repairs, inventory and customers can be copied across. Records already here
+                are left as they are, and nothing is removed from the other edition.
+              </p>
+            </div>
           </div>
+          <button
+            onClick={handleScanForEditions}
+            disabled={scanning}
+            className={`mt-4 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium disabled:opacity-50 ${t.pillBg}`}
+          >
+            <Database className="w-4 h-4" /> {scanning ? "Checking…" : "Check for other editions"}
+          </button>
+          {scanMessage && <p className={`text-xs mt-3 ${t.textMuted}`}>{scanMessage}</p>}
         </div>
-        <button
-          onClick={handleScanForEditions}
-          disabled={scanning}
-          className={`mt-4 flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium disabled:opacity-50 ${t.pillBg}`}
-        >
-          <Database className="w-4 h-4" /> {scanning ? "Checking…" : "Check for other editions"}
-        </button>
-        {scanMessage && <p className={`text-xs mt-3 ${t.textMuted}`}>{scanMessage}</p>}
-      </div>
+      )}
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <div className="flex items-center gap-3">

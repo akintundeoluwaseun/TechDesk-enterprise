@@ -85,6 +85,26 @@ function nextTicketNumber() {
   return `TKT-${String(n).padStart(5, "0")}`;
 }
 
+// Takes units off the shelf for anything that consumed them -- a sale's items
+// or a repair's parts, which share a shape for exactly this reason.
+//
+// Deleting the record does not put them back, matching how sales have always
+// behaved. Stock is corrected in Inventory, where the count can be seen.
+function drawDownStock(items) {
+  if (!items?.length) return;
+  const inventory = read(KEYS.inventory);
+  let touched = false;
+  items.forEach((item) => {
+    if (!item.fromInventory || !item.productId) return;
+    const idx = inventory.findIndex((p) => p.id === item.productId);
+    if (idx > -1) {
+      inventory[idx].stock = Math.max(0, Number(inventory[idx].stock || 0) - Number(item.qty || 0));
+      touched = true;
+    }
+  });
+  if (touched) write(KEYS.inventory, inventory);
+}
+
 export const db = {
   KEYS,
   uid,
@@ -152,18 +172,7 @@ export const db = {
     sales.unshift(record);
     write(KEYS.sales, sales);
 
-    // decrement stock for items sold from inventory
-    if (sale.items?.length) {
-      const inventory = read(KEYS.inventory);
-      sale.items.forEach((item) => {
-        if (!item.fromInventory) return;
-        const idx = inventory.findIndex((p) => p.id === item.productId);
-        if (idx > -1) {
-          inventory[idx].stock = Math.max(0, (inventory[idx].stock || 0) - item.qty);
-        }
-      });
-      write(KEYS.inventory, inventory);
-    }
+    drawDownStock(sale.items);
 
     return record;
   },
@@ -212,10 +221,17 @@ export const db = {
       createdAt: new Date().toISOString(),
       status: "received",
       paymentStatus: "Unpaid",
+      parts: [],
       ...repair,
     });
     repairs.unshift(record);
     write(KEYS.repairs, repairs);
+
+    // A screen fitted to a phone has left the shelf just as surely as one
+    // sold over the counter. Parts carry the same shape as sale items so
+    // both go through one decrement and the receipt can print either.
+    drawDownStock(record.parts);
+
     return record;
   },
   updateRepair: (id, patch) => {
