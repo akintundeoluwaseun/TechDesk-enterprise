@@ -6,6 +6,9 @@ import { db } from "./db";
 // session. Push once on launch too, so it shows real history immediately.
 export function useLanSync() {
   useEffect(() => {
+    // Enterprise only. A build constant, so this whole body is dropped
+    // from the editions that do not have LAN activity sharing.
+    if (!__CAN_LAN__) return;
     if (!window.techdesk?.syncActivity) return; // web preview / no Electron bridge
     db.syncToLan();
   }, []);

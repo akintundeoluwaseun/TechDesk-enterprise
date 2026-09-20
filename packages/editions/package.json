@@ -1,0 +1,17 @@
+{
+  "name": "@techdesk/editions",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "What each TechDesk edition can do. Data, not code.",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}

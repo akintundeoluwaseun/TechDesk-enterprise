@@ -353,7 +353,12 @@ export const db = {
     const defaults = {
       appearance: "dark",
       logo: null,
-      shopName: "TechDesk Enterprise",
+      // A placeholder until the shop types its own name, so it must not be
+      // an edition's name: core is shared by Solo, Business, Enterprise, the
+      // Web App and Android, and one of those hardcoded here put "TechDesk
+      // Enterprise" on a Solo shop's receipts. Only ever seen by an install
+      // that has not been through Settings -> Shop yet.
+      shopName: "TechDesk",
       tagline: "REPAIR \u2022 SALES \u2022 ACCESSORIES",
       address: "",
       phone: "",

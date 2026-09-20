@@ -4,17 +4,25 @@ import Topbar from "../components/Topbar";
 import { useThemeTokens } from "../lib/ThemeContext";
 import ShopTab from "./settings/ShopTab";
 import ReceiptsTab from "./settings/ReceiptsTab";
-import UsersTab from "./settings/UsersTab";
 import DeviceTab from "./settings/DeviceTab";
-import ConnectHqTab from "./settings/ConnectHqTab";
 import DeveloperTab from "./settings/DeveloperTab";
+
+// The two tabs that are not in every edition.
+//
+// __CAN_STAFF__ and __CAN_HQ__ are literal true/false by the time the bundler
+// sees them, so in an edition without the capability the ternary collapses to
+// null and the import behind it is never reachable -- the tab's code is not
+// in the binary at all, rather than present and hidden behind a check anyone
+// could flip.
+const UsersTab = __CAN_STAFF__ ? React.lazy(() => import("./settings/UsersTab")) : null;
+const ConnectHqTab = __CAN_HQ__ ? React.lazy(() => import("./settings/ConnectHqTab")) : null;
 
 const TABS = [
   { key: "shop", label: "Shop", Component: ShopTab },
   { key: "receipts", label: "Receipts", Component: ReceiptsTab },
-  { key: "users", label: "Users", Component: UsersTab },
+  ...(UsersTab ? [{ key: "users", label: "Users", Component: UsersTab }] : []),
   { key: "device", label: "Device", Component: DeviceTab },
-  { key: "hq", label: "Connect to HQ", Component: ConnectHqTab },
+  ...(ConnectHqTab ? [{ key: "hq", label: "Connect to HQ", Component: ConnectHqTab }] : []),
   { key: "developer", label: "Developer", Component: DeveloperTab },
 ];
 
@@ -40,7 +48,7 @@ export default function SettingsPage() {
     <div className="flex-1 p-4 md:p-8">
       <Topbar title="Settings" />
 
-      {/* Six tabs don't fit a phone, so the strip scrolls sideways there
+      {/* The tabs don't fit a phone, so the strip scrolls sideways there
           rather than pushing the whole page wider than the screen. */}
       <div className="-mx-4 md:mx-0 px-4 md:px-0 mb-6 overflow-x-auto">
       <div className={`inline-flex rounded-xl p-1 ${t.insetBg}`}>
@@ -62,7 +70,9 @@ export default function SettingsPage() {
       </div>
       </div>
 
-      <Active />
+      <React.Suspense fallback={null}>
+        <Active />
+      </React.Suspense>
     </div>
   );
 }
