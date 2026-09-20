@@ -12,17 +12,20 @@ import {
   Keyboard,
 } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
+import { can } from "../lib/tier";
 import { MOD_KEY_LABEL } from "./Topbar";
 
 const STEPS = [
   { icon: LayoutGrid, text: "Dashboard — today's sales and repairs at a glance, plus quick actions to start a new sale or repair." },
-  { icon: ShoppingCart, text: "Sales (POS) — ring up a sale, take payment, then print the receipt, share it on WhatsApp or save it as a PDF." },
+  { icon: ShoppingCart, text: "Sales (POS) — ring up a sale, take payment, and print the receipt.",
+    paid: { feature: "receiptPdf", text: "Save it as a PDF or send it on WhatsApp." } },
   { icon: Wrench, text: "Repairs — log a device, track it from received to delivered, and print the repair ticket." },
   { icon: Box, text: "Inventory — track stock and cost vs. selling price, with alerts when something's running low." },
   { icon: Users, text: "Customers — every customer's contact details and their full sales & repair history." },
   { icon: BarChart3, text: "Reports — revenue, profit, and repair trends over any time period." },
   { icon: ClipboardList, text: "Activity Logs — a running history of every sale, repair, and change made on this device." },
-  { icon: SettingsIcon, text: "Settings — shop details, receipt formatting, unlimited staff accounts, backups, and LAN activity sharing." },
+  { icon: SettingsIcon, text: "Settings — shop details, receipt formatting, and backups.",
+    paid: { feature: "staff", text: "Staff accounts and head office live here too." } },
 ];
 
 // Only shortcuts that are actually wired up belong here.
@@ -48,12 +51,20 @@ export default function TutorialModal({ onClose }) {
         </div>
 
         <div className="flex flex-col gap-3 mb-5 overflow-y-auto">
-          {STEPS.map(({ icon: Icon, text }, i) => (
+          {STEPS.map(({ icon: Icon, text, paid }, i) => (
             <div key={i} className="flex items-start gap-3">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${t.pillBg}`}>
                 <Icon className={`w-4 h-4 ${t.textPrimary}`} />
               </div>
-              <p className={`text-sm mt-1.5 ${t.textSecondary}`}>{text}</p>
+              <p className={`text-sm mt-1.5 ${t.textSecondary}`}>
+                {text}
+                {/* Named as an upgrade only to a shop that has not got it.
+                    A shop that already paid should just read the feature as
+                    theirs, not be sold it again. */}
+                {paid && !can(paid.feature) ? (
+                  <span className={`block mt-0.5 ${t.textMuted}`}>{paid.text} (Business)</span>
+                ) : null}
+              </p>
             </div>
           ))}
 

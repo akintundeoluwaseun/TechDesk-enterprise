@@ -26,6 +26,7 @@ import { useTheme, useThemeTokens } from "../lib/ThemeContext";
 import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { useLicense } from "../lib/LicenseContext";
+import { tierLabel } from "../lib/tier";
 import { useHelp } from "../lib/HelpContext";
 import { searchEverything } from "../lib/searchAll";
 import { notificationFeed, notifStyle, timeAgo, isUnread, unreadCount } from "../lib/notifications";
@@ -55,7 +56,9 @@ export default function MobileAppBar({ onOpenActivation }) {
   const { dark, toggleDark } = useTheme();
   const { settings } = useSettings();
   const { user, signOut } = useAuth();
-  const { activated, restricted, daysLeft } = useLicense();
+  const { tier } = useLicense();
+  const restricted = false;
+  const activated = true;
   const { openHelp } = useHelp();
   const [drawer, setDrawer] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -346,7 +349,7 @@ export default function MobileAppBar({ onOpenActivation }) {
                   }`}
                 >
                   {restricted ? <ShieldAlert className="w-4 h-4" /> : <ShieldCheck className="w-4 h-4" />}
-                  {restricted ? "Activate" : `Trial: ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`}
+                  {tier === "free" ? "Free — see what you get" : tierLabel(tier)}
                 </button>
               )}
 

@@ -2,6 +2,8 @@ import React, { createContext, useContext, useEffect, useRef, useState } from "r
 import codeHashes from "../data/activationHashes.json";
 import { TRIAL_DAYS, dayKey, normalizeState, advance, mergeStates, describe } from "./trial";
 import { IS_ANDROID_APP } from "./platform";
+import { isTier, tierCan } from "@techdesk/editions";
+import { FREE_TIER, setCurrentTier } from "./tier";
 
 const LicenseContext = createContext(null);
 
@@ -9,6 +11,18 @@ const KEY_ASSIGNED_INDEX = "techdesk_license_index";
 const KEY_TRIAL = "techdesk_trial";
 const KEY_TRIAL_START_LEGACY = "techdesk_trial_start";
 const KEY_ACTIVATED = "techdesk_activated";
+const KEY_TIER = "techdesk_tier";
+
+// An activation code proves a shop paid. Which tier it paid for has to come
+// from the code table, so entries may carry a "tier".
+//
+// Entries without one are codes issued before this existed. Those were sold
+// against an edition-specific installer -- you bought Business and got the
+// Business download -- and Solo never needed a code at all, so an untagged
+// code certainly means "paid", just not for what. Business is the floor: it
+// grants everything such a customer can have bought except Enterprise, which
+// is the conservative half of the guess. Tag the table and the guess stops.
+const LEGACY_TIER = "business";
 
 async function sha256Hex(text) {
   const data = new TextEncoder().encode(text);
@@ -66,6 +80,15 @@ function writeLocalTrial(state) {
 
 export function LicenseProvider({ children }) {
   const [activated, setActivated] = useState(() => localStorage.getItem(KEY_ACTIVATED) === "1");
+
+  // Free until a licence says otherwise. Not "unknown": a shop that has never
+  // paid has the free tier, which is a whole working shop, not a locked one.
+  const [tier, setTier] = useState(() => {
+    const stored = localStorage.getItem(KEY_TIER);
+    if (isTier(stored)) return stored;
+    // Activated before tiers existed -- see LEGACY_TIER.
+    return localStorage.getItem(KEY_ACTIVATED) === "1" ? LEGACY_TIER : FREE_TIER;
+  });
   // Seeded from localStorage so the PIN renders immediately, then corrected
   // from license.json below if that disagrees.
   const [licenseIndex, setLicenseIndex] = useState(() => {
@@ -172,6 +195,13 @@ export function LicenseProvider({ children }) {
     return () => clearInterval(t);
   }, []);
 
+  // tier.js is read by code that is not a component -- the receipt helpers,
+  // the sync hook -- so it has to learn about the licence too, on first load
+  // as well as on an upgrade.
+  useEffect(() => {
+    setCurrentTier(tier);
+  }, [tier]);
+
   const { daysLeft, expired } = describe(trial);
 
   // The mobile app is free. The trial and the activation code belong to the
@@ -180,24 +210,46 @@ export function LicenseProvider({ children }) {
   //
   // Read as "this build is free", not "this device has activated": nothing is
   // written, nothing is checked, and the desktop build is untouched.
-  const freeEdition = IS_ANDROID_APP;
-  const restricted = !freeEdition && !activated && expired;
+  // NOTHING EXPIRES ANY MORE.
+  //
+  // The app used to be a 7-day trial that locked. It is a free product now:
+  // the whole shop, one person, forever. A shop that never pays a naira still
+  // opens it every morning and it still works.
+  //
+  // So `restricted` is dead, and the countdown with it. A free shop told it
+  // has six days left is a shop planning how to get its records out, not a
+  // shop deciding whether to buy -- and the day it locks is the day they are
+  // mid-repair and lose a customer, which is not a sale, it is a grudge.
+  //
+  // The trial state is still read and still written, because old installs
+  // have it on disk and an upgrade must not look like data loss. It simply
+  // stops being able to take anything away.
+  const freeEdition = tier === FREE_TIER;
+  const restricted = false;
 
   async function verifyCode(input) {
     const clean = (input || "").trim().toUpperCase();
     const candidateHash = await sha256Hex(`${assignedEntry.pin}:${clean}`);
     if (candidateHash !== assignedEntry.hash) return false;
 
+    const bought = isTier(assignedEntry.tier) ? assignedEntry.tier : LEGACY_TIER;
+
     try {
       localStorage.setItem(KEY_ACTIVATED, "1");
+      localStorage.setItem(KEY_TIER, bought);
     } catch {
       // Quota or blocked storage -- the file below is what actually counts.
     }
     setActivated(true);
+    setTier(bought);
+    // The lock comes off whatever the shop was looking at, without a restart.
+    // Being told to restart right after paying is the moment they start
+    // wondering whether it worked.
+    setCurrentTier(bought);
     // Durable, synchronous on the main-process side: once this resolves the
     // activation has really hit the disk, so a power cut can't undo it.
     await Promise.resolve(
-      window.techdesk?.writeLicense?.({ activated: true, licenseIndex })
+      window.techdesk?.writeLicense?.({ activated: true, licenseIndex, tier: bought })
     ).catch(() => {});
     return true;
   }
@@ -208,6 +260,8 @@ export function LicenseProvider({ children }) {
         // On mobile there is nothing to activate, so nothing asks.
         activated: activated || freeEdition,
         freeEdition,
+        tier,
+        can: (feature) => tierCan(tier, feature),
         pin: assignedEntry.pin,
         trialDays: TRIAL_DAYS,
         daysUsed: trial.daysUsed,

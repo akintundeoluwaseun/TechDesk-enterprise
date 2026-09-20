@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { X, ShieldCheck, Phone, Mail, Globe, Copy, Check } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useLicense } from "../lib/LicenseContext";
-import { PRODUCT_NAME } from "../lib/edition";
+import { tierLabel } from "../lib/tier";
 
 export default function ActivationModal({ onClose }) {
   const t = useThemeTokens();
@@ -43,7 +43,7 @@ export default function ActivationModal({ onClose }) {
         </div>
 
         {activated ? (
-          <p className={`text-sm ${t.textSecondary}`}>This device is fully activated. Thanks for supporting {PRODUCT_NAME}!</p>
+          <p className={`text-sm ${t.textSecondary}`}>This device is fully activated. Thanks for supporting {tierLabel()}!</p>
         ) : (
           <>
             <p className={`text-sm mb-4 ${t.textSecondary}`}>

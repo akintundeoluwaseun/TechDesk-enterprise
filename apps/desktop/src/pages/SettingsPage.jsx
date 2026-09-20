@@ -6,23 +6,40 @@ import ShopTab from "./settings/ShopTab";
 import ReceiptsTab from "./settings/ReceiptsTab";
 import DeviceTab from "./settings/DeviceTab";
 import DeveloperTab from "./settings/DeveloperTab";
+import UpgradeLock from "../components/UpgradeLock";
 
-// The two tabs that are not in every edition.
+// Every tab is here, in every install, for every shop.
 //
-// __CAN_STAFF__ and __CAN_HQ__ are literal true/false by the time the bundler
-// sees them, so in an edition without the capability the ternary collapses to
-// null and the import behind it is never reachable -- the tab's code is not
-// in the binary at all, rather than present and hidden behind a check anyone
-// could flip.
-const UsersTab = __CAN_STAFF__ ? React.lazy(() => import("./settings/UsersTab")) : null;
-const ConnectHqTab = __CAN_HQ__ ? React.lazy(() => import("./settings/ConnectHqTab")) : null;
+// A tab a free shop has not paid for is SHOWN and locked, not removed. Two
+// reasons. The product is one app that unlocks in place, so the code has to
+// be present for an upgrade to have anything to switch on. And a feature you
+// cannot see is a feature you never buy -- the Users tab quietly missing is
+// indistinguishable from TechDesk simply not doing staff accounts.
+//
+// `feature` is what the tab needs; UpgradeLock renders the tab or the offer.
+const UsersTab = React.lazy(() => import("./settings/UsersTab"));
+const ConnectHqTab = React.lazy(() => import("./settings/ConnectHqTab"));
 
 const TABS = [
   { key: "shop", label: "Shop", Component: ShopTab },
   { key: "receipts", label: "Receipts", Component: ReceiptsTab },
-  ...(UsersTab ? [{ key: "users", label: "Users", Component: UsersTab }] : []),
+  {
+    key: "users",
+    label: "Users",
+    Component: UsersTab,
+    feature: "staff",
+    title: "Staff accounts",
+    what: "Give each person behind the counter their own login, so you can see who sold what, and keep cost prices and reports to yourself.",
+  },
   { key: "device", label: "Device", Component: DeviceTab },
-  ...(ConnectHqTab ? [{ key: "hq", label: "Connect to HQ", Component: ConnectHqTab }] : []),
+  {
+    key: "hq",
+    label: "Connect to HQ",
+    Component: ConnectHqTab,
+    feature: "hq",
+    title: "Connect to head office",
+    what: "Send this shop's sales and repairs up to your head office account, so you can see every branch from your phone.",
+  },
   { key: "developer", label: "Developer", Component: DeveloperTab },
 ];
 
@@ -36,7 +53,8 @@ export default function SettingsPage() {
   const [params, setParams] = useSearchParams();
   const requested = params.get("tab");
   const tab = TABS.some((x) => x.key === requested) ? requested : "shop";
-  const Active = TABS.find((x) => x.key === tab)?.Component || ShopTab;
+  const active = TABS.find((x) => x.key === tab) || TABS[0];
+  const Active = active.Component || ShopTab;
 
   function selectTab(key) {
     // replace: clicking through five tabs should not mean five taps of Back
@@ -71,7 +89,13 @@ export default function SettingsPage() {
       </div>
 
       <React.Suspense fallback={null}>
-        <Active />
+        {active.feature ? (
+          <UpgradeLock feature={active.feature} title={active.title} what={active.what}>
+            <Active />
+          </UpgradeLock>
+        ) : (
+          <Active />
+        )}
       </React.Suspense>
     </div>
   );

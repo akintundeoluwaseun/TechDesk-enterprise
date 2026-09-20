@@ -20,6 +20,7 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { useLicense } from "../lib/LicenseContext";
+import { tierLabel } from "../lib/tier";
 
 const NAV_ITEMS_BASE = [
   { to: "/", label: "Dashboard", icon: LayoutGrid, end: true },
@@ -36,8 +37,12 @@ export default function Sidebar({ onOpenActivation }) {
   const t = useThemeTokens();
   const { settings } = useSettings();
   const { user, signOut } = useAuth();
-  const { activated, restricted, daysLeft } = useLicense();
-  const trialLabel = `Trial: ${daysLeft} day${daysLeft === 1 ? "" : "s"} left`;
+  const { tier } = useLicense();
+  // What this shop has, not how long until it stops working -- nothing stops
+  // working any more. On the free tier this is an offer, and it is the only
+  // place a shop that never opens Settings finds out there is more; on a paid
+  // tier it is a receipt for what they bought.
+  const onFree = tier === "free";
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("techdesk_sidebar_collapsed") === "1");
 
   function toggleCollapsed() {
@@ -121,18 +126,18 @@ export default function Sidebar({ onOpenActivation }) {
       </div>
 
       <div className="flex flex-col gap-2">
-        {!activated && (
-          <button
-            onClick={onOpenActivation}
-            title={collapsed ? (restricted ? "Activate" : trialLabel) : undefined}
-            className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold ${
-              restricted ? "bg-red-500 text-white animate-pulse" : t.dark ? "bg-white text-slate-900" : "bg-slate-900 text-white"
-            }`}
-          >
-            {restricted ? <ShieldAlert className="w-4 h-4 shrink-0" /> : <ShieldCheck className="w-4 h-4 shrink-0" />}
-            {!collapsed && (restricted ? "Activate" : trialLabel)}
-          </button>
-        )}
+        <button
+          onClick={onOpenActivation}
+          title={collapsed ? (onFree ? "See what upgrading adds" : tierLabel(tier)) : undefined}
+          className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold ${
+            onFree
+              ? t.dark ? "bg-white text-slate-900" : "bg-slate-900 text-white"
+              : t.pillBg
+          }`}
+        >
+          <ShieldCheck className="w-4 h-4 shrink-0" />
+          {!collapsed && (onFree ? "Upgrade" : tierLabel(tier))}
+        </button>
 
         <div
           className={`flex items-center gap-2 rounded-xl p-2.5 ${collapsed ? "flex-col" : "justify-between"} ${t.cardBg}`}

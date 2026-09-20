@@ -15,10 +15,7 @@
     "electron:dev": "concurrently -k \"npm:dev\" \"wait-on tcp:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder",
     "dist": "npm run build && electron-builder --publish=never",
-    "test": "vitest run",
-    "build:solo": "TECHDESK_EDITION=solo vite build",
-    "build:business": "TECHDESK_EDITION=business vite build",
-    "build:enterprise": "TECHDESK_EDITION=enterprise vite build"
+    "test": "vitest run"
   },
   "dependencies": {
     "@techdesk/core": "*",

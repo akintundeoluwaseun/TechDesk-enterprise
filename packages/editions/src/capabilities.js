@@ -1,133 +1,142 @@
-// What each edition can do. Data, not code.
+// What each tier can do. Data, not code.
 //
-// The tiers used to be three codebases. The difference between them was
-// spread across 25 files and had to be inferred from a diff; a feature moved
-// between tiers by editing three repositories and hoping. It is this list now,
-// and the list is the only place it exists.
+// ONE APP. One download, one APK. A shop installs it, uses it free forever,
+// and pays to unlock more in the copy they already have -- no second download,
+// no reinstall, no losing their records to an upgrade.
 //
-// Call sites ask can("hq"), never edition === "enterprise". The question
-// "what may this build do" and the question "which build is this" are
-// different, and conflating them is how a feature ends up half-moved.
+// That model decides how this file is used. An earlier version compiled the
+// tier in at build time so the paid code never shipped, which is airtight and
+// completely incompatible with unlocking in place: code that is not in the
+// binary cannot be switched on. So everything ships, and the tier is a
+// licence the app reads at runtime.
+//
+// WHAT THAT COSTS, PLAINLY. A flag on the customer's own machine can be
+// flipped by someone determined enough. The features that matter are not
+// defended by this file at all -- they are defended by the server, which
+// refuses to sync or connect a branch whose licence is not paid. Everything
+// below is the shop's experience of what it bought, not a lock.
 
 /**
  * Every capability the product has. A feature not in here cannot be gated,
  * which is deliberate: adding one should mean deciding which tiers get it.
  */
 export const FEATURES = [
-  // The shop itself. Every edition, every platform -- a sale means the same
-  // thing everywhere, which is the whole point of the merge.
+  // The shop itself. Free, forever, for one person.
   "sales",
   "repairs",
   "inventory",
   "customers",
   "reports",
-  "receipts",
+  "receiptPrint",
   "notifications",
   "activityLog",
   "search",
   "backup",
 
-  // A shop with staff in it.
+  // Receipts that leave the counter. The free tier prints -- a shop that
+  // cannot hand a customer anything is not a shop -- but saving the file and
+  // sending it are what you pay for.
+  "receiptPdf",
+  "receiptShare",
+
+  // More than one person behind the counter.
   "staff",
   "roles",
   "pin",
 
-  // Paid.
-  "activation",
+  // Head office.
   "hq",
+
+  // More than one shop.
   "lan",
   "multiBranch",
   "unlimitedStaff",
 ];
 
-const SHOP = [
+// Free. The whole shop, one person, receipts on paper.
+const FREE = [
   "sales", "repairs", "inventory", "customers", "reports",
-  "receipts", "notifications", "activityLog", "search", "backup",
+  "receiptPrint", "notifications", "activityLog", "search", "backup",
 ];
 
-const SOLO = [...SHOP];
-const BUSINESS = [...SOLO, "staff", "roles", "pin", "activation", "hq"];
+// Paid. Staff behind the counter, receipts that leave it, and head office.
+const BUSINESS = [...FREE, "receiptPdf", "receiptShare", "staff", "roles", "pin", "hq"];
+
+// Paid. More than one shop.
 const ENTERPRISE = [...BUSINESS, "lan", "multiBranch", "unlimitedStaff"];
 
 export const CAPABILITIES = {
-  solo: SOLO,
+  free: FREE,
   business: BUSINESS,
   enterprise: ENTERPRISE,
 };
 
-export const EDITIONS = Object.keys(CAPABILITIES);
+export const TIERS = Object.keys(CAPABILITIES);
 
-// Naming, ids and version lanes, so three electron-builder configs can be one
-// config that asks which edition it is building.
-export const EDITION_META = {
-  solo: {
-    productName: "TechDesk Solo",
-    appId: "com.techdesk.solo",
-    versionLane: 1,
+// Kept as the old name too: a great deal of call-site code and several tests
+// say "edition", and renaming every one of them is churn without a reader.
+export const EDITIONS = TIERS;
+
+export const TIER_META = {
+  free: {
+    label: "TechDesk",
+    // What the upgrade prompts offer. A locked feature says which tier opens
+    // it, so "Upgrade" is never a question the shop has to go and research.
+    upgradeTo: "business",
     staffLimit: 1,
   },
   business: {
-    productName: "TechDesk Business",
-    appId: "com.techdesk.business",
-    versionLane: 2,
+    label: "TechDesk Business",
+    upgradeTo: "enterprise",
     staffLimit: 3,
   },
   enterprise: {
-    productName: "TechDesk Enterprise",
-    appId: "com.techdesk.enterprise",
-    versionLane: 3,
+    label: "TechDesk Enterprise",
+    upgradeTo: null,
     staffLimit: Infinity,
   },
 };
 
-export function isEdition(edition) {
-  return Object.prototype.hasOwnProperty.call(CAPABILITIES, edition);
+// The old name, for the same reason as EDITIONS.
+export const EDITION_META = TIER_META;
+
+export function isTier(tier) {
+  return Object.prototype.hasOwnProperty.call(CAPABILITIES, tier);
 }
 
-export function capabilitiesOf(edition) {
-  if (!isEdition(edition)) {
-    // Never guess. A typo in a build script that quietly produced a Solo
-    // binary labelled Enterprise would be found by a customer, not by us.
+export const isEdition = isTier;
+
+export function capabilitiesOf(tier) {
+  if (!isTier(tier)) {
+    // Never guess. Falling back to enterprise gives the product away;
+    // falling back to free takes away what a shop paid for, in the middle of
+    // their day, with no explanation they could act on.
     throw new Error(
-      `Unknown edition "${edition}". Expected one of: ${EDITIONS.join(", ")}.`
+      `Unknown tier "${tier}". Expected one of: ${TIERS.join(", ")}.`
     );
   }
-  return CAPABILITIES[edition];
+  return CAPABILITIES[tier];
 }
 
 /**
- * The build-time constants for one edition, for a bundler's `define`.
+ * Does this tier include this feature?
  *
- * Generated from the list above rather than written out again, so the two
- * cannot disagree -- and every flag is a literal `true` or `false` in the
- * source the bundler sees, which is what lets it delete the branch and the
- * import behind it. A capability check that resolves at runtime can hide a
- * feature; only one that resolves at build time can leave it out.
+ * The one question call sites ask. Never `tier === "enterprise"`: "what may
+ * this shop do" and "what did they buy" are different questions, and
+ * conflating them is how a feature ends up half-moved between tiers.
  */
-export function defineFlags(edition) {
-  const caps = new Set(capabilitiesOf(edition));
-  const limit = EDITION_META[edition].staffLimit;
-  const flags = {
-    __TECHDESK_EDITION__: JSON.stringify(edition),
-    __TECHDESK_PRODUCT_NAME__: JSON.stringify(EDITION_META[edition].productName),
-    // NOT JSON.stringify: JSON has no Infinity and turns it into the string
-    // "null". That would compile Enterprise's unlimited staff to `null`, and
-    // `count < null` is false -- unlimited would have become a limit of zero,
-    // in the one edition sold on not having one. A bundler's define takes a
-    // fragment of source, so the literal is what belongs here.
-    __TECHDESK_STAFF_LIMIT__: limit === Infinity ? "Infinity" : JSON.stringify(limit),
-  };
-  for (const feature of FEATURES) {
-    flags[`__CAN_${feature.toUpperCase()}__`] = JSON.stringify(caps.has(feature));
-  }
+export function tierCan(tier, feature) {
+  return capabilitiesOf(tier).includes(feature);
+}
 
-  // This edition's answers, and no other edition's. can() is backed by this
-  // rather than by importing CAPABILITIES, because importing the map would
-  // put every tier's feature list into every binary -- a Solo build carrying
-  // a labelled inventory of what Enterprise can do, which is both pointless
-  // weight and a free map for anyone patching the bundle.
-  flags.__TECHDESK_CAPS__ = JSON.stringify(
-    Object.fromEntries(FEATURES.map((f) => [f, caps.has(f)]))
-  );
-  return flags;
+/**
+ * The cheapest tier that includes this feature, so a locked control can say
+ * which one opens it rather than just refusing.
+ */
+export function tierFor(feature) {
+  return TIERS.find((t) => CAPABILITIES[t].includes(feature)) || null;
+}
+
+export function staffLimit(tier) {
+  return TIER_META[isTier(tier) ? tier : "free"].staffLimit;
 }
