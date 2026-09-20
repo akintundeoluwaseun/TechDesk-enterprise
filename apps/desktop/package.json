@@ -1,8 +1,9 @@
 {
-  "name": "@techdesk/desktop",
+  "name": "techdesk",
   "productName": "TechDesk",
   "version": "4.0.0",
   "description": "The shop, on the computer at the counter. Free to use; Business and Enterprise unlock in place.",
+  "homepage": "https://techdesk.ng",
   "author": {
     "name": "Oluwaseun Joshua",
     "email": "seun85148@gmail.com"
@@ -17,14 +18,14 @@
     "dist": "npm run build && electron-builder --publish=never"
   },
   "dependencies": {
-    "@techdesk/core": "*",
-    "@techdesk/editions": "*",
-    "@techdesk/platform": "*",
-    "@techdesk/ui": "*",
     "selfsigned": "^5.5.0",
     "web-push": "^3.6.7"
   },
   "devDependencies": {
+    "@techdesk/core": "*",
+    "@techdesk/editions": "*",
+    "@techdesk/platform": "*",
+    "@techdesk/ui": "*",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.19",
     "concurrently": "^8.2.2",
@@ -71,6 +72,7 @@
     },
     "nsis": {
       "include": "build/installer.nsh"
-    }
+    },
+    "npmRebuild": false
   }
 }
