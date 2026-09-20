@@ -1,0 +1,19 @@
+{
+  "name": "@techdesk/platform",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "How a file reaches a person, in each shell TechDesk runs in.",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./capacitor": "./src/capacitor.js"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "jsdom": "^30.0.1",
+    "vitest": "^2.1.9"
+  }
+}

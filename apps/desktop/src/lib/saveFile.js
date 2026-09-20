@@ -1,69 +1,33 @@
-import { IS_ANDROID_APP } from "./platform";
-// Naming a receipt is core's job; delivering it is this file's.
-export { receiptFilename } from "@techdesk/core";
+// Delivering a generated file, and saying what happened.
+//
+// WHERE a file goes is the platform package's problem -- a download, a write
+// into the phone's Documents, a viewer tab. What is left here is the policy
+// the shop actually experiences: saving saves and never opens a chooser,
+// sharing only happens from a button that says share, and a failure is never
+// silent. Tapping save and getting nothing is the bug this module exists to
+// prevent, so a real failure gets said out loud.
+import { platform } from "@techdesk/platform";
 import { toast } from "./toast";
 
-// Saving a generated file, from whichever shell the app is running in.
-//
-// jsPDF's doc.save() and the CSV export both do the same browser trick: build
-// a blob URL and click an <a download>. That works in a browser and in
-// Electron, and does nothing at all inside Android's WebView, which has no
-// download manager behind it -- the tap silently fails.
-//
-// Two details of the browser path were also wrong everywhere: the anchor was
-// never attached to the document (some engines ignore a click on a detached
-// one) and the object URL was revoked synchronously right after click(),
-// which can cancel the download before it has started.
-
-function blobToBase64(blob) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Could not read the file."));
-    reader.onload = () => {
-      const result = String(reader.result || "");
-      // drop the "data:<type>;base64," prefix
-      resolve(result.slice(result.indexOf(",") + 1));
-    };
-    reader.readAsDataURL(blob);
-  });
-}
-
-function browserDownload(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
+// Naming a receipt is core's job; delivering it is this file's.
+export { receiptFilename } from "@techdesk/core";
 
 export async function saveBlob(blob, filename, { share = false } = {}) {
-  if (!IS_ANDROID_APP) {
-    browserDownload(blob, filename);
-    return { ok: true, via: "download" };
-  }
-
+  const shell = platform();
   try {
-    const native = await import("./nativeSave");
-    const base64 = await blobToBase64(blob);
+    const result = share
+      ? await shell.shareFile(blob, filename)
+      : await shell.saveFile(blob, filename);
 
-    // Share only when a button said share. Saving saves: the file lands in
-    // the phone's own files and a line on screen says where, rather than
-    // opening a chooser the shop has to answer before anything is kept.
-    if (share) return await native.nativeShare(base64, filename);
-
-    const saved = await native.nativeSave(base64, filename);
-    toast(`Saved to ${saved.folder || "your files"}`);
-    return saved;
+    // Only worth saying on a platform that put the file somewhere the shop
+    // would otherwise have to go looking for. A browser download announces
+    // itself; a write into Documents does not.
+    if (!share && result.folder) toast(`Saved to ${result.folder}`);
+    return result;
   } catch (err) {
     const message = String(err?.message || err);
     // A cancelled share sheet isn't a failure -- the file is written either way.
     if (/cancel/i.test(message)) return { ok: true, via: "cancelled" };
-    // Tapping save and getting nothing is the bug this module exists to fix,
-    // so a real failure must never be silent.
     try {
       window.alert(`Couldn't save ${filename}.\n\n${message}`);
     } catch {
@@ -86,29 +50,15 @@ export function sharePdf(doc, filename) {
 /**
  * Opens the PDF in whatever views PDFs here, instead of saving it.
  *
- * On a phone that is the system viewer, reached through the same share sheet
- * the save path uses -- Android's WebView has no viewer of its own. On a
- * desktop it is a new tab, where the browser's own print button is one click
- * away. Either way nothing lands in Downloads that the shop has to tidy up.
+ * On a phone that is the system viewer, reached through the share sheet --
+ * Android's WebView has no viewer of its own. On a desktop it is a new
+ * window, where the print button is one click away. Either way nothing lands
+ * in Downloads that the shop has to tidy up.
  */
 export async function printPdf(doc, filename) {
-  if (IS_ANDROID_APP) {
-    // Android has no "open in a viewer" of its own that a web app can call:
-    // the chooser the share sheet puts up is how a PDF reaches a viewer or
-    // a print service. So printing shares, and saving saves.
-    return saveBlob(doc.output("blob"), filename, { share: true });
+  try {
+    return await platform().openFile(doc.output("blob"), filename);
+  } catch (err) {
+    return { ok: false, error: String(err?.message || err) };
   }
-
-  const url = URL.createObjectURL(doc.output("blob"));
-  const win = window.open(url, "_blank");
-  if (!win) {
-    // Pop-up blocked. Falling back to a download beats doing nothing and
-    // leaving the shop wondering whether the button works.
-    URL.revokeObjectURL(url);
-    return saveBlob(doc.output("blob"), filename);
-  }
-  // Long enough for the tab to have loaded it; revoking sooner shows a blank
-  // viewer, which looks exactly like a broken button.
-  setTimeout(() => URL.revokeObjectURL(url), 60000);
-  return { ok: true, via: "viewer" };
 }

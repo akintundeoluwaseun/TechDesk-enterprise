@@ -1,10 +1,3 @@
-// Which shell is this running in?
-//
-// Capacitor injects window.Capacitor into the Android app; Electron's preload
-// injects window.techdesk into the desktop app. A plain browser has neither,
-// which is what dev and the web preview look like.
-export const IS_ANDROID_APP =
-  typeof window !== "undefined" && !!window.Capacitor;
-
-export const IS_DESKTOP_APP =
-  typeof window !== "undefined" && !!window.techdesk;
+// Which shell this is. Lives in @techdesk/platform now; kept here because
+// components and hooks across the app ask the question by this name.
+export { IS_ANDROID_APP, IS_DESKTOP_APP, currentShell } from "@techdesk/platform";

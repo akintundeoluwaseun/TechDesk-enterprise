@@ -8,6 +8,7 @@
 // "give them the actual document".
 
 import { money as formatMoney } from "./currency";
+import { platform } from "@techdesk/platform";
 
 const DEFAULT_COUNTRY = "234"; // Nigeria
 
@@ -142,6 +143,8 @@ export function openWhatsApp(phone, message, country = DEFAULT_COUNTRY) {
   // Without a number wa.me still opens, on the contact picker -- better than
   // refusing outright when the sale was a walk-in with no phone on file.
   const url = number ? `https://wa.me/${number}?text=${text}` : `https://wa.me/?text=${text}`;
-  window.open(url, "_blank", "noopener");
+  // Through the platform adapter: on Android this has to leave the
+  // WebView, and a bare window.open is not guaranteed to.
+  platform().openExternal(url);
   return { ok: true, number };
 }
