@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Plus, X, ChevronDown } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { useSettings } from "../../lib/SettingsContext";
-import { BUSINESS_PRESETS } from "../../data/businessPresets";
+import { BUSINESS_PRESETS } from "@techdesk/core";
 
 const LABEL_FIELDS = [
   ["navRepairs", "Menu name (e.g. Repairs / Services)"],

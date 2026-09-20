@@ -1,4 +1,6 @@
 import { IS_ANDROID_APP } from "./platform";
+// Naming a receipt is core's job; delivering it is this file's.
+export { receiptFilename } from "@techdesk/core";
 import { toast } from "./toast";
 
 // Saving a generated file, from whichever shell the app is running in.
@@ -79,26 +81,6 @@ export function savePdf(doc, filename) {
 /** The share sheet, for a button that says share. */
 export function sharePdf(doc, filename) {
   return saveBlob(doc.output("blob"), filename, { share: true });
-}
-
-/**
- * A filename a shop can find again: who it was for, then which receipt.
- *
- * "INV-00001.pdf" tells you nothing in a folder of two hundred. "Oluwaseun -
- * INV-00001.pdf" sorts by customer and still carries the number.
- *
- * Strips what filesystems refuse and collapses the rest, because a customer
- * called "Ade / Bola" must not create a folder.
- */
-export function receiptFilename(customerName, reference, suffix = "") {
-  const who = String(customerName || "")
-    .replace(/[\\/:*?"<>|]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 40);
-  const ref = String(reference || "receipt").trim();
-  const tail = suffix ? `-${suffix}` : "";
-  return who ? `${who} - ${ref}${tail}.pdf` : `${ref}${tail}.pdf`;
 }
 
 /**

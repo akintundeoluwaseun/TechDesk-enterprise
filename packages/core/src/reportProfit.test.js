@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "./db";
 import { computeReport } from "./reports";
+import { storage } from "./storage";
 
 function inventory(costPrice) {
-  localStorage.setItem(
+  storage.setItem(
     "techdesk_inventory",
     JSON.stringify([{ id: "p1", name: "Hp 15", stock: 50, price: 500000, costPrice }])
   );
@@ -19,7 +20,7 @@ const sell = (item, extra = {}) =>
   });
 
 describe("profit is worked out from what the goods actually cost", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => storage.clear());
 
   it("uses the cost recorded on the sale", () => {
     inventory(400000);

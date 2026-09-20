@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "./db";
 import { searchDestinations } from "./destinations";
+import { storage } from "./storage";
 
 /** Puts one product on the shelf and hands back its id. */
 function stock(name, qty, price = 1000) {
@@ -10,7 +11,7 @@ function stock(name, qty, price = 1000) {
 }
 
 describe("parts fitted to a repair leave the shelf", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => storage.clear());
 
   it("takes the units it used out of stock", () => {
     const screen = stock("iPhone 11 screen", 5);

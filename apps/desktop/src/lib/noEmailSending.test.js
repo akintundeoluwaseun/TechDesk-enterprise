@@ -23,7 +23,14 @@ function sourceFiles(dir, found = []) {
 describe("the app never sends mail on the shop's behalf", () => {
   // vitest runs from the project root, so walk src/ from there rather than
   // resolving against import.meta.url, which it rewrites.
-  const files = sourceFiles(join(process.cwd(), "src"));
+  //
+  // core is walked too. Half this app's source moved into packages/core, and
+  // a guard that stops covering the code it was written for is worse than no
+  // guard: it still reports green.
+  const files = [
+    ...sourceFiles(join(process.cwd(), "src")),
+    ...sourceFiles(join(process.cwd(), "..", "..", "packages", "core", "src")),
+  ];
 
   it("has no mailto link other than the developer's support address", () => {
     const offenders = files.filter((f) => {

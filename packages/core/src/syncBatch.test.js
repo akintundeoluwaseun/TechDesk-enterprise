@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { db } from "./db";
+import { storage } from "./storage";
 
 beforeEach(() => {
-  localStorage.clear();
+  storage.clear();
 });
 
 describe("what gets sent to HQ", () => {
@@ -61,7 +62,7 @@ describe("what gets sent to HQ", () => {
     // A shop upgrading into this feature has a whole history with no
     // updatedAt. Skipping it would mean HQ never sees anything that came
     // before the upgrade.
-    localStorage.setItem(
+    storage.setItem(
       "techdesk_sales",
       JSON.stringify([{ id: "old_1", createdAt: "2026-01-01T10:00:00.000Z", total: 100 }]),
     );
@@ -70,12 +71,12 @@ describe("what gets sent to HQ", () => {
   });
 
   it("skips rows with no usable timestamp rather than guessing one", () => {
-    localStorage.setItem("techdesk_sales", JSON.stringify([{ id: "no_time", total: 1 }]));
+    storage.setItem("techdesk_sales", JSON.stringify([{ id: "no_time", total: 1 }]));
     expect(db.getSyncBatch(null).records).toHaveLength(0);
   });
 
   it("orders oldest first, so a cut-short batch can be resumed", () => {
-    localStorage.setItem(
+    storage.setItem(
       "techdesk_sales",
       JSON.stringify([
         { id: "c", createdAt: "2026-03-01T00:00:00.000Z", updatedAt: "2026-03-01T00:00:00.000Z" },
@@ -92,7 +93,7 @@ describe("what gets sent to HQ", () => {
       createdAt: new Date(2026, 0, i + 1).toISOString(),
       updatedAt: new Date(2026, 0, i + 1).toISOString(),
     }));
-    localStorage.setItem("techdesk_sales", JSON.stringify(many));
+    storage.setItem("techdesk_sales", JSON.stringify(many));
 
     const batch = db.getSyncBatch(null, 5);
     expect(batch.records).toHaveLength(5);
@@ -107,7 +108,7 @@ describe("what gets sent to HQ", () => {
     // send the first and lose the second forever. Re-sending one is free --
     // the push is idempotent and refuses to go backwards.
     const at = "2026-05-01T10:00:00.000Z";
-    localStorage.setItem(
+    storage.setItem(
       "techdesk_sales",
       JSON.stringify([
         { id: "same_ms_a", createdAt: at, updatedAt: at },
@@ -127,7 +128,7 @@ describe("what gets sent to HQ", () => {
     // server's reply instead would skip everything written in the gap
     // between two clocks that disagree.
     const at = "2026-04-02T08:30:00.000Z";
-    localStorage.setItem("techdesk_sales", JSON.stringify([{ id: "s1", createdAt: at, updatedAt: at }]));
+    storage.setItem("techdesk_sales", JSON.stringify([{ id: "s1", createdAt: at, updatedAt: at }]));
     expect(db.getSyncBatch(null).cursor).toBe(at);
   });
 
@@ -146,7 +147,7 @@ describe("what gets sent to HQ", () => {
 
   it("survives an unreadable tombstone list instead of losing the whole batch", () => {
     db.createSale({ total: 100, items: [] });
-    localStorage.setItem("techdesk_tombstones", "{ not json");
+    storage.setItem("techdesk_tombstones", "{ not json");
     expect(db.getSyncBatch(null).records.length).toBeGreaterThan(0);
   });
 });

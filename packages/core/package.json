@@ -1,0 +1,21 @@
+{
+  "name": "@techdesk/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TechDesk's shop logic: records, reports, receipts, search, sync. No UI, no platform.",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.8.2"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.9"
+  }
+}

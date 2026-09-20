@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "./db";
+import { storage } from "./storage";
 
 function stock(n, threshold = 5) {
-  localStorage.setItem(
+  storage.setItem(
     "techdesk_inventory",
     JSON.stringify([{ id: "p1", name: "Hp 15", stock: n, lowStockThreshold: threshold, price: 500000 }])
   );
@@ -18,7 +19,7 @@ const sellOne = (qty = 1) =>
 const lowStockAlerts = () => db.getActivity().filter((a) => a.type === "lowstock");
 
 describe("the admin hears about low stock as it happens", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => storage.clear());
 
   it("raises an alert on the sale that crosses the threshold", () => {
     stock(6);
@@ -75,7 +76,7 @@ describe("the admin hears about low stock as it happens", () => {
   it("reports the stock that was actually saved", () => {
     stock(6);
     sellOne();
-    const saved = JSON.parse(localStorage.getItem("techdesk_inventory"))[0].stock;
+    const saved = JSON.parse(storage.getItem("techdesk_inventory"))[0].stock;
     expect(lowStockAlerts()[0].message).toContain(String(saved));
   });
 });

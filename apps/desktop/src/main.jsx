@@ -1,3 +1,6 @@
+// Must come first: core is told where records live before any
+// component renders and asks for one.
+import "./lib/bindCore";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";

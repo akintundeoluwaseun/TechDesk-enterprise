@@ -5,7 +5,7 @@ import { useSettings } from "../../lib/SettingsContext";
 import { shrinkImage } from "../../lib/shrinkImage";
 import BusinessTypeSection from "./BusinessTypeSection";
 import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
-import { BUSINESS_PRESETS } from "../../data/businessPresets";
+import { BUSINESS_PRESETS } from "@techdesk/core";
 import { CURRENCIES, DEFAULT_CURRENCY, money } from "../../lib/currency";
 
 const APPEARANCE_OPTIONS = [

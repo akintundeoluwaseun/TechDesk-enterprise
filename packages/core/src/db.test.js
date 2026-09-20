@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { db } from "./db";
+import { storage } from "./storage";
 
 describe("invoice/ticket numbering", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => storage.clear());
 
   it("never reuses a number after the record that used it is deleted", () => {
     const first = db.createSale({ items: [], total: 0 });
@@ -17,7 +18,7 @@ describe("invoice/ticket numbering", () => {
   });
 
   it("seeds the counter from existing records so it can't collide after an upgrade", () => {
-    localStorage.setItem(
+    storage.setItem(
       db.KEYS.sales,
       JSON.stringify([{ id: "s1", invoice: "INV-00042", items: [], total: 0 }])
     );
@@ -27,7 +28,7 @@ describe("invoice/ticket numbering", () => {
 });
 
 describe("restoreBackup", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => storage.clear());
 
   it("restores only recognized keys", () => {
     const backup = JSON.stringify({
@@ -38,11 +39,11 @@ describe("restoreBackup", () => {
     });
     db.restoreBackup(backup);
     expect(db.getCustomers()).toEqual([{ id: "c1", name: "Jane" }]);
-    expect(localStorage.getItem("not_a_real_key")).toBeNull();
+    expect(storage.getItem("not_a_real_key")).toBeNull();
   });
 
   it("rejects a malformed backup without touching existing data", () => {
-    localStorage.setItem(db.KEYS.customers, JSON.stringify([{ id: "c1", name: "Jane" }]));
+    storage.setItem(db.KEYS.customers, JSON.stringify([{ id: "c1", name: "Jane" }]));
     const malformed = JSON.stringify({
       data: {
         [db.KEYS.customers]: "{not valid json",
@@ -58,7 +59,7 @@ describe("restoreBackup", () => {
 });
 
 describe("mergeBackup", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => storage.clear());
 
   function backupOf(overrides) {
     return JSON.stringify({
@@ -67,7 +68,7 @@ describe("mergeBackup", () => {
   }
 
   it("keeps existing records and adds the incoming ones", () => {
-    localStorage.setItem(db.KEYS.customers, JSON.stringify([{ id: "c1", name: "Jane" }]));
+    storage.setItem(db.KEYS.customers, JSON.stringify([{ id: "c1", name: "Jane" }]));
     const result = db.mergeBackup(backupOf({ [db.KEYS.customers]: [{ id: "c2", name: "Musa" }] }));
 
     expect(db.getCustomers().map((c) => c.id).sort()).toEqual(["c1", "c2"]);
@@ -84,7 +85,7 @@ describe("mergeBackup", () => {
   });
 
   it("reissues an incoming invoice number that is already in use here", () => {
-    localStorage.setItem(
+    storage.setItem(
       db.KEYS.sales,
       JSON.stringify([{ id: "local", invoice: "INV-00001", items: [], total: 10 }])
     );
@@ -115,7 +116,7 @@ describe("mergeBackup", () => {
     db.mergeBackup(backupOf({ ...incoming, [db.KEYS.customers]: [{ id: "c1" }] }));
     expect(db.getSettings().shopName).toBe("Musa Repairs");
 
-    localStorage.clear();
+    storage.clear();
     db.saveSettings({ ...db.getSettings(), shopName: "Already Mine" });
     db.mergeBackup(backupOf({ ...incoming, [db.KEYS.customers]: [{ id: "c2" }] }));
     expect(db.getSettings().shopName).toBe("Already Mine");
