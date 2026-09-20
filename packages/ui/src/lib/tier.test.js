@@ -90,8 +90,12 @@ describe("the tier is not decided by the build", () => {
     // The whole product model depends on this: a shop pays and the copy they
     // already have unlocks. Code that is not in the binary cannot be
     // switched on, so nothing may compile the tier away.
-    const vite = readFileSync(resolve(__dirname, "../../vite.config.mjs"), "utf-8");
-    expect(vite).not.toMatch(/defineFlags|__CAN_|TECHDESK_EDITION/);
+    // Both shells. One app, one tier, and no build that decides it.
+    for (const shell of ["desktop", "mobile"]) {
+      const vite = readFileSync(
+        resolve(__dirname, "../../../../apps", shell, "vite.config.mjs"), "utf-8");
+      expect(vite).not.toMatch(/defineFlags|__CAN_|TECHDESK_EDITION/);
+    }
     const tier = readFileSync(resolve(__dirname, "tier.js"), "utf-8");
     expect(tier).not.toMatch(/__CAN_|__TECHDESK_EDITION__/);
   });

@@ -9,6 +9,7 @@
   },
   "workspaces": [
     "apps/desktop",
+    "apps/mobile",
     "packages/*"
   ],
   "scripts": {
@@ -16,7 +17,9 @@
     "build": "npm run build -w techdesk-enterprise",
     "test": "npm run test --workspaces --if-present",
     "dist": "npm run dist -w techdesk-enterprise",
-    "electron:dev": "npm run electron:dev -w techdesk-enterprise"
+    "electron:dev": "npm run electron:dev -w techdesk-enterprise",
+    "build:mobile": "npm run build -w @techdesk/mobile",
+    "sync:android": "npm run sync -w @techdesk/mobile"
   },
   "engines": {
     "node": ">=20"

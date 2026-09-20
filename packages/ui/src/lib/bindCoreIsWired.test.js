@@ -10,13 +10,27 @@ import { buildInvoicePdf } from "@techdesk/core";
 // threw. The receipts simply came out without the shop's logo on them, which
 // looks like working software right up until a customer is handed one.
 describe("core is bound at the app's entry points", () => {
-  it("main.jsx binds before anything else", () => {
-    const main = readFileSync(resolve(__dirname, "../main.jsx"), "utf-8");
-    expect(main).toMatch(/import "\.\/lib\/bindCore";/);
-    // First import wins: a binding that runs after a component has already
-    // read a record is not a binding, it is a race.
-    const lines = main.split("\n").filter((l) => l.startsWith("import "));
-    expect(lines[0]).toBe('import "./lib/bindCore";');
+  // Every shell, not just the one that happened to exist when this was
+  // written. The renderer is shared now; the entry points are not, and a new
+  // shell that forgets to bind core reads an empty in-memory store and shows
+  // a shop with no settings while throwing nothing at all.
+  const SHELLS = ["desktop", "mobile"];
+
+  it.each(SHELLS)("%s binds core at its entry point", (shell) => {
+    const main = readFileSync(
+      resolve(__dirname, "../../../../apps", shell, "src/main.jsx"), "utf-8");
+    expect(main).toMatch(/@techdesk\/ui\/bindCore/);
+  });
+
+  it("the mobile shell registers its platform adapter before binding", () => {
+    // Order matters here and nowhere else: saveFile asks platform() for the
+    // adapter, and on Android the browser one does nothing whatsoever --
+    // the shop taps save and gets silence, which is the original bug.
+    const main = readFileSync(
+      resolve(__dirname, "../../../../apps/mobile/src/main.jsx"), "utf-8");
+    expect(main).toMatch(/setPlatform\(capacitorAdapter\)/);
+    expect(main.indexOf("setPlatform(capacitorAdapter)"))
+      .toBeLessThan(main.indexOf("@techdesk/ui/bindCore"));
   });
 
   it("the test runner binds too", () => {

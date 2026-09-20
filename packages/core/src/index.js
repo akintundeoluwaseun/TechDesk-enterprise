@@ -16,7 +16,7 @@ export { CHANGED_EVENT, setChangeSink, emitChanged } from "./events";
 export { setHostBridge, hostBridge, hasHostBridge } from "./bridge";
 
 export { db } from "./db";
-export { hq } from "./hq";
+export { hq, hqBridge, hqLocal } from "./hq";
 
 export { computeReport, reportToCsv, getRangeStart } from "./reports";
 export { searchEverything } from "./searchAll";

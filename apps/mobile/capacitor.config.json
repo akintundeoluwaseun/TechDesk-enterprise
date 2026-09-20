@@ -1,0 +1,11 @@
+{
+  "appId": "com.techdesk.app",
+  "appName": "TechDesk",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": false
+  },
+  "server": {
+    "androidScheme": "https"
+  }
+}
