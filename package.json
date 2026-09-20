@@ -19,7 +19,8 @@
     "dist": "npm run dist -w techdesk",
     "electron:dev": "npm run electron:dev -w techdesk",
     "build:mobile": "npm run build -w @techdesk/mobile",
-    "sync:android": "npm run sync -w @techdesk/mobile"
+    "sync:android": "npm run sync -w @techdesk/mobile",
+    "activation:generate": "node scripts/generate-activation-table.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -15,6 +15,7 @@ import MobileNav from "./components/MobileNav";
 import MobileAppBar from "./components/MobileAppBar";
 import RestrictedOverlay from "./components/RestrictedOverlay";
 import ActivationModal from "./components/ActivationModal";
+import { onOpenUpgrade } from "./lib/upgradeModal";
 import TutorialModal from "./components/TutorialModal";
 import DataMergeModal from "./components/DataMergeModal";
 import { useHqSync } from "./lib/useHqSync";
@@ -65,6 +66,9 @@ function Shell() {
   const { restricted } = useLicense();
   const { open: helpOpen, dismiss: dismissHelp } = useHelp();
   const [showActivation, setShowActivation] = useState(false);
+  // A locked control anywhere in the app can open this, without every page
+  // having to be handed a callback it does not otherwise care about.
+  useEffect(() => onOpenUpgrade(() => setShowActivation(true)), []);
   const [mergeEditions, dismissMerge] = useFirstRunMergePrompt();
   useAutoBackup();
   useLanSync();

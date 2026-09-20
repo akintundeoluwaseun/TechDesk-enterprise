@@ -137,6 +137,32 @@ export function tierFor(feature) {
   return TIERS.find((t) => CAPABILITIES[t].includes(feature)) || null;
 }
 
+/**
+ * Where a tier sits on the ladder. Higher is strictly more: every tier
+ * includes everything below it, which is what makes an upgrade a one-way
+ * move rather than a swap.
+ *
+ * The order comes from CAPABILITIES itself -- free, then business, then
+ * enterprise -- so a tier added to that map lands on the ladder too, in the
+ * position it was written in.
+ */
+export function tierRank(tier) {
+  return TIERS.indexOf(tier);
+}
+
+/**
+ * Would moving from `current` to `candidate` give the shop more?
+ *
+ * The question every activation asks. An unknown tier ranks -1 and therefore
+ * never wins, and a code for the tier they already hold is not an upgrade --
+ * it is a no-op, which is different from an error and must be said
+ * differently.
+ */
+export function isUpgrade(current, candidate) {
+  const to = tierRank(candidate);
+  return to > -1 && to > tierRank(current);
+}
+
 export function staffLimit(tier) {
   return TIER_META[isTier(tier) ? tier : "free"].staffLimit;
 }

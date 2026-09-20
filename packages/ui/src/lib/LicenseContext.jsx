@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
-import codeHashes from "../data/activationHashes.json";
 import { TRIAL_DAYS, dayKey, normalizeState, advance, mergeStates, describe } from "./trial";
 import { IS_ANDROID_APP } from "./platform";
-import { isTier, tierCan } from "@techdesk/editions";
+import { isTier, tierCan, isUpgrade } from "@techdesk/editions";
 import { FREE_TIER, setCurrentTier } from "./tier";
+import { HASH_HEX, normalizeCode, hashPreimage } from "./activationCode";
+import { TABLE_SIZE, isValidIndex, pinAt, hashesAt } from "./activationTable";
 
 const LicenseContext = createContext(null);
 
@@ -12,24 +13,34 @@ const KEY_TRIAL = "techdesk_trial";
 const KEY_TRIAL_START_LEGACY = "techdesk_trial_start";
 const KEY_ACTIVATED = "techdesk_activated";
 const KEY_TIER = "techdesk_tier";
+const KEY_UNLOCKS = "techdesk_unlocks";
 
-// An activation code proves a shop paid. Which tier it paid for has to come
-// from the code table, so entries may carry a "tier".
+// What a device activated before any of this counts as.
 //
-// Entries without one are codes issued before this existed. Those were sold
-// against an edition-specific installer -- you bought Business and got the
-// Business download -- and Solo never needed a code at all, so an untagged
-// code certainly means "paid", just not for what. Business is the floor: it
-// grants everything such a customer can have bought except Enterprise, which
-// is the conservative half of the guess. Tag the table and the guess stops.
+// The table now says which tier every code buys, so nothing issued from here
+// on is ever a guess. This covers the other direction: a device carrying the
+// old activation flag, from back when the tier was decided by WHICH INSTALLER
+// you downloaded rather than by a code. Those shops bought Business or
+// Enterprise and there is no longer any record on the device of which.
+//
+// Business is the floor -- everything such a customer can have bought except
+// Enterprise. Guessing high would give away the product; guessing free would
+// take back what they paid for, on a morning they did nothing wrong. They can
+// type an Enterprise code any time and it upgrades them, so a wrong guess
+// here is a conversation, not a loss.
 const LEGACY_TIER = "business";
 
-async function sha256Hex(text) {
+// Truncated to exactly what the table stores. The generator keeps the first
+// HASH_HEX characters of the digest; comparing anything longer here would
+// reject every code ever issued, so the length comes from the shared module
+// rather than being written out twice.
+async function sha256Prefix(text) {
   const data = new TextEncoder().encode(text);
   const digest = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(digest))
     .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
+    .join("")
+    .slice(0, HASH_HEX);
 }
 
 // The device's PIN is drawn once from the table and must never change: the
@@ -41,11 +52,11 @@ function readLocalIndex() {
   const raw = localStorage.getItem(KEY_ASSIGNED_INDEX);
   if (raw === null) return null;
   const index = Number(raw);
-  return Number.isInteger(index) && index >= 0 && index < codeHashes.length ? index : null;
+  return isValidIndex(index) ? index : null;
 }
 
 function assignIndex() {
-  return Math.floor(Math.random() * codeHashes.length);
+  return Math.floor(Math.random() * TABLE_SIZE);
 }
 
 function storeLocalIndex(index) {
@@ -78,14 +89,52 @@ function writeLocalTrial(state) {
   }
 }
 
+// The unlock history: one entry per code ever accepted on this device.
+//
+// Not bookkeeping for its own sake. A shop rings and says "I paid for
+// Enterprise and it still says Business" -- with a history you ask them to
+// read what the Activation screen shows and you know within ten seconds
+// whether the code landed, which tier it was for and when. Without one, the
+// only state is a single word and you are both guessing.
+function readLocalUnlocks() {
+  try {
+    const raw = localStorage.getItem(KEY_UNLOCKS);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) ? parsed.filter((u) => isTier(u?.tier)) : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The best tier in a history, ignoring anything it does not recognise. */
+function bestOf(unlocks) {
+  let best = FREE_TIER;
+  for (const u of unlocks || []) {
+    if (isTier(u?.tier) && isUpgrade(best, u.tier)) best = u.tier;
+  }
+  return best;
+}
+
+/** Newest last, one per tier -- re-entering a code does not add a line. */
+function withUnlock(unlocks, tier) {
+  const kept = (unlocks || []).filter((u) => u?.tier !== tier);
+  return [...kept, { tier, at: new Date().toISOString() }];
+}
+
 export function LicenseProvider({ children }) {
   const [activated, setActivated] = useState(() => localStorage.getItem(KEY_ACTIVATED) === "1");
 
   // Free until a licence says otherwise. Not "unknown": a shop that has never
   // paid has the free tier, which is a whole working shop, not a locked one.
+  const [unlocks, setUnlocks] = useState(readLocalUnlocks);
   const [tier, setTier] = useState(() => {
     const stored = localStorage.getItem(KEY_TIER);
-    if (isTier(stored)) return stored;
+    // The history outranks the flag: they are written together, so the only
+    // way they disagree is that one of them was lost, and losing an upgrade
+    // is the failure that costs a shop something they paid for.
+    const fromHistory = bestOf(readLocalUnlocks());
+    if (isTier(stored)) return isUpgrade(stored, fromHistory) ? fromHistory : stored;
+    if (fromHistory !== FREE_TIER) return fromHistory;
     // Activated before tiers existed -- see LEGACY_TIER.
     return localStorage.getItem(KEY_ACTIVATED) === "1" ? LEGACY_TIER : FREE_TIER;
   });
@@ -98,7 +147,30 @@ export function LicenseProvider({ children }) {
     storeLocalIndex(fresh);
     return fresh;
   });
-  const assignedEntry = codeHashes[licenseIndex];
+  // The PIN comes out of the table, and the table is loaded on demand -- so
+  // it arrives a tick after the rest, and anything showing it has to cope
+  // with not having it yet. Only the upgrade screen shows it, and it opens
+  // long after this has resolved.
+  const [pin, setPin] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    pinAt(licenseIndex)
+      .then((value) => {
+        if (!cancelled) setPin(value);
+      })
+      .catch(() => {
+        // The table failed to load. The upgrade screen says so rather than
+        // showing a blank where a number should be.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [licenseIndex]);
+
+  const tierRef = useRef(tier);
+  tierRef.current = tier;
+  const unlocksRef = useRef(unlocks);
+  unlocksRef.current = unlocks;
 
   // Render immediately from local storage; the userData file is read a tick
   // later and reconciled, so the sidebar never waits on IPC to show a number.
@@ -127,8 +199,7 @@ export function LicenseProvider({ children }) {
         if (cancelled || !res?.ok) return;
         const stored = res.state;
         const storedIndex = Number(stored?.licenseIndex);
-        const hasStoredIndex =
-          Number.isInteger(storedIndex) && storedIndex >= 0 && storedIndex < codeHashes.length;
+        const hasStoredIndex = isValidIndex(storedIndex);
 
         // The file is the authority on which PIN this device was issued, so a
         // device whose localStorage was cleared gets its original PIN back
@@ -147,12 +218,36 @@ export function LicenseProvider({ children }) {
           }
         }
 
-        // Seed the file on first run, and heal it if it is missing either
-        // half -- including for devices activated before this existed.
-        if (!stored || !hasStoredIndex || (activatedRef.current && stored.activated !== true)) {
+        // The tier comes back too, and only ever upward. This is the other
+        // half of the fix that stops a wiped profile from costing a shop
+        // what they bought: the flag said "activated" but not "activated as
+        // what", so an Enterprise customer used to come back as Business.
+        const storedUnlocks = Array.isArray(stored?.unlocks)
+          ? stored.unlocks.filter((u) => isTier(u?.tier))
+          : [];
+        const fromFile = isUpgrade(bestOf(storedUnlocks), stored?.tier)
+          ? stored.tier
+          : bestOf(storedUnlocks);
+        if (isUpgrade(tierRef.current, fromFile)) {
+          const merged = storedUnlocks.length ? storedUnlocks : withUnlock(unlocksRef.current, fromFile);
+          applyTier(fromFile, merged, { persistFile: false });
+        }
+
+        // Seed the file on first run, and heal it if it is missing any part
+        // of the record -- including for devices activated before the tier
+        // and the history existed.
+        const fileTierLags = isUpgrade(stored?.tier ?? FREE_TIER, tierRef.current);
+        if (
+          !stored ||
+          !hasStoredIndex ||
+          fileTierLags ||
+          (activatedRef.current && stored.activated !== true)
+        ) {
           window.techdesk?.writeLicense?.({
             activated: activatedRef.current,
             licenseIndex: hasStoredIndex ? storedIndex : licenseIndex,
+            tier: tierRef.current,
+            unlocks: unlocksRef.current,
           });
         }
       })
@@ -227,31 +322,95 @@ export function LicenseProvider({ children }) {
   const freeEdition = tier === FREE_TIER;
   const restricted = false;
 
-  async function verifyCode(input) {
-    const clean = (input || "").trim().toUpperCase();
-    const candidateHash = await sha256Hex(`${assignedEntry.pin}:${clean}`);
-    if (candidateHash !== assignedEntry.hash) return false;
-
-    const bought = isTier(assignedEntry.tier) ? assignedEntry.tier : LEGACY_TIER;
+  /**
+   * Put a tier into effect everywhere at once.
+   *
+   * State for the screens, refs so code running later in this same tick sees
+   * it, localStorage as the fast mirror, tier.js for the parts of the app
+   * that are not components, and the userData file as the copy that survives
+   * a cleared profile. Split across five places, so it lives in one function.
+   */
+  function applyTier(next, history, { persistFile = true } = {}) {
+    setActivated(true);
+    activatedRef.current = true;
+    setTier(next);
+    tierRef.current = next;
+    setUnlocks(history);
+    unlocksRef.current = history;
 
     try {
       localStorage.setItem(KEY_ACTIVATED, "1");
-      localStorage.setItem(KEY_TIER, bought);
+      localStorage.setItem(KEY_TIER, next);
+      localStorage.setItem(KEY_UNLOCKS, JSON.stringify(history));
     } catch {
       // Quota or blocked storage -- the file below is what actually counts.
     }
-    setActivated(true);
-    setTier(bought);
+
     // The lock comes off whatever the shop was looking at, without a restart.
     // Being told to restart right after paying is the moment they start
     // wondering whether it worked.
-    setCurrentTier(bought);
+    setCurrentTier(next);
+
+    if (!persistFile) return Promise.resolve();
     // Durable, synchronous on the main-process side: once this resolves the
     // activation has really hit the disk, so a power cut can't undo it.
-    await Promise.resolve(
-      window.techdesk?.writeLicense?.({ activated: true, licenseIndex, tier: bought })
+    return Promise.resolve(
+      window.techdesk?.writeLicense?.({
+        activated: true,
+        licenseIndex,
+        tier: next,
+        unlocks: history,
+      })
     ).catch(() => {});
-    return true;
+  }
+
+  /**
+   * A shop typed a code. Work out what, if anything, it buys them.
+   *
+   * Every code on this PIN is tried, not just one, because a PIN is sold
+   * twice: once for Business and again, later, for Enterprise. That is the
+   * whole upgrade path -- the same device, the same PIN, a second code -- and
+   * it is why this loops.
+   *
+   * Two rules decide what happens on a match:
+   *
+   *   Upgrades only. A code for a tier they already hold, or one below it,
+   *   changes nothing. Someone who paid for Enterprise and then retypes their
+   *   old Business code -- or hands the counter to a staff member who does --
+   *   must not lose what they bought. It is not an error either, so it does
+   *   not get an error's wording.
+   *
+   *   Best match wins. If more than one code somehow matched, the highest one
+   *   is applied rather than the first one found.
+   *
+   * Returns {ok, applied, tier} rather than a boolean, because "wrong code"
+   * and "that one's already on" are different things to say to a person.
+   */
+  async function verifyCode(input) {
+    const clean = normalizeCode(input);
+    if (!clean) return { ok: false, applied: false, tier: null };
+
+    const pin = await pinAt(licenseIndex);
+    if (!pin) return { ok: false, applied: false, tier: null };
+
+    let matched = null;
+    for (const { tier: candidate, hash } of await hashesAt(licenseIndex)) {
+      const digest = await sha256Prefix(hashPreimage(pin, candidate, clean));
+      if (digest === hash && (matched === null || isUpgrade(matched, candidate))) {
+        matched = candidate;
+      }
+    }
+    if (matched === null) return { ok: false, applied: false, tier: null };
+
+    if (!isUpgrade(tierRef.current, matched)) {
+      // A real code, already spent. Say so plainly and leave everything as
+      // it is -- including, on a device activated before tiers existed, the
+      // Business floor it was given.
+      return { ok: true, applied: false, tier: matched };
+    }
+
+    await applyTier(matched, withUnlock(unlocksRef.current, matched));
+    return { ok: true, applied: true, tier: matched };
   }
 
   return (
@@ -262,7 +421,8 @@ export function LicenseProvider({ children }) {
         freeEdition,
         tier,
         can: (feature) => tierCan(tier, feature),
-        pin: assignedEntry.pin,
+        pin,
+        unlocks,
         trialDays: TRIAL_DAYS,
         daysUsed: trial.daysUsed,
         daysLeft,

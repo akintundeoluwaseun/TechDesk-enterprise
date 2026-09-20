@@ -1,9 +1,9 @@
 import React from "react";
 import { Lock } from "lucide-react";
-import { Link } from "react-router-dom";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useTier } from "../lib/useTier";
 import { unlockedBy } from "../lib/tier";
+import { openUpgrade } from "../lib/upgradeModal";
 import { TIER_META } from "@techdesk/editions";
 
 // A feature this shop has not paid for.
@@ -51,12 +51,13 @@ export default function UpgradeLock({ feature, title, children, what }) {
           <p className={`mt-3 text-sm ${t.textSecondary}`}>
             This is part of <span className="font-medium">{label}</span>.
           </p>
-          <Link
-            to="/settings?tab=developer"
+          <button
+            type="button"
+            onClick={openUpgrade}
             className="inline-block mt-4 px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700"
           >
-            How to upgrade
-          </Link>
+            Upgrade to {label}
+          </button>
         </div>
       </div>
     </div>

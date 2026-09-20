@@ -12,5 +12,7 @@ export {
   capabilitiesOf,
   tierCan,
   tierFor,
+  tierRank,
+  isUpgrade,
   staffLimit,
 } from "./capabilities.js";
