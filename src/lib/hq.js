@@ -22,6 +22,9 @@ const EDITION = "enterprise";
 
 /** The handle from connectStart, held only until verify. Never persisted. */
 let pendingState = null;
+// The provider's id for the code that was just sent. Handed back at verify so
+// the check works even on a backend that has not stored it.
+let pendingOtpId = null;
 let pendingPhone = null;
 
 async function post(fn, body) {
@@ -84,6 +87,7 @@ export const hq = {
 
     if (res.ok) {
       pendingState = res.state;
+      pendingOtpId = res.otpId || null;
       pendingPhone = hqPhone;
     }
     return res;
@@ -105,6 +109,7 @@ export const hq = {
 
     const res = await post("connect-verify", {
       state: pendingState,
+      otpId: pendingOtpId,
       installId: id.installId,
       targetPhone: pendingPhone,
       code,
@@ -124,6 +129,7 @@ export const hq = {
     // The handle is spent either way: it cannot be used twice, and keeping it
     // around only invites a confusing second attempt.
     pendingState = null;
+    pendingOtpId = null;
     pendingPhone = null;
 
     if (!saved?.ok) {
@@ -171,6 +177,7 @@ export const hq = {
   async disconnect() {
     if (!IS_DESKTOP_APP) return { ok: false };
     pendingState = null;
+    pendingOtpId = null;
     pendingPhone = null;
     return await window.techdesk.hqDisconnect();
   },

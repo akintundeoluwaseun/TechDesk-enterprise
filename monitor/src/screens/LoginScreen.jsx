@@ -8,6 +8,7 @@ export default function LoginScreen({ onSignedIn }) {
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
   const [sentTo, setSentTo] = useState("");
+  const [otpId, setOtpId] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -23,6 +24,7 @@ export default function LoginScreen({ onSignedIn }) {
     setBusy(false);
     if (!res.ok) return setError(res.message || "That didn't work. Try again.");
     setSentTo(res.phone || phone);
+    setOtpId(res.otpId || null);
     setStep("code");
   }
 
@@ -31,7 +33,7 @@ export default function LoginScreen({ onSignedIn }) {
     setError("");
     if (!/^\d{6}$/.test(code.trim())) return setError("The code is 6 digits.");
     setBusy(true);
-    const res = await api.loginVerify(phone.trim(), code.trim());
+    const res = await api.loginVerify(phone.trim(), code.trim(), otpId);
     setBusy(false);
     if (!res.ok) return setError(res.message || "That didn't work. Try again.");
     onSignedIn(res.token);
@@ -66,6 +68,16 @@ export default function LoginScreen({ onSignedIn }) {
             </label>
             <p className="text-xs text-ink-faint mb-4 leading-relaxed">
               The number you registered your business with. We&rsquo;ll text you a code.
+              Haven&rsquo;t registered yet?{" "}
+              <a
+                href="https://techdesk-one.vercel.app/hq.html"
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-500 font-medium"
+              >
+                Set up your HQ first
+              </a>
+              .
             </p>
             {error && <p className="text-sm text-rose-500 mb-3">{error}</p>}
             <button
@@ -80,8 +92,27 @@ export default function LoginScreen({ onSignedIn }) {
           </form>
         ) : (
           <form onSubmit={signIn}>
-            <p className="text-sm text-ink-soft mb-5 leading-relaxed">
+            <p className="text-sm text-ink-soft mb-3 leading-relaxed">
               We texted a 6-digit code to <b className="text-ink">{sentTo}</b>.
+            </p>
+            {/* The server answers the same way whether or not that number runs
+                a business, so that a stranger cannot find out by typing
+                numbers in. Which means "no code arrived" has two causes, and
+                the second one is the common one for a new owner: there is no
+                HQ on that number yet. Saying so here costs nothing and saves
+                the wait. */}
+            <p className="text-xs text-ink-faint mb-5 leading-relaxed">
+              No code after a minute? The number has to be registered as HQ
+              first &mdash; set that up at{" "}
+              <a
+                href="https://techdesk-one.vercel.app/hq.html"
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-500 font-medium"
+              >
+                techdesk-one.vercel.app/hq
+              </a>
+              , then come back here.
             </p>
             {/* No maxLength: it would cut a code pasted with spaces before the
                 handler strips them. Six digits is enforced here instead. */}

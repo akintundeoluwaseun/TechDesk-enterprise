@@ -1,9 +1,9 @@
 {
   "name": "techdesk-monitor",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
-  "description": "TechDesk HQ Monitoring — read-only view of every branch, for the owner's phone.",
+  "description": "TechDesk HQ Monitoring \u2014 read-only view of every branch, for the owner's phone.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

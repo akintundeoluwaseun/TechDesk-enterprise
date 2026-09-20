@@ -32,7 +32,9 @@ async function post(fn, body) {
 
 export const api = {
   loginStart: (phone) => post("hq-login-start", { phone }),
-  loginVerify: (phone, code) => post("hq-login-verify", { phone, code }),
+  // otpId is the provider's id for the code that was just sent. Passing it
+  // back lets the check work even on a backend that has not stored it.
+  loginVerify: (phone, code, otpId) => post("hq-login-verify", { phone, code, otpId: otpId || null }),
   summary: (token) => post("hq-data", { token, action: "summary" }),
   branch: (token, branchId, kind, limit) =>
     post("hq-data", { token, action: "branch", branchId, kind, limit }),
