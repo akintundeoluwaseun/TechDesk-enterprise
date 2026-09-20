@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Building2, CheckCircle2, Link2, Phone, Unlink } from "lucide-react";
+import { Building2, CheckCircle2, Link2, Phone, RefreshCw, Unlink } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import { hq } from "../../lib/hq";
@@ -14,10 +14,50 @@ export default function ConnectHqTab() {
   const [code, setCode] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [error, setError] = useState("");
+  // What has and has not reached HQ. Connecting and then seeing nothing at
+  // head office used to look identical to a broken connection, because this
+  // screen said "Connected" and then never mentioned sending again.
+  const [sync, setSync] = useState({ waiting: 0, lastSyncAt: null, busy: false, note: "" });
 
   useEffect(() => {
-    hq.status().then(setStatus);
+    hq.status().then((next) => {
+      setStatus(next);
+      if (next?.connected) refreshSync(next);
+    });
   }, []);
+
+  function refreshSync(state) {
+    setSync((s) => ({
+      ...s,
+      waiting: db.countUnsynced(state?.lastSyncAt ?? null),
+      lastSyncAt: state?.lastSyncAt ?? null,
+    }));
+  }
+
+  async function sendNow() {
+    setSync((s) => ({ ...s, busy: true, note: "" }));
+    let res = await hq.sync();
+    // Keep going while HQ says there is more, so a shop with a month of
+    // history behind it does not have to press this twenty times.
+    let guard = 0;
+    while (res?.ok && res.more && guard < 20) {
+      guard += 1;
+      res = await hq.sync();
+    }
+    const next = await hq.status();
+    setStatus(next);
+    const waiting = db.countUnsynced(next?.lastSyncAt ?? null);
+    setSync({
+      waiting,
+      lastSyncAt: next?.lastSyncAt ?? null,
+      busy: false,
+      note: res?.ok
+        ? waiting
+          ? "Some of it went up. The rest follows shortly."
+          : "Everything is up to date at HQ."
+        : res?.message || "Couldn't reach HQ just now. It will try again on its own.",
+    });
+  }
 
   const input = `w-full rounded-xl px-3 py-2.5 text-sm outline-none ${t.inputBg}`;
 
@@ -64,6 +104,15 @@ export default function ConnectHqTab() {
     setStep("idle");
   }
 
+  // The web build keeps the connection in this browser's storage rather than
+  // in a file only the app can read, so it is worth saying so on the screen
+  // where someone decides to connect -- not only in a README.
+  const WHERE_IT_LIVES =
+    "This browser holds the link to head office. Clearing site data disconnects " +
+    "it -- nothing already sent is lost, and you can connect again.";
+
+  // This edition runs in Electron, where the token lives in the main process.
+  // A browser tab of the same build has nowhere safe to keep it.
   if (!IS_DESKTOP_APP) {
     return (
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
@@ -97,6 +146,31 @@ export default function ConnectHqTab() {
               {status.branchName || branchName || "Unnamed branch"}
             </div>
           </div>
+
+          {/* What is actually reaching head office. It sends itself every
+              couple of minutes; this is here so nobody has to guess. */}
+          <div className={`mt-3 rounded-xl p-4 ${t.insetBg}`}>
+            <div className={`text-xs uppercase tracking-wider ${t.textMuted}`}>Sending to HQ</div>
+            <div className={`mt-1 text-sm ${t.textPrimary}`}>
+              {sync.lastSyncAt
+                ? `Last sent ${new Date(sync.lastSyncAt).toLocaleString()}`
+                : "Nothing sent yet"}
+            </div>
+            <div className={`text-sm ${t.textSecondary}`}>
+              {sync.waiting === 0
+                ? "Nothing waiting."
+                : `${sync.waiting} record${sync.waiting === 1 ? "" : "s"} waiting to go up.`}
+            </div>
+            <button
+              onClick={sendNow}
+              disabled={sync.busy}
+              className={`mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${t.pillBg} disabled:opacity-60`}
+            >
+              <RefreshCw className={`w-4 h-4 ${sync.busy ? "animate-spin" : ""}`} />
+              {sync.busy ? "Sending…" : "Send now"}
+            </button>
+            {sync.note && <p className={`text-xs mt-2 ${t.textMuted}`}>{sync.note}</p>}
+          </div>
         </div>
 
         <div className={`rounded-2xl p-6 ${t.cardBg}`}>
@@ -127,6 +201,7 @@ export default function ConnectHqTab() {
               Your head office sees this branch&rsquo;s sales and repairs on their phone. We text
               them a code &mdash; ring them and they&rsquo;ll read it out.
             </p>
+            <p className={`text-xs mt-2 ${t.textMuted}`}>{WHERE_IT_LIVES}</p>
           </div>
         </div>
 
