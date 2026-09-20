@@ -1,85 +1,24 @@
 {
-  "name": "techdesk-enterprise",
-  "productName": "TechDesk Enterprise",
-  "version": "3.3.4",
-  "description": "Offline repair shop manager for larger teams - sales, repairs, inventory, customers, reports, with LAN activity sharing.",
+  "name": "techdesk",
+  "private": true,
+  "version": "0.0.0",
+  "description": "TechDesk: one shop product, three desktop editions, plus web and mobile.",
   "author": {
     "name": "Oluwaseun Joshua",
     "email": "seun85148@gmail.com"
   },
-  "main": "electron/main.js",
+  "workspaces": [
+    "apps/desktop",
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview",
-    "electron:dev": "concurrently -k \"npm:dev\" \"wait-on tcp:5173 && electron .\"",
-    "electron:build": "npm run build && electron-builder",
-    "dist": "npm run build && electron-builder --publish=never",
-    "test": "vitest run"
+    "dev": "npm run dev -w techdesk-enterprise",
+    "build": "npm run build -w techdesk-enterprise",
+    "test": "npm run test --workspaces --if-present",
+    "dist": "npm run dist -w techdesk-enterprise",
+    "electron:dev": "npm run electron:dev -w techdesk-enterprise"
   },
-  "dependencies": {
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.8.2",
-    "lucide-react": "^0.383.0",
-    "qrcode": "^1.5.3",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.23.0",
-    "recharts": "^2.12.7",
-    "selfsigned": "^5.5.0",
-    "web-push": "^3.6.7"
-  },
-  "devDependencies": {
-    "@testing-library/jest-dom": "^7.0.1",
-    "@testing-library/react": "^16.3.3",
-    "@testing-library/user-event": "^14.6.7",
-    "@vitejs/plugin-react": "^4.2.1",
-    "autoprefixer": "^10.4.19",
-    "concurrently": "^8.2.2",
-    "electron": "^30.0.0",
-    "electron-builder": "^24.13.3",
-    "jsdom": "^30.0.1",
-    "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.3",
-    "vite": "^5.2.0",
-    "vitest": "^2.1.9",
-    "wait-on": "^7.2.0"
-  },
-  "build": {
-    "appId": "com.techdesk.enterprise",
-    "productName": "TechDesk Enterprise",
-    "files": [
-      "dist/**/*",
-      "electron/**/*"
-    ],
-    "directories": {
-      "output": "release"
-    },
-    "publish": {
-      "provider": "github",
-      "owner": "akintundeoluwaseun",
-      "repo": "TechDesk-releases-",
-      "releaseType": "release"
-    },
-    "win": {
-      "target": "nsis"
-    },
-    "mac": {
-      "target": [
-        "dmg",
-        "zip"
-      ]
-    },
-    "linux": {
-      "target": [
-        "AppImage",
-        "deb",
-        "rpm"
-      ],
-      "category": "Office"
-    },
-    "nsis": {
-      "include": "build/installer.nsh"
-    }
+  "engines": {
+    "node": ">=20"
   }
 }

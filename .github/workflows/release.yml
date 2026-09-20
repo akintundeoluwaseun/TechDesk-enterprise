@@ -38,12 +38,14 @@ jobs:
 
       - name: Build and publish installers (macOS)
         if: runner.os == 'macOS'
+        working-directory: apps/desktop
         run: npx electron-builder --mac dmg zip --x64 --arm64 --publish always
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
 
       - name: Build and publish installers (Windows/Linux)
         if: runner.os != 'macOS'
+        working-directory: apps/desktop
         run: npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}

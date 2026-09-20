@@ -22,7 +22,7 @@ permissions:
 
 defaults:
   run:
-    working-directory: monitor
+    working-directory: apps/monitor
 
 jobs:
   apk:
@@ -80,7 +80,7 @@ jobs:
 
       - name: Build signed release APK
         if: steps.keystore.outputs.signed == 'true'
-        working-directory: monitor/android
+        working-directory: apps/monitor/android
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -94,7 +94,7 @@ jobs:
 
       - name: Build debug APK
         if: steps.keystore.outputs.signed != 'true'
-        working-directory: monitor/android
+        working-directory: apps/monitor/android
         run: ./gradlew assembleDebug
 
       - name: Name the APK after the version
@@ -104,7 +104,7 @@ jobs:
           SRC=$(find android/app/build/outputs/apk -name "*.apk" | head -1)
           DEST="TechDesk-Monitor-${VERSION}.apk"
           cp "$SRC" "$DEST"
-          echo "path=monitor/$DEST" >> "$GITHUB_OUTPUT"
+          echo "path=apps/monitor/$DEST" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           ls -la "$DEST"
 
