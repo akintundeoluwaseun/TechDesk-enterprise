@@ -73,7 +73,10 @@ export default function MobileAppBar({ onOpenActivation }) {
 
   // Recomputed when the panel opens or is cleared, which is the only time a
   // phone is looking at it.
-  const feed = useMemo(() => notificationFeed(), [notifOpen, clearedAt]);
+  // Passed, not merely depended on -- see the note in Topbar. The same bug
+  // was in both surfaces, which is what sharing a feed but not a call site
+  // gets you.
+  const feed = useMemo(() => notificationFeed(clearedAt), [notifOpen, clearedAt]);
   const unread = unreadCount(feed, clearedAt);
 
   const results = useMemo(

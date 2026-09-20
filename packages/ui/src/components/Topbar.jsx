@@ -56,7 +56,13 @@ export default function Topbar({ title, subtitle, action }) {
   const [clearedAt, setClearedAt] = useState(() => db.getNotifClearedAt());
 
   // The same feed the phone's app bar shows, so the two never disagree.
-  const notifFeed = useMemo(() => notificationFeed(), [clearedAt]);
+  //
+  // clearedAt has to be PASSED, not just depended on. It was in the
+  // dependency list and not in the call, so clearing re-ran this and handed
+  // back the unfiltered feed every time: the marker moved, the badge went
+  // quiet, and every line stayed exactly where it was. From the counter that
+  // is a button that does nothing.
+  const notifFeed = useMemo(() => notificationFeed(clearedAt), [clearedAt]);
   const unread = unreadCount(notifFeed, clearedAt);
   const hasAlerts = isAdmin && unread > 0;
 

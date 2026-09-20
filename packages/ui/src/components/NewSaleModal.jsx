@@ -130,6 +130,11 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
         qty: Number(manualQty) || 1,
         category: manualCategory,
         fromInventory: false,
+        // A device sold off the books still has a serial the customer will
+        // want on the receipt -- a phone bought in that morning, a swap, a
+        // trade-in. Without this key the field below would be an
+        // uncontrolled input the first time it is typed in.
+        imei: "",
       },
     ]);
     setManualName("");
@@ -423,19 +428,25 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                         </button>
                       </div>
                     </div>
-                    {item.fromInventory && (
-                      <div className="mt-2">
+                    {/* Every line, not just the ones from stock.
+                        It used to be inventory-only, so a shop selling a
+                        device that was never in their stock list -- bought in
+                        that morning, a swap, a trade-in -- had nowhere to put
+                        the serial, and the receipt went out without it. That
+                        is the one number a customer comes back with. */}
+                    <div className="mt-2">
+                      <div>
                         <label className={`text-xs font-medium block mb-1 ${t.textPrimary}`}>
-                          IMEI / Serial number
+                          IMEI / Serial number <span className={t.textMuted}>(if it has one)</span>
                         </label>
                         <input
-                          value={item.imei}
+                          value={item.imei || ""}
                           onChange={(e) => updateImei(item.id, e.target.value)}
                           placeholder="IMEI / serial number"
                           className={`w-full rounded-lg px-3 py-2 text-xs outline-none ${t.inputBg}`}
                         />
                       </div>
-                    )}
+                    </div>
                   </div>
                 ))}
               </div>
