@@ -13,11 +13,11 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w techdesk-enterprise",
-    "build": "npm run build -w techdesk-enterprise",
+    "dev": "npm run dev -w @techdesk/desktop",
+    "build": "npm run build -w @techdesk/desktop",
     "test": "npm run test --workspaces --if-present",
-    "dist": "npm run dist -w techdesk-enterprise",
-    "electron:dev": "npm run electron:dev -w techdesk-enterprise",
+    "dist": "npm run dist -w @techdesk/desktop",
+    "electron:dev": "npm run electron:dev -w @techdesk/desktop",
     "build:mobile": "npm run build -w @techdesk/mobile",
     "sync:android": "npm run sync -w @techdesk/mobile"
   },

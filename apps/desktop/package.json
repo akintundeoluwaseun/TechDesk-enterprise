@@ -1,8 +1,8 @@
 {
-  "name": "techdesk-enterprise",
-  "productName": "TechDesk Enterprise",
-  "version": "3.3.4",
-  "description": "Offline repair shop manager for larger teams - sales, repairs, inventory, customers, reports, with LAN activity sharing.",
+  "name": "@techdesk/desktop",
+  "productName": "TechDesk",
+  "version": "4.0.0",
+  "description": "The shop, on the computer at the counter. Free to use; Business and Enterprise unlock in place.",
   "author": {
     "name": "Oluwaseun Joshua",
     "email": "seun85148@gmail.com"
@@ -37,8 +37,8 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.techdesk.enterprise",
-    "productName": "TechDesk Enterprise",
+    "appId": "com.techdesk.app",
+    "productName": "TechDesk",
     "files": [
       "dist/**/*",
       "electron/**/*"

@@ -1,6 +1,6 @@
 {
   "name": "@techdesk/mobile",
-  "version": "1.3.0",
+  "version": "4.0.0",
   "private": true,
   "type": "module",
   "description": "TechDesk for Android. The same shop, on a phone.",

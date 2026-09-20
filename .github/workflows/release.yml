@@ -1,6 +1,6 @@
-name: Build and release desktop installers
+name: Build and release TechDesk
 
-# Builds TechDesk Enterprise natively on Windows, macOS, and Linux runners,
+# Builds TechDesk natively on Windows, macOS, and Linux runners,
 # then publishes each platform's installers to the public
 # TechDesk-releases- repo (this repo stays private -- only the compiled
 # installers go public, never the source). Needs a repo secret named

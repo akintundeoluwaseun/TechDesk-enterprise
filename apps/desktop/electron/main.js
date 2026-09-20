@@ -17,7 +17,7 @@ let lowStockSnapshot = [];
 let repairsSnapshot = [];
 let inventorySnapshot = [];
 let shopInfoSnapshot = {};
-let shopName = "TechDesk Enterprise";
+let shopName = "TechDesk";
 let networkServer;
 
 // Notification titles shown in real push popups -- kept separate from the
@@ -853,7 +853,7 @@ ipcMain.on("techdesk:sync-activity", (event, payload) => {
   repairsSnapshot = Array.isArray(repairs) ? repairs.slice(0, 50) : [];
   inventorySnapshot = Array.isArray(inventory) ? inventory.slice(0, 300) : [];
   shopInfoSnapshot = shopInfo && typeof shopInfo === "object" ? shopInfo : {};
-  shopName = typeof name === "string" && name.trim() ? name : "TechDesk Enterprise";
+  shopName = typeof name === "string" && name.trim() ? name : "TechDesk";
 
   const fresh = activitySnapshot.filter((a) => new Date(a.createdAt) > lastBroadcastAt);
   if (fresh.length) {
@@ -899,7 +899,19 @@ ipcMain.on("techdesk:quit", () => {
 // next to ours. We never touch another edition's live localStorage -- we
 // only read the daily backup JSON it writes below, which is a stable,
 // documented format. "TechDesk 2.0" is the pre-rename Solo folder.
-const KNOWN_EDITION_DIRS = ["TechDesk Solo", "TechDesk Business", "TechDesk Enterprise", "TechDesk 2.0"];
+// Where an older TechDesk kept its data, so a shop moving to the one app can
+// bring their records across.
+//
+// This list GROWS, it does not shrink. The three editions are retired, but
+// their folders are still on the machines of everyone who used them, and
+// those are the people this exists for. com.techdesk.app is a different
+// application id from com.techdesk.enterprise, so the new build installs
+// alongside rather than over the top -- which is what makes bringing the data
+// across necessary, and also what makes it safe: nothing is moved until the
+// owner says so, and the old install is left untouched.
+const KNOWN_EDITION_DIRS = [
+  "TechDesk Solo", "TechDesk Business", "TechDesk Enterprise", "TechDesk 2.0",
+];
 
 function otherEditionBackupDirs() {
   const selfDir = app.getPath("userData");
