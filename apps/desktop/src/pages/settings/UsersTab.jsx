@@ -4,6 +4,8 @@ import { useThemeTokens } from "../../lib/ThemeContext";
 import { useSettings } from "../../lib/SettingsContext";
 import { db } from "../../lib/db";
 import PinRecoverySetup from "../../components/PinRecoverySetup";
+import { currentStaffLimit, tierLabel, nextTier } from "../../lib/tier";
+import { TIER_META } from "@techdesk/editions";
 
 function toggleRole0(draft, setDraft, r) {
   setDraft((d) => {
@@ -29,6 +31,10 @@ export default function UsersTab() {
     setUsers(db.getUsers());
   }
 
+  const staffLimit = currentStaffLimit();
+  // +1 for the admin, who is a person behind the counter too.
+  const atLimit = users.length + 1 >= staffLimit;
+
   function toggleRole(r) {
     if (role === "both") {
       setRole(r === "seller" ? "repairer" : "seller");
@@ -39,6 +45,9 @@ export default function UsersTab() {
 
   function handleAddUser() {
     if (!name || pin.length < 4) return;
+    // The admin counts. A shop on Business buys three people behind the
+    // counter, and the owner is one of them.
+    if (users.length + 1 >= staffLimit) return;
     db.addUser({ name, email, pin, role });
     db.logActivity({ type: "settings", message: `${name} added as ${role}` });
     setName("");
@@ -97,7 +106,13 @@ export default function UsersTab() {
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <div className="flex items-center justify-between mb-1">
           <h3 className={`font-semibold ${t.textPrimary}`}>Users on this device</h3>
-          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${t.pillBg}`}>Unlimited staff accounts</span>
+          {/* What this shop actually has, rather than a claim that was true
+              only in the edition this file used to belong to. */}
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${t.pillBg}`}>
+            {staffLimit === Infinity
+              ? "Unlimited staff accounts"
+              : `${users.length + 1} of ${staffLimit} staff accounts`}
+          </span>
         </div>
         <p className={`text-sm mb-6 ${t.textSecondary}`}>
           Add sellers, repairers, or both. Each user signs in with their own PIN from the user switch screen.
@@ -161,10 +176,23 @@ export default function UsersTab() {
 
         <button
           onClick={handleAddUser}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold mb-6 ${t.pillBg}`}
+          disabled={atLimit}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold mb-6 ${t.pillBg} ${
+            atLimit ? "opacity-60 cursor-not-allowed" : ""
+          }`}
         >
           <UserPlus className="w-4 h-4" /> Add user
         </button>
+
+        {/* Say which plan holds more, not just that this one is full. A shop
+            that has hired someone and cannot add them needs to know what to
+            do about it, today, not that the button is broken. */}
+        {atLimit && (
+          <p className={`-mt-4 mb-6 text-sm ${t.textSecondary}`}>
+            That is every account {tierLabel()} includes.{" "}
+            {nextTier() ? `${TIER_META[nextTier()].label} adds more.` : ""}
+          </p>
+        )}
 
         <div className={`rounded-2xl p-5 mb-4 ${t.insetBg}`}>
           <div className={`font-semibold ${t.textPrimary}`}>Admin</div>
