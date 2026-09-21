@@ -3,7 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider, useThemeTokens } from "./lib/ThemeContext";
 import { SettingsProvider } from "./lib/SettingsContext";
 import { AuthProvider, useAuth, canAccess, homeFor } from "./lib/AuthContext";
-import { LicenseProvider, useLicense } from "./lib/LicenseContext";
+import { LicenseProvider } from "./lib/LicenseContext";
 import { HelpProvider, useHelp } from "./lib/HelpContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import { useLanSync } from "./lib/useLanSync";
@@ -13,7 +13,6 @@ import LoginScreen from "./pages/LoginScreen";
 import Sidebar from "./components/Sidebar";
 import MobileNav from "./components/MobileNav";
 import MobileAppBar from "./components/MobileAppBar";
-import RestrictedOverlay from "./components/RestrictedOverlay";
 import ActivationModal from "./components/ActivationModal";
 import { onOpenUpgrade } from "./lib/upgradeModal";
 import TutorialModal from "./components/TutorialModal";
@@ -63,7 +62,6 @@ function useFirstRunMergePrompt() {
 
 function Shell() {
   const t = useThemeTokens();
-  const { restricted } = useLicense();
   const { open: helpOpen, dismiss: dismissHelp } = useHelp();
   const [showActivation, setShowActivation] = useState(false);
   // A locked control anywhere in the app can open this, without every page
@@ -93,7 +91,6 @@ function Shell() {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
-        {restricted && <RestrictedOverlay onClick={() => setShowActivation(true)} />}
       </div>
       {showActivation && <ActivationModal onClose={() => setShowActivation(false)} />}
       {mergeEditions.length > 0 ? (

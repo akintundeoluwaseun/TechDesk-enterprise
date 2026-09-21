@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
-import { TRIAL_DAYS, dayKey, normalizeState, advance, mergeStates, describe } from "./trial";
+import { dayKey, normalizeState, advance, mergeStates } from "./trial";
 import { IS_ANDROID_APP } from "./platform";
 import { isTier, tierCan, isUpgrade } from "@techdesk/editions";
 import { FREE_TIER, setCurrentTier } from "./tier";
@@ -297,8 +297,6 @@ export function LicenseProvider({ children }) {
     setCurrentTier(tier);
   }, [tier]);
 
-  const { daysLeft, expired } = describe(trial);
-
   // The mobile app is free. The trial and the activation code belong to the
   // desktop build, which is the one that is sold -- on a phone they are a
   // countdown to nothing, and an Activate button with no way to pay.
@@ -423,10 +421,7 @@ export function LicenseProvider({ children }) {
         can: (feature) => tierCan(tier, feature),
         pin,
         unlocks,
-        trialDays: TRIAL_DAYS,
         daysUsed: trial.daysUsed,
-        daysLeft,
-        trialExpired: expired,
         restricted,
         verifyCode,
       }}
