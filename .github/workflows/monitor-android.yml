@@ -65,6 +65,25 @@ jobs:
       - name: Copy the web build into the Android project
         run: npx cap sync android
 
+      # Every build so far shipped Capacitor's defaults -- versionCode 1,
+      # versionName "1.0" -- because `cap add android` generates the project
+      # fresh each time and nothing told it otherwise. Android decides whether
+      # an APK is an upgrade by versionCode alone, so 4.0.5 over 4.0.0 was a
+      # same-version reinstall as far as the phone was concerned, and the
+      # about screen said 1.0 while the shop had 4.0.5.
+      #
+      # 4.1.0 becomes 40100: major*10000 + minor*100 + patch. Room for 99
+      # minors and 99 patches, and it only ever goes up, which is the one
+      # thing Android requires.
+      - name: Put the real version on the Android project
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          CODE=$(node -p "const [a,b,c]=require('./package.json').version.split('.').map(Number); a*10000+b*100+(c||0)")
+          echo "versionName $VERSION, versionCode $CODE"
+          sed -i "s/versionCode 1$/versionCode $CODE/" android/app/build.gradle
+          sed -i "s/versionName \"1.0\"/versionName \"$VERSION\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
+
       - name: Decode signing keystore
         id: keystore
         env:
