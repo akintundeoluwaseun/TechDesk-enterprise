@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Monitor, Phone, ArrowRight } from "lucide-react";
 import { api } from "../api";
 import { Card } from "../components/ui";
+import { sitePage, siteLabel } from "@techdesk/editions";
 
 export default function LoginScreen({ onSignedIn }) {
   const [step, setStep] = useState("phone");
@@ -70,7 +71,7 @@ export default function LoginScreen({ onSignedIn }) {
               The number you registered your business with. We&rsquo;ll text you a code.
               Haven&rsquo;t registered yet?{" "}
               <a
-                href="https://techdesk.ng/hq.html"
+                href={sitePage("hq.html")}
                 target="_blank"
                 rel="noreferrer"
                 className="text-blue-500 font-medium"
@@ -105,12 +106,12 @@ export default function LoginScreen({ onSignedIn }) {
               No code after a minute? The number has to be registered as HQ
               first &mdash; set that up at{" "}
               <a
-                href="https://techdesk.ng/hq.html"
+                href={sitePage("hq.html")}
                 target="_blank"
                 rel="noreferrer"
                 className="text-blue-500 font-medium"
               >
-                techdesk.ng/hq
+                {siteLabel("hq.html")}
               </a>
               , then come back here.
             </p>

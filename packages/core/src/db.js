@@ -363,7 +363,7 @@ export const db = {
       address: "",
       phone: "",
       email: "",
-      website: "techdesk.ng",
+      website: "",
       taxId: "",
       bankName: "",
       accountNumber: "",

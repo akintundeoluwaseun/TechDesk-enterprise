@@ -16,3 +16,5 @@ export {
   isUpgrade,
   staffLimit,
 } from "./capabilities.js";
+
+export { SITE_ORIGIN, sitePage, siteLabel } from "./site.js";

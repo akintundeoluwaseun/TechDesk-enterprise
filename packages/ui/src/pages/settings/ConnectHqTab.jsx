@@ -4,6 +4,7 @@ import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import { hq } from "../../lib/hq";
 import { IS_ANDROID_APP } from "../../lib/platform";
+import { siteLabel } from "@techdesk/editions";
 
 export default function ConnectHqTab() {
   const t = useThemeTokens();
@@ -305,7 +306,7 @@ export default function ConnectHqTab() {
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <h3 className={`font-semibold ${t.textPrimary}`}>No HQ yet?</h3>
         <p className={`text-sm mt-1 ${t.textSecondary}`}>
-          Head office signs up once at techdesk.ng/hq.html with their phone number.
+          Head office signs up once at {siteLabel("hq.html")} with their phone number.
           Every branch then connects to that number.
         </p>
       </div>

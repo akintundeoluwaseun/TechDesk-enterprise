@@ -67,7 +67,7 @@ cover this. The domain (roughly $10–15/year) is the only real expense.
    - `onboarding@resend.dev` — works immediately, no DNS, testing only (see the
      delivery restriction noted above), or
    - an address on a domain you verified in step 1, e.g.
-     `TechDesk <digest@techdesk.ng>` — what you want for real use.
+     `TechDesk <digest@yourdomain.com>` — what you want for real use.
 
    (`worker.js` falls back to `digest@techdesk.app` only when `FROM_ADDRESS` is
    *unset*. Since `wrangler.toml` sets it, that fallback never fires — and it is

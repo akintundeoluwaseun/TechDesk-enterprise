@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { X, ShieldCheck, Phone, Mail, Globe, Copy, Check } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useLicense } from "../lib/LicenseContext";
-import { CAPABILITIES, TIER_META } from "@techdesk/editions";
+import { CAPABILITIES, TIER_META, sitePage, siteLabel } from "@techdesk/editions";
 import { addedBy } from "../lib/featureLabels";
 import { formatCode } from "../lib/activationCode";
 
@@ -175,12 +175,12 @@ export default function ActivationModal({ onClose }) {
         <div className={`text-xs mb-2 ${t.textMuted}`}>To get a code, or if one won't work:</div>
         <div className="flex flex-col gap-2">
           <a
-            href="https://techdesk.ng/plans.html"
+            href={sitePage("plans.html")}
             target="_blank"
             rel="noreferrer"
             className={`flex items-center gap-2 text-sm font-medium ${t.textPrimary}`}
           >
-            <Globe className="w-4 h-4" /> techdesk.ng/plans
+            <Globe className="w-4 h-4" /> {siteLabel("plans.html")}
           </a>
           <a href="tel:+2348076911614" className={`flex items-center gap-2 text-sm ${t.textSecondary}`}>
             <Phone className="w-4 h-4" /> +234 807 691 1614
