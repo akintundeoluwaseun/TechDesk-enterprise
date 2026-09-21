@@ -1245,6 +1245,43 @@ ipcMain.handle("techdesk:hq-disconnect", async (event, payload) => {
 // Hands back a disconnect that could not be delivered at the time. Called on
 // launch and when a sync succeeds, which is the cheapest proof that the
 // network is back.
+// Sharing with the rest of the shop goes through here for the same reason
+// the sync does: the token lives in this process, and handing it to the
+// renderer so it could post for itself would undo the point of keeping it
+// here. The renderer sends what to share and gets back what the server kept.
+ipcMain.handle("techdesk:shop-share", async (event, payload) => {
+  return await shopCall(payload, "shop-share", { kinds: payload?.kinds || [] });
+});
+
+ipcMain.handle("techdesk:shop-pull", async (event, payload) => {
+  return await shopCall(payload, "shop-pull", {
+    since: payload?.since || null,
+    limit: payload?.limit || 400,
+  });
+});
+
+async function shopCall(payload, fn, body) {
+  const state = readHqState();
+  if (!state.token) return { ok: false, error: "not_connected" };
+  if (!payload?.url || !payload?.key) return { ok: false, error: "bad_request" };
+
+  try {
+    const res = await fetch(`${payload.url}/functions/v1/${fn}`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${payload.key}`,
+        "apikey": payload.key,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ...body, token: state.token }),
+    });
+    return await res.json();
+  } catch (err) {
+    // Offline is the normal case for a shop, not an exception.
+    return { ok: false, error: "offline", detail: String(err) };
+  }
+}
+
 ipcMain.handle("techdesk:hq-flush-revoke", async (event, payload) => {
   const state = readHqState();
   if (!state.revokeToken) return { ok: true, pending: false };

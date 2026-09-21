@@ -611,6 +611,19 @@ export const db = {
         if (!at) continue;
         const t = new Date(at).getTime();
         if (!Number.isFinite(t) || t < after) continue;
+
+        // A record that arrived from the bench next door and has not been
+        // touched here is not this device's news. Sending it back would mark
+        // this device as its last writer, which makes the device that owns it
+        // pull it as "changed by somebody else", which makes that device push
+        // -- and the two of them hand the same record back and forth for as
+        // long as both are running. sharedSeenAt is the line: past it,
+        // somebody here changed it and it goes up like anything else.
+        if (row.sharedSeenAt) {
+          const seen = new Date(row.sharedSeenAt).getTime();
+          if (Number.isFinite(seen) && t <= seen) continue;
+        }
+
         changed.push({ id: row.id, kind, updatedAt: new Date(t).toISOString(), payload: row });
       }
     }

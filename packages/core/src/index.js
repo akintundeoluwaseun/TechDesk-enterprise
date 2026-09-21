@@ -21,6 +21,9 @@ export { hq, hqBridge, hqLocal } from "./hq";
 // these are exported so the retry can be tested without a live server.
 export { rememberRevoke, pendingRevoke, clearRevoke } from "./hqStore";
 
+// Sharing between the benches in one shop.
+export { shop, mergeShared, changedSinceShared, SHAREABLE, shareLabel } from "./shop";
+
 export { computeReport, reportToCsv, getRangeStart } from "./reports";
 export { searchEverything } from "./searchAll";
 export { notificationFeed, isUnread, unreadCount, timeAgo } from "./notifications";

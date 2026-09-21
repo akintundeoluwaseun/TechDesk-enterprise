@@ -20,6 +20,7 @@ import { IS_ANDROID_APP } from "../lib/platform";
 // `feature` is what the tab needs; UpgradeLock renders the tab or the offer.
 const UsersTab = React.lazy(() => import("./settings/UsersTab"));
 const ConnectHqTab = React.lazy(() => import("./settings/ConnectHqTab"));
+const ShareShopTab = React.lazy(() => import("./settings/ShareShopTab"));
 
 const ALL_TABS = [
   { key: "shop", label: "Shop", Component: ShopTab },
@@ -37,6 +38,14 @@ const ALL_TABS = [
     // second PIN on it is answering a question nobody asked, and the PIN
     // toggle lives on this tab, so both go together.
     counterOnly: true,
+  },
+  {
+    key: "share",
+    label: "Share",
+    Component: ShareShopTab,
+    feature: "shareData",
+    title: "Share with the rest of the shop",
+    what: "Put your stock, repairs and customers in front of the other TechDesk devices in this shop, so anyone can see what is on the shelf and fix a count without walking over to the other bench.",
   },
   { key: "device", label: "Device", Component: DeviceTab },
   {
