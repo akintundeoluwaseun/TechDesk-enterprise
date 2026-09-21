@@ -42,24 +42,33 @@ describe("what a shop gets without paying", () => {
     expect(tierCan("free", "receiptShare")).toBe(false);
   });
 
-  it("is one person, with no head office", () => {
+  it("is one person, sharing with nobody", () => {
     expect(tierCan("free", "staff")).toBe(false);
     expect(tierCan("free", "pin")).toBe(false);
+    expect(tierCan("free", "shareData")).toBe(false);
     expect(tierCan("free", "hq")).toBe(false);
     expect(staffLimit("free")).toBe(1);
   });
 });
 
 describe("what each paid tier is for", () => {
-  it("business is staff, receipts that leave the counter, and head office", () => {
-    for (const f of ["staff", "roles", "pin", "receiptPdf", "receiptShare", "hq"]) {
+  it("business is staff, receipts that leave the counter, and one shop sharing", () => {
+    for (const f of ["staff", "roles", "pin", "receiptPdf", "receiptShare", "shareData"]) {
       expect(tierCan("business", f)).toBe(true);
     }
     expect(staffLimit("business")).toBe(3);
   });
 
+  // Sideways and upwards are different products. Business shares between the
+  // people in one shop; reporting up to an account that watches several shops
+  // is the tier above, and a one-counter shop should not be paying for it.
+  it("business shares sideways but does not report upwards", () => {
+    expect(tierCan("business", "shareData")).toBe(true);
+    expect(tierCan("business", "hq")).toBe(false);
+  });
+
   it("enterprise is more than one shop", () => {
-    for (const f of ["lan", "multiBranch", "unlimitedStaff"]) {
+    for (const f of ["hq", "lan", "multiBranch", "unlimitedStaff"]) {
       expect(tierCan("enterprise", f)).toBe(true);
       expect(tierCan("business", f)).toBe(false);
     }
@@ -73,7 +82,8 @@ describe("what each paid tier is for", () => {
 describe("a locked control can say what opens it", () => {
   it("names the cheapest tier that includes the feature", () => {
     expect(tierFor("receiptPdf")).toBe("business");
-    expect(tierFor("hq")).toBe("business");
+    expect(tierFor("shareData")).toBe("business");
+    expect(tierFor("hq")).toBe("enterprise");
     expect(tierFor("lan")).toBe("enterprise");
     expect(tierFor("sales")).toBe("free");
   });

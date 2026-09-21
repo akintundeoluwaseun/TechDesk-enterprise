@@ -17,6 +17,9 @@ export { setHostBridge, hostBridge, hasHostBridge } from "./bridge";
 
 export { db } from "./db";
 export { hq, hqBridge, hqLocal } from "./hq";
+// A disconnect the server has not been told about yet. The app retries it;
+// these are exported so the retry can be tested without a live server.
+export { rememberRevoke, pendingRevoke, clearRevoke } from "./hqStore";
 
 export { computeReport, reportToCsv, getRangeStart } from "./reports";
 export { searchEverything } from "./searchAll";

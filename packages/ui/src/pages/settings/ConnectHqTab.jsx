@@ -100,9 +100,19 @@ export default function ConnectHqTab() {
 
   async function disconnect() {
     if (!window.confirm("Disconnect this branch from HQ? Your data stays on this device.")) return;
-    await hq.disconnect();
+    const res = await hq.disconnect();
     setStatus(await hq.status());
     setStep("idle");
+    // Whether head office has actually been told is the part a shop cannot
+    // see and used to be told nothing about. It stays listed there until the
+    // message gets through, and saying so beats the screen saying nothing
+    // while Monitor still shows the device.
+    setError(
+      res?.told === false
+        ? "Disconnected here. Head office hasn't been told yet -- no internet. " +
+          "It will be as soon as this device is back online."
+        : "",
+    );
   }
 
   // The web build keeps the connection in this browser's storage rather than

@@ -180,12 +180,25 @@ export const hqBridge = {
     return { ok: true, sent: batch.records.length, more: batch.more, appVersion };
   },
 
-  /** Forgets the connection locally. The install id survives. */
+  /**
+   * Leaves head office: here AND there.
+   *
+   * The main process holds the token, so it does the telling. It drops the
+   * connection either way and keeps the token back for that one errand if the
+   * machine was offline -- see flushRevoke().
+   */
   async disconnect() {
     if (!hasHostBridge()) return { ok: false };
     pendingState = null;
     pendingOtpId = null;
     pendingPhone = null;
-    return await hostBridge().hqDisconnect();
+    return await hostBridge().hqDisconnect({ url: SUPABASE_URL, key: PUBLISHABLE_KEY });
+  },
+
+  /** Hands back a disconnect that could not be delivered at the time. */
+  async flushRevoke() {
+    if (!hasHostBridge()) return { ok: true, pending: false };
+    if (!hostBridge().hqFlushRevoke) return { ok: true, pending: false };
+    return await hostBridge().hqFlushRevoke({ url: SUPABASE_URL, key: PUBLISHABLE_KEY });
   },
 };

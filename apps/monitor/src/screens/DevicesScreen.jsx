@@ -1,5 +1,5 @@
 import React from "react";
-import { Monitor, ChevronRight, Building2 } from "lucide-react";
+import { Monitor, ChevronRight, Building2, Unplug } from "lucide-react";
 import { Card, Empty, IconBubble, StatusDot } from "../components/ui";
 import { ago } from "../format";
 
@@ -33,6 +33,19 @@ export default function DevicesScreen({ data, onOpenBranch }) {
                 </div>
                 <ChevronRight className="text-ink-faint shrink-0" size={18} />
               </button>
+
+              {/* A branch with nothing connected said nothing at all: the card
+                  showed the name and the sales and stopped, which reads as
+                  "fine". A shop that had just disconnected a device looked
+                  here and saw no difference. */}
+              {(b.devices || []).length === 0 && (
+                <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/60 flex items-center gap-3">
+                  <Unplug className="text-ink-faint shrink-0" size={16} />
+                  <div className="text-sm text-ink-faint">
+                    Nothing connected here. Connect TechDesk on the shop's computer or phone.
+                  </div>
+                </div>
+              )}
 
               {(b.devices || []).length > 0 && (
                 <div className="border-t border-slate-100 divide-y divide-slate-100">

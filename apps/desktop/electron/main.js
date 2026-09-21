@@ -1211,18 +1211,82 @@ ipcMain.handle("techdesk:hq-sync", async (event, payload) => {
   }
 });
 
-ipcMain.handle("techdesk:hq-disconnect", () => {
+// Disconnecting has to reach the server as well as this machine. It used to
+// do only the local half, so head office went on listing a device the shop
+// had deliberately disconnected, and nothing the shop could do changed that.
+//
+// The local half always happens, even when the server cannot be told. A shop
+// that taps Disconnect is finished with the connection whatever the network
+// is doing. What is owed is kept under revokeToken and retried; a token held
+// only to hand back is not a connection.
+ipcMain.handle("techdesk:hq-disconnect", async (event, payload) => {
+  const state = readHqState();
+  const token = state.token;
+  let told = false;
+
+  if (token && payload?.url && payload?.key) {
+    told = await postRevoke(payload.url, payload.key, token);
+  }
+
   try {
-    const state = readHqState();
     // The install id survives. Disconnecting is not becoming a different
     // shop, and reconnecting later should land on the same device record
     // rather than leaving an orphan behind at HQ.
-    writeHqState({ installId: state.installId });
-    return { ok: true };
+    writeHqState({
+      installId: state.installId,
+      ...(told || !token ? {} : { revokeToken: token, revokeAt: new Date().toISOString() }),
+    });
+    return { ok: true, told };
   } catch (err) {
     return { ok: false, error: String(err) };
   }
 });
+
+// Hands back a disconnect that could not be delivered at the time. Called on
+// launch and when a sync succeeds, which is the cheapest proof that the
+// network is back.
+ipcMain.handle("techdesk:hq-flush-revoke", async (event, payload) => {
+  const state = readHqState();
+  if (!state.revokeToken) return { ok: true, pending: false };
+
+  // A month. A token nobody has managed to hand back by then is not going to
+  // be, and keeping a dead credential on disk serves no one.
+  const age = Date.now() - new Date(state.revokeAt || 0).getTime();
+  if (!Number.isFinite(age) || age > 30 * 24 * 60 * 60 * 1000) {
+    const { revokeToken, revokeAt, ...rest } = state;
+    void revokeToken; void revokeAt;
+    writeHqState(rest);
+    return { ok: true, pending: false, expired: true };
+  }
+
+  const told = await postRevoke(payload?.url, payload?.key, state.revokeToken);
+  if (!told) return { ok: false, pending: true };
+
+  const { revokeToken, revokeAt, ...rest } = state;
+  void revokeToken; void revokeAt;
+  writeHqState(rest);
+  return { ok: true, pending: false, told: true };
+});
+
+async function postRevoke(url, key, token) {
+  if (!url || !key || !token) return false;
+  try {
+    const res = await fetch(`${url}/functions/v1/connect-disconnect`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${key}`,
+        "apikey": key,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ token }),
+    });
+    const data = await res.json().catch(() => ({}));
+    return Boolean(data?.ok);
+  } catch {
+    // Offline. The caller keeps the token and tries again later.
+    return false;
+  }
+}
 
 // ---- Automatic local backups ----
 // Renderer calls this roughly once a day; we keep the most recent 14 files.

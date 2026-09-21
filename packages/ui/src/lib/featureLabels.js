@@ -14,6 +14,7 @@ export const FEATURE_LABELS = {
   staff: "Add staff to the counter",
   roles: "Decide what each staff member can touch",
   pin: "Lock the app with a PIN",
+  shareData: "Share stock, repairs and customers with the rest of the shop",
   hq: "Report to head office",
   lan: "Share one set of records across the shop's computers",
   multiBranch: "Run more than one branch",

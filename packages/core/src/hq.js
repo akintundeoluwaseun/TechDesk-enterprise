@@ -33,6 +33,11 @@ export const hq = {
   connectVerify: (...args) => impl().connectVerify(...args),
   sync: (...args) => impl().sync(...args),
   disconnect: (...args) => impl().disconnect(...args),
+
+  // A disconnect made with no signal still has to reach the server, or the
+  // device goes on being listed at head office. Called on launch and when the
+  // network comes back.
+  flushRevoke: (...args) => impl().flushRevoke?.(...args) ?? { ok: true, pending: false },
 };
 
 export { hqBridge, hqLocal };

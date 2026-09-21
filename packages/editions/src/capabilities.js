@@ -44,7 +44,15 @@ export const FEATURES = [
   "roles",
   "pin",
 
-  // Head office.
+  // Everyone in one shop, working off each other's records.
+  //
+  // Two people behind the same counter, each with their own copy of TechDesk
+  // and their own stock: the Samsung bench and the iPhone bench. Sharing puts
+  // what they tick -- inventory, repairs, customers -- in front of the rest of
+  // the shop, and whoever can see it can work on it, not just read it.
+  "shareData",
+
+  // Head office. One shop reporting up to an account that watches several.
   "hq",
 
   // More than one shop.
@@ -59,11 +67,17 @@ const FREE = [
   "receiptPrint", "notifications", "activityLog", "search", "backup",
 ];
 
-// Paid. Staff behind the counter, receipts that leave it, and head office.
-const BUSINESS = [...FREE, "receiptPdf", "receiptShare", "staff", "roles", "pin", "hq"];
+// Paid. Staff behind the counter, receipts that leave it, and everyone in
+// the shop working off each other's records.
+//
+// NOT head office. A shop on Business shares sideways -- worker to worker,
+// inside one shop -- and that is the whole of it. Reporting up to an account
+// that watches several shops is what the tier above is for, and a shop that
+// only ever has one counter should not be paying for it.
+const BUSINESS = [...FREE, "receiptPdf", "receiptShare", "staff", "roles", "pin", "shareData"];
 
-// Paid. More than one shop.
-const ENTERPRISE = [...BUSINESS, "lan", "multiBranch", "unlimitedStaff"];
+// Paid. More than one shop, and the head office that watches them.
+const ENTERPRISE = [...BUSINESS, "hq", "lan", "multiBranch", "unlimitedStaff"];
 
 export const CAPABILITIES = {
   free: FREE,

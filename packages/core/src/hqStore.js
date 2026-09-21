@@ -18,6 +18,8 @@
 
 const KEY_INSTALL = "techdesk_web_install_id";
 const KEY_STATE = "techdesk_web_hq";
+// A disconnect the server has not been told about yet. See pendingRevoke().
+const KEY_REVOKE = "techdesk_web_hq_revoke";
 
 function read(key) {
   try {
@@ -98,4 +100,49 @@ export function readCursor() {
 
 export function writeCursor(value) {
   write(KEY_CURSOR, value);
+}
+
+// ---------------------------------------------------------------- revoke --
+//
+// Disconnecting has to reach the server, or the device goes on being listed
+// at head office. But a shop disconnects a phone when they are done with it,
+// which is exactly when it may have no signal -- and refusing to disconnect
+// until the internet comes back would be answering the wrong question.
+//
+// So the connection is dropped here immediately and the token is kept, alone,
+// under its own key, until the server has been told. It is the same token
+// that was already in this storage a moment ago, held for one more errand and
+// then deleted.
+
+/** Remember that the server still has to be told about a disconnect. */
+export function rememberRevoke(token) {
+  if (!token) return;
+  write(KEY_REVOKE, JSON.stringify({ token, at: new Date().toISOString() }));
+}
+
+/** The disconnect still owed to the server, if any. */
+export function pendingRevoke() {
+  const raw = read(KEY_REVOKE);
+  if (!raw) return null;
+  try {
+    const { token, at } = JSON.parse(raw);
+    if (!token) return null;
+    // A token nobody has managed to hand back in a month is not going to be
+    // handed back. Keeping it forever would leave a dead credential sitting
+    // in storage for no one's benefit.
+    if (Date.now() - new Date(at).getTime() > 30 * 24 * 60 * 60 * 1000) {
+      clearRevoke();
+      return null;
+    }
+    return { token, at };
+  } catch {
+    clearRevoke();
+    return null;
+  }
+}
+
+export function clearRevoke() {
+  try {
+    localStorage.removeItem(KEY_REVOKE);
+  } catch { /* nothing to do, and nothing that depends on it */ }
 }

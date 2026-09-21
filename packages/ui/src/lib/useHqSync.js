@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { hq } from "./hq";
 import { CHANGED_EVENT } from "./db";
-import { IS_DESKTOP_APP } from "./platform";
 
 // How often a connected branch reports in even when nothing has happened.
 // It is a heartbeat, not the main mechanism: a sale goes up seconds after it
@@ -30,10 +29,17 @@ const AFTER_CHANGE_MS = 6 * 1000;
  */
 export function useHqSync() {
   useEffect(() => {
-    // The token lives in the main process here, so there is nothing to push
-    // from a browser tab of this same build.
-    if (!IS_DESKTOP_APP) return;
-
+    // Every shell, not just the desktop.
+    //
+    // This used to bail unless it was the Electron build, on the grounds that
+    // the token lives in the main process there. It does -- but the browser
+    // and Android builds keep theirs in their own storage and can post for
+    // themselves, which is what hqLocal is. So a connected phone synced only
+    // while someone sat on the Connect to HQ screen with their thumb on the
+    // button, and a shop that used the phone app all day sent nothing.
+    //
+    // A shell that is not connected costs nothing here: hq.sync() answers
+    // not_connected without touching the network.
     let cancelled = false;
     let heartbeat = null;
     let debounce = null;
@@ -46,6 +52,12 @@ export function useHqSync() {
 
       running = true;
       try {
+        // A disconnect made with no signal is still owed to the server, and
+        // until it lands the device goes on being listed at head office.
+        // This runs first and on the same triggers, because "the network is
+        // back" is exactly when both errands become possible.
+        await hq.flushRevoke?.();
+
         // A batch is capped, so a shop with months of history behind it would
         // otherwise trickle it out one batch at a time. Keep going while
         // there is more, but yield between batches so a long catch-up cannot

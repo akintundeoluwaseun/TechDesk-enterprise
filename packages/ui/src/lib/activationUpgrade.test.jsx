@@ -71,6 +71,7 @@ describe("a shop that has never paid", () => {
     expect(result.current.can("sales")).toBe(true);
     expect(result.current.can("receiptPrint")).toBe(true);
     expect(result.current.can("receiptPdf")).toBe(false);
+    expect(result.current.can("shareData")).toBe(false);
     expect(result.current.can("hq")).toBe(false);
   });
 
@@ -87,8 +88,10 @@ describe("free to Business", () => {
     expect(res).toMatchObject({ ok: true, applied: true, tier: "business" });
     expect(result.current.tier).toBe("business");
     expect(result.current.can("receiptPdf")).toBe(true);
-    expect(result.current.can("hq")).toBe(true);
-    // Still not Enterprise -- one payment buys one tier.
+    expect(result.current.can("shareData")).toBe(true);
+    // Still not Enterprise -- one payment buys one tier, and head office is
+    // the next one.
+    expect(result.current.can("hq")).toBe(false);
     expect(result.current.can("multiBranch")).toBe(false);
   });
 
@@ -187,7 +190,7 @@ describe("a device activated before any of this existed", () => {
     localStorage.setItem("techdesk_activated", "1");
     const { result } = await opened();
     expect(result.current.tier).toBe("business");
-    expect(result.current.can("hq")).toBe(true);
+    expect(result.current.can("shareData")).toBe(true);
     expect(result.current.can("multiBranch")).toBe(false);
   });
 

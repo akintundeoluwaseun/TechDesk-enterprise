@@ -23,7 +23,10 @@
 // posting therefore happens here rather than being handed off.
 
 import { db } from "./db";
-import { installId, readState, readPublicState, saveState, clearState } from "./hqStore";
+import {
+  installId, readState, readPublicState, saveState, clearState,
+  rememberRevoke, pendingRevoke, clearRevoke,
+} from "./hqStore";
 
 // Public by design. This gets a request to the door; the database decides what
 // it is allowed through it. Nothing secret ships in the app.
@@ -181,11 +184,51 @@ export const hqLocal = {
     return { ok: true, sent: batch.records.length, more: batch.more };
   },
 
-  /** Forgets the connection in this browser. The install id survives. */
+  /**
+   * Leaves head office: here AND there.
+   *
+   * This used to forget the token and stop, so the server never heard about
+   * it -- the device stayed active and Monitor went on listing a phone the
+   * shop had deliberately disconnected.
+   *
+   * The local half always happens. A shop that taps Disconnect is finished
+   * with the connection whatever the network is doing, and being told "no
+   * internet, try again" when you are handing the phone over is useless. If
+   * the server could not be told, the token is held back for that one errand
+   * and retried; see flushRevoke().
+   */
   async disconnect() {
+    const state = readState();
     pendingState = null;
     pendingOtpId = null;
     pendingPhone = null;
-    return clearState();
+
+    let told = false;
+    if (state.token) {
+      const res = await post("connect-disconnect", { token: state.token }, state.token);
+      told = Boolean(res?.ok);
+      if (!told) rememberRevoke(state.token);
+    }
+
+    const cleared = clearState();
+    return { ...cleared, told };
+  },
+
+  /**
+   * Hands back a disconnect that could not be delivered at the time.
+   *
+   * Called on launch and when the network returns. Nothing depends on it
+   * succeeding today: until it does, head office shows a device that is no
+   * longer reporting, which is what it looked like before this existed.
+   */
+  async flushRevoke() {
+    const owed = pendingRevoke();
+    if (!owed) return { ok: true, pending: false };
+    const res = await post("connect-disconnect", { token: owed.token }, owed.token);
+    if (res?.ok) {
+      clearRevoke();
+      return { ok: true, pending: false, told: true };
+    }
+    return { ok: false, pending: true };
   },
 };
