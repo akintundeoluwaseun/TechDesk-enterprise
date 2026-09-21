@@ -4,3 +4,8 @@ release/
 .DS_Store
 *.log
 secrets/
+
+# The Android signing key. Losing it is bad; publishing it is worse.
+*.keystore
+*.jks
+keystore-base64.txt
