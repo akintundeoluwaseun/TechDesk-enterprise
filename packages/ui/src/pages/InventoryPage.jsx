@@ -44,6 +44,25 @@ export default function InventoryPage() {
   const soldOutCount = products.filter((p) => p.stock <= 0).length;
   const lowStockCount = products.filter(isLowStock).length;
 
+  // How many THINGS are on the shelf, as opposed to how many lines the list
+  // has. A shop with 12 products and 4 of each has 48 items in it, and the
+  // page only ever said 12 -- which is the number that matters least to
+  // somebody counting stock.
+  //
+  // Negative stock is clamped out of the totals. It happens (a sale rung up
+  // twice, a count corrected later), and letting it subtract would quietly
+  // report less stock, and less value, than the shop actually has.
+  function units(p) {
+    return Math.max(0, Number(p.stock) || 0);
+  }
+
+  function valueOf(p) {
+    return (Number(p.price) || 0) * units(p);
+  }
+
+  const totalUnits = products.reduce((n, p) => n + units(p), 0);
+  const totalValue = products.reduce((n, p) => n + valueOf(p), 0);
+
   const SORTS = {
     recent: (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0),
     "name-asc": (a, b) => (a.name || "").localeCompare(b.name || ""),
@@ -65,6 +84,11 @@ export default function InventoryPage() {
     })
     .sort(SORTS[sort] || SORTS.recent);
 
+  // The same two numbers for what is actually on screen. A shop filtered to
+  // one category wants that category's count and value, not the whole shop's.
+  const shownUnits = filtered.reduce((n, p) => n + units(p), 0);
+  const shownValue = filtered.reduce((n, p) => n + valueOf(p), 0);
+
   function handleSaved() {
     setShowModal(false);
     setEditingProduct(null);
@@ -78,7 +102,7 @@ export default function InventoryPage() {
 
   function handleExportCsv() {
     const rows = [
-      ["Name", "SKU", "Category", "Price", "Cost Price", "Stock", "Low Stock Threshold", "Suggested Reorder Qty"],
+      ["Name", "SKU", "Category", "Price", "Cost Price", "Stock", "Stock Value", "Low Stock Threshold", "Suggested Reorder Qty"],
       ...filtered.map((p) => [
         p.name,
         p.sku || "",
@@ -86,9 +110,13 @@ export default function InventoryPage() {
         p.price,
         p.costPrice || "",
         p.stock,
+        valueOf(p),
         p.lowStockThreshold ?? 5,
         suggestedReorder(p),
       ]),
+      // The totals the screen shows, so the file answers the same question
+      // without the shop having to build the column themselves.
+      ["", "", "", "", "", shownUnits, shownValue, "", ""],
     ];
     const filenameTag = tab === "low-stock" ? "restock-list" : "inventory";
     downloadCsv(`techdesk-${filenameTag}-${new Date().toISOString().slice(0, 10)}.csv`, rowsToCsv(rows));
@@ -99,11 +127,19 @@ export default function InventoryPage() {
       <Topbar
         title="Inventory"
         subtitle={
-          isAdmin
-            ? `${inStockCount} in stock \u00b7 ${soldOutCount} sold out \u00b7 Total value ${money(products
-                .reduce((sum, p) => sum + Number(p.price || 0) * Number(p.stock || 0), 0)
-                , settings)}`
-            : `${inStockCount} in stock \u00b7 ${soldOutCount} sold out`
+          // Products, then items, then what they are worth. "12 in stock"
+          // read as twelve things; it meant twelve lines in the list.
+          [
+            `${inStockCount} product${inStockCount === 1 ? "" : "s"}`,
+            `${totalUnits} item${totalUnits === 1 ? "" : "s"} on the shelf`,
+            soldOutCount ? `${soldOutCount} sold out` : null,
+            // The shop-wide total stays with whoever runs the shop. Each
+            // line's own value is shown to everyone below, because price and
+            // stock are both already on the screen next to each other.
+            isAdmin ? `Total value ${money(totalValue, settings)}` : null,
+          ]
+            .filter(Boolean)
+            .join(" \u00b7 ")
         }
         action={
           <div className="flex items-center gap-2">
@@ -217,7 +253,20 @@ export default function InventoryPage() {
                   {p.sku || "\u2014"} &middot; {p.category}
                 </div>
               </div>
-              <div className={t.textPrimary}>{money(Number(p.price), settings)}</div>
+              {/* The price of one, and then what is actually on the shelf.
+                  This column showed the unit price alone, so a shop looking
+                  at four screens at 8,000 each had to do the multiplication
+                  in their head, on every line, to find out what their stock
+                  was worth. It is kept as two lines rather than a new column
+                  because this table is read on a phone. */}
+              <div>
+                <div className={t.textPrimary}>{money(Number(p.price), settings)}</div>
+                {units(p) > 0 && (
+                  <div className={`text-xs leading-tight tabular-nums ${t.textMuted}`}>
+                    &times;{units(p)} = {money(valueOf(p), settings)}
+                  </div>
+                )}
+              </div>
               <div className={p.stock <= (p.lowStockThreshold || 5) ? "text-orange-500 font-medium" : t.textPrimary}>
                 {p.stock}
               </div>
@@ -240,6 +289,27 @@ export default function InventoryPage() {
               </div>
             </div>
           ))
+        )}
+
+        {/* What is on screen, added up. The header counts the whole shop;
+            this follows the filter, so a shop looking at one category can see
+            what that category holds without exporting the CSV.
+
+            Not on the grid above. A money total does not fit in a 1fr column
+            on a 390px phone -- laid out that way it printed straight through
+            the column beside it and read as one number. */}
+        {filtered.length > 0 && (
+          <div
+            className={`flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-6 py-4 text-sm font-semibold border-t ${t.divider} ${t.textPrimary}`}
+          >
+            <span>
+              {filtered.length === products.length ? "All products" : `${filtered.length} shown`}
+            </span>
+            <span className="tabular-nums">
+              {shownUnits} item{shownUnits === 1 ? "" : "s"}
+              {isAdmin && <> &middot; {money(shownValue, settings)}</>}
+            </span>
+          </div>
         )}
       </div>
 
