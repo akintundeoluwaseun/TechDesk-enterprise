@@ -7,6 +7,7 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
+import { salesSummary } from "@techdesk/core";
 import { generateInvoicePdf } from "../lib/generateInvoicePdf";
 import { generateThermalReceiptPdf } from "../lib/generateThermalReceipt";
 import { openWhatsApp, saleMessage } from "../lib/share";
@@ -27,7 +28,7 @@ function formatDate(iso) {
 
 export default function SalesPage() {
   const t = useThemeTokens();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { settings } = useSettings();
   const [showModal, setShowModal] = useState(false);
   // The sale waiting on a paper size, or null. Print asks rather than
@@ -36,6 +37,10 @@ export default function SalesPage() {
   const [editingSale, setEditingSale] = useState(null);
   const [search, setSearch] = useState("");
   const [sales, setSales] = useState(() => db.getSales());
+
+  // Today first. The line here said "340 total transactions", which is a
+  // number that only goes up and tells a shop nothing about their day.
+  const summary = salesSummary(sales);
 
   const filtered = sales.filter(
     (s) =>
@@ -77,7 +82,17 @@ export default function SalesPage() {
     <div className="flex-1 p-4 md:p-8">
       <Topbar
         title="Sales"
-        subtitle={`${sales.length} total transactions`}
+        subtitle={
+          // "340 total transactions" is true and is not what anybody opens
+          // the app to find out. Today leads; the running total follows it.
+          [
+            `${summary.today} sale${summary.today === 1 ? "" : "s"} today`,
+            isAdmin ? `${money(summary.todayTotal, settings)} today` : null,
+            `${sales.length} all time`,
+          ]
+            .filter(Boolean)
+            .join(" \u00b7 ")
+        }
         action={
           <button
             onClick={() => {

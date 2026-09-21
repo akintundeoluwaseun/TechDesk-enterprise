@@ -24,6 +24,13 @@ export { rememberRevoke, pendingRevoke, clearRevoke } from "./hqStore";
 // Sharing between the benches in one shop.
 export { shop, mergeShared, changedSinceShared, SHAREABLE, shareLabel } from "./shop";
 
+// The numbers the top of each page reports, in one place, because three
+// screens and an export have to agree about what a repair costs.
+export {
+  isToday, startOfDay, repairTotal, repairOwed, isOpenRepair,
+  repairsSummary, salesSummary, customerKey, customerTotals, customersSummary,
+} from "./summary";
+
 export { computeReport, reportToCsv, getRangeStart } from "./reports";
 export { searchEverything } from "./searchAll";
 export { notificationFeed, isUnread, unreadCount, timeAgo } from "./notifications";

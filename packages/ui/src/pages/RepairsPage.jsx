@@ -5,6 +5,9 @@ import NewRepairModal from "../components/NewRepairModal";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
+import { money } from "../lib/currency";
+import { useAuth } from "../lib/AuthContext";
+import { repairsSummary, repairTotal, repairOwed } from "@techdesk/core";
 import { generateRepairTicketPdf, generateBlankRepairFormPdf } from "../lib/generateRepairPdf";
 import { IS_ANDROID_APP } from "../lib/platform";
 
@@ -33,6 +36,11 @@ export default function RepairsPage() {
   const [search, setSearch] = useState("");
   const [repairs, setRepairs] = useState(() => db.getRepairs());
   const [expanded, setExpanded] = useState(null);
+  const { isAdmin } = useAuth();
+
+  // Today first. This page had no summary at all, so the only way to find
+  // out how many jobs were on the bench was to count the cards.
+  const summary = repairsSummary(repairs);
 
   function refresh() {
     setRepairs(db.getRepairs());
@@ -72,6 +80,18 @@ export default function RepairsPage() {
     <div className="flex-1 p-4 md:p-8">
       <Topbar
         title={labels.navRepairs}
+        subtitle={
+          [
+            `${summary.inToday} in today`,
+            `${summary.open} still open`,
+            summary.ready ? `${summary.ready} waiting to be collected` : null,
+            // What the shop has not been paid for. Kept with whoever runs the
+            // shop, like the stock value on the inventory page.
+            isAdmin && summary.owed > 0 ? `${money(summary.owed, settings)} owed` : null,
+          ]
+            .filter(Boolean)
+            .join(" \u00b7 ")
+        }
         action={
           <div className="flex items-center gap-3">
             <button
@@ -128,6 +148,26 @@ export default function RepairsPage() {
                     >
                       {r.paymentStatus?.toLowerCase()}
                     </span>
+                    {/* What the job comes to: labour plus whatever was fitted.
+                        The card showed a paid/unpaid pill and no number at
+                        all, so "unpaid" said nothing about how much.
+
+                        Just the one figure. The pill beside it already says
+                        whether it has been paid, so printing the same number
+                        twice -- "14,000 - 14,000 owed" -- was noise on every
+                        unpaid job, which is most of them. */}
+                    {repairTotal(r) > 0 && (
+                      <span
+                        className={`text-xs font-semibold tabular-nums ${
+                          repairOwed(r) > 0 ? "text-red-500" : t.textSecondary
+                        }`}
+                      >
+                        {money(repairTotal(r), settings)}
+                        {r.paymentStatus === "Partial" && (
+                          <span className={t.textMuted}> &middot; part paid</span>
+                        )}
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-4">
                     <button onClick={() => generateRepairTicketPdf(r)} className={t.textSecondary} title={TICKET_ACTION}>

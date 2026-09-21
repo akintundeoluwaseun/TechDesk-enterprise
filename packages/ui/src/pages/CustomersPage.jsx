@@ -1,16 +1,31 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Plus, Pencil, Trash2, User, Search } from "lucide-react";
 import Topbar from "../components/Topbar";
 import CustomerModal from "../components/CustomerModal";
 import { useThemeTokens } from "../lib/ThemeContext";
+import { useSettings } from "../lib/SettingsContext";
+import { useAuth } from "../lib/AuthContext";
+import { money } from "../lib/currency";
+import { customerTotals, customersSummary, customerKey } from "@techdesk/core";
 import { db } from "../lib/db";
 
 export default function CustomersPage() {
   const t = useThemeTokens();
+  const { settings } = useSettings();
+  const { isAdmin } = useAuth();
   const [customers, setCustomers] = useState(() => db.getCustomers());
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [search, setSearch] = useState("");
+
+  // Built once for the whole list, not once per row: a shop with 400
+  // customers and 4,000 sales would otherwise walk the sales list 400 times
+  // to draw one screen.
+  const totals = useMemo(
+    () => customerTotals(db.getSales(), db.getRepairs()),
+    [customers],
+  );
+  const summary = customersSummary(customers, totals);
 
   const filtered = customers.filter((c) => {
     const q = search.toLowerCase();
@@ -42,6 +57,19 @@ export default function CustomersPage() {
     <div className="flex-1 p-4 md:p-8">
       <Topbar
         title="Customers"
+        subtitle={
+          // This page said nothing at all. A shop could not tell how many
+          // customers it had without scrolling to the bottom and counting.
+          [
+            `${customers.length} customer${customers.length === 1 ? "" : "s"}`,
+            summary.newToday ? `${summary.newToday} new today` : null,
+            isAdmin && summary.owed > 0
+              ? `${money(summary.owed, settings)} owed by ${summary.owing}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" \u00b7 ")
+        }
         action={
           <button
             onClick={() => {
@@ -86,22 +114,40 @@ export default function CustomersPage() {
                 idx !== filtered.length - 1 ? `border-b ${t.divider}` : ""
               }`}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                  className={`w-9 h-9 rounded-full shrink-0 flex items-center justify-center ${
                     t.dark ? "bg-white/10" : "bg-black/5"
                   }`}
                 >
                   <User className={`w-4 h-4 ${t.textSecondary}`} />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className={`font-semibold ${t.textPrimary}`}>{c.name}</div>
-                  <div className={`text-sm ${t.textMuted}`}>
+                  <div className={`text-sm truncate ${t.textMuted}`}>
                     {[c.phone, c.email].filter(Boolean).join(" \u00b7 ")}
                   </div>
+                  {/* What this customer has actually been worth. The row was
+                      a name and a phone number, so the shop's best customer
+                      and somebody who came in once looked identical. */}
+                  {(() => {
+                    const row = totals.get(customerKey(c));
+                    if (!row) return null;
+                    const visits = row.sales + row.repairs;
+                    return (
+                      <div className={`text-xs mt-0.5 tabular-nums ${t.textSecondary}`}>
+                        {visits} visit{visits === 1 ? "" : "s"}
+                        {" \u00b7 "}
+                        {money(row.spent, settings)}
+                        {row.owed > 0 && (
+                          <span className="text-red-500"> &middot; {money(row.owed, settings)} owed</span>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4 shrink-0 pl-3">
                 <button
                   onClick={() => {
                     setEditing(c);
