@@ -124,12 +124,20 @@ jobs:
         run: ./gradlew assembleDebug
 
       - name: Check what actually signed it
-        working-directory: apps/mobile
         env:
           EXPECT_SIGNED: ${{ steps.keystore.outputs.signed }}
         run: |
           APK=$(find android/app/build/outputs/apk -name "*.apk" | head -1)
+          if [ -z "$APK" ]; then
+            echo "::error::No APK found under $(pwd)/android/app/build/outputs/apk."
+            echo "::error::Either the build produced nothing, or this step is looking in the wrong app."
+            exit 1
+          fi
           APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -name apksigner | sort -r | head -1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::apksigner not found in the runner's Android SDK."
+            exit 1
+          fi
           CERTS=$("$APKSIGNER" verify --print-certs "$APK")
           echo "$CERTS"
 
