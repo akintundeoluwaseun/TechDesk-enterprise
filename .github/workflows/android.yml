@@ -75,6 +75,12 @@ jobs:
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
             echo "$KEYSTORE_B64" | base64 -d > android/app/techdesk.keystore
+            # Absolute, and passed on rather than retyped. Gradle resolves an
+            # injected signing path against the DAEMON's working directory,
+            # not the project's -- so a relative one silently becomes
+            # ~/.gradle/daemon/<version>/techdesk.keystore and the build fails
+            # saying the keystore is missing while it is sitting right here.
+            echo "keystore=$(pwd)/android/app/techdesk.keystore" >> "$GITHUB_OUTPUT"
             echo "signed=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::No signing keystore configured -- building a debug APK."
@@ -91,7 +97,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file=techdesk.keystore \
+            -Pandroid.injected.signing.store.file="${{ steps.keystore.outputs.keystore }}" \
             -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
             -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
@@ -100,6 +106,31 @@ jobs:
         if: steps.keystore.outputs.signed != 'true'
         working-directory: apps/mobile/android
         run: ./gradlew assembleDebug
+
+      - name: Check what actually signed it
+        working-directory: apps/mobile
+        env:
+          EXPECT_SIGNED: ${{ steps.keystore.outputs.signed }}
+        run: |
+          APK=$(find android/app/build/outputs/apk -name "*.apk" | head -1)
+          APKSIGNER=$(find "$ANDROID_SDK_ROOT/build-tools" -name apksigner | sort -r | head -1)
+          CERTS=$("$APKSIGNER" verify --print-certs "$APK")
+          echo "$CERTS"
+
+          # The failure this exists for is silent. If a secret is missing or
+          # misspelled the build falls back to a debug APK, which installs
+          # perfectly today and can never be upgraded in place afterwards --
+          # so the shop finds out months later, when the fix is "uninstall",
+          # and uninstalling takes their records with it.
+          if echo "$CERTS" | grep -q "CN=Android Debug"; then
+            if [ "$EXPECT_SIGNED" = "true" ]; then
+              echo "::error::Signing was configured but this APK is DEBUG signed. Do not publish it."
+              exit 1
+            fi
+            echo "::warning::Debug-signed APK. Fine for trying on a phone; never hand it to a shop."
+          else
+            echo "Release signed. Fingerprint above -- it must match every future TechDesk release."
+          fi
 
       - name: Name the APK after the version
         id: apk
