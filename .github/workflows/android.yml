@@ -93,14 +93,34 @@ jobs:
         working-directory: apps/mobile/android
         env:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEYSTORE: ${{ steps.keystore.outputs.keystore }}
         run: |
+          # The alias is read out of the keystore, not out of a secret.
+          #
+          # It was a secret, and a build died on "No key with alias '***'
+          # found" -- which tells you almost nothing, because GitHub masks
+          # the value, so you cannot see whether it is a typo, a stray space
+          # or the wrong word entirely. The keystore holds exactly one key
+          # and knows its own name. Asking it removes a whole class of
+          # failure that can only be diagnosed by guessing.
+          ALIAS=$(keytool -list -keystore "$KEYSTORE" -storepass "$KEYSTORE_PASSWORD" 2>/dev/null \
+                  | awk -F, '/PrivateKeyEntry/ {gsub(/^[ \t]+|[ \t]+$/, "", $1); print $1; exit}')
+          if [ -z "$ALIAS" ]; then
+            echo "::error::Opened the keystore but found no private key in it."
+            echo "::error::Check ANDROID_KEYSTORE_BASE64 -- it may be truncated."
+            exit 1
+          fi
+          echo "Signing with key: $ALIAS"
+
+          # One password. This keystore is PKCS12, where the key and the
+          # store share it, so ANDROID_KEY_PASSWORD is deliberately not read
+          # -- a second copy of the same value is a second chance to mistype
+          # it, and it buys nothing.
           ./gradlew assembleRelease \
-            -Pandroid.injected.signing.store.file="${{ steps.keystore.outputs.keystore }}" \
+            -Pandroid.injected.signing.store.file="$KEYSTORE" \
             -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
-            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
-            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+            -Pandroid.injected.signing.key.alias="$ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEYSTORE_PASSWORD"
 
       - name: Build debug APK
         if: steps.keystore.outputs.signed != 'true'
