@@ -298,7 +298,7 @@ export default function ConnectHqTab() {
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <h3 className={`font-semibold ${t.textPrimary}`}>No HQ yet?</h3>
         <p className={`text-sm mt-1 ${t.textSecondary}`}>
-          Head office signs up once at techdesk-one.vercel.app/hq.html with their phone number.
+          Head office signs up once at techdesk.ng/hq.html with their phone number.
           Every branch then connects to that number.
         </p>
       </div>

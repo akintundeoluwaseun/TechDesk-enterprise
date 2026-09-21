@@ -70,7 +70,7 @@ export default function LoginScreen({ onSignedIn }) {
               The number you registered your business with. We&rsquo;ll text you a code.
               Haven&rsquo;t registered yet?{" "}
               <a
-                href="https://techdesk-one.vercel.app/hq.html"
+                href="https://techdesk.ng/hq.html"
                 target="_blank"
                 rel="noreferrer"
                 className="text-blue-500 font-medium"
@@ -105,12 +105,12 @@ export default function LoginScreen({ onSignedIn }) {
               No code after a minute? The number has to be registered as HQ
               first &mdash; set that up at{" "}
               <a
-                href="https://techdesk-one.vercel.app/hq.html"
+                href="https://techdesk.ng/hq.html"
                 target="_blank"
                 rel="noreferrer"
                 className="text-blue-500 font-medium"
               >
-                techdesk-one.vercel.app/hq
+                techdesk.ng/hq
               </a>
               , then come back here.
             </p>
