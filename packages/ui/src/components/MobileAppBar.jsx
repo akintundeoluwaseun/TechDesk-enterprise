@@ -58,7 +58,6 @@ export default function MobileAppBar({ onOpenActivation }) {
   const { user, signOut } = useAuth();
   const { tier } = useLicense();
   const restricted = false;
-  const activated = true;
   const { openHelp } = useHelp();
   const [drawer, setDrawer] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -92,8 +91,13 @@ export default function MobileAppBar({ onOpenActivation }) {
 
   return (
     <>
+      {/* Android 15 draws apps edge to edge, so without this the shop name
+          renders behind the clock and the battery. The bottom bar already
+          allowed for the gesture bar; the top was simply never done. It is
+          zero on a desktop, so the same header is correct in both shells. */}
       <header
-        className={`md:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-14 border-b ${t.divider} ${
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        className={`md:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-14 box-content border-b ${t.divider} ${
           dark ? "bg-[#1f232b]" : "bg-white"
         }`}
       >
@@ -341,7 +345,12 @@ export default function MobileAppBar({ onOpenActivation }) {
                 <HelpCircle className="w-[18px] h-[18px] shrink-0" /> Help
               </button>
 
-              {!activated && (
+              {/* Always. This was behind `!activated`, with `activated`
+                  hardcoded true a few lines up, so it never rendered once --
+                  which meant a phone had no route to the upgrade screen at
+                  all. A shop on Android could not have paid us if they
+                  wanted to. */}
+              {(
                 <button
                   onClick={() => {
                     setDrawer(false);

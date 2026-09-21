@@ -63,6 +63,14 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
 
+      - name: Put the real icon on it
+        # `cap add android` generates the stock Capacitor artwork, so without
+        # this the app a shop installs has a generic icon in their launcher
+        # and no way to tell it apart from anything else. Runs before sync so
+        # the generated resources are in the project when it is copied.
+        working-directory: apps/mobile
+        run: npx --yes @capacitor/assets generate --android --assetPath assets
+
       - name: Copy the web build into the Android project
         working-directory: apps/mobile
         run: npx cap sync android

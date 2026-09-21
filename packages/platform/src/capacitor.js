@@ -14,11 +14,8 @@
 // comes back still says where the file really went, and that is what
 // `folder` quotes rather than a name we assumed.
 //
-// NOT REACHABLE YET. Nothing imports this in the desktop build, which is why
-// the Capacitor packages are not a dependency of it. Step 8 of the merge
-// points apps/mobile here and adds them. The logic below is carried across
-// unchanged from the shipping Android app (techdesk-solo, 721cd53) rather
-// than rewritten, so step 8 is a wiring job and not a porting job.
+// Saving is a fallback chain, not one call, because Android changed the
+// rules underneath it. See saveFile.
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
 import { blobToBase64 } from "./blob";
@@ -29,13 +26,38 @@ export const capacitorAdapter = {
   name: "capacitor",
 
   async saveFile(blob, filename) {
+    const data = await blobToBase64(blob);
+
+    // Android 10 and older let an app write the phone's own Documents
+    // folder, and that is still the best answer where it works: the file is
+    // simply there afterwards, findable in Files, with no extra tap.
+    try {
+      const written = await Filesystem.writeFile({
+        path: `TechDesk/${filename}`,
+        data,
+        directory: Directory.Documents,
+        recursive: true,
+      });
+      return { ok: true, via: "saved", uri: written.uri, folder: folderOf(written.uri) };
+    } catch {
+      // Android 11 and newer refuse it outright -- scoped storage, EACCES,
+      // and no permission an ordinary app can ask for. This was a hard
+      // failure on every modern phone: a shop tapped save on a receipt and
+      // got a permission-denied dialog with a file path in it.
+    }
+
+    // So: write somewhere that always works and hand it straight to the
+    // system sheet, which is where "Save to Files", Drive and WhatsApp all
+    // live. One more tap than it used to be, and it is the tap that decides
+    // where the receipt goes -- which on a phone is usually to the customer.
     const written = await Filesystem.writeFile({
-      path: `TechDesk/${filename}`,
-      data: await blobToBase64(blob),
-      directory: Directory.Documents,
+      path: filename,
+      data,
+      directory: Directory.Cache,
       recursive: true,
     });
-    return { ok: true, via: "saved", uri: written.uri, folder: folderOf(written.uri) };
+    await Share.share({ title: filename, url: written.uri });
+    return { ok: true, via: "share" };
   },
 
   async shareFile(blob, filename) {

@@ -81,12 +81,21 @@ export function LockedButton({ feature, className = "", children, onClick, title
       </button>
     );
   }
+  // Tapping it opens the upgrade screen.
+  //
+  // It used to swallow the click and rely on the title attribute to explain
+  // itself, which is a hover tooltip -- and a phone has no hover. So on the
+  // shell where most shops will meet a locked feature, the button did
+  // nothing at all and looked broken rather than for sale.
   return (
     <button
-      className={`${className} opacity-60 cursor-not-allowed`}
+      className={`${className} opacity-60`}
       title={upgradeLine(feature)}
       aria-label={`${title || ""} — ${upgradeLine(feature)}`.trim()}
-      onClick={(e) => e.preventDefault()}
+      onClick={(e) => {
+        e.preventDefault();
+        openUpgrade();
+      }}
       {...rest}
     >
       <span className={`inline-flex items-center gap-1 ${t.textMuted}`}>
