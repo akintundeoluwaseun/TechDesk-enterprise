@@ -17,6 +17,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
+import { IS_ANDROID_APP } from "../lib/platform";
 import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { useLicense } from "../lib/LicenseContext";
@@ -157,14 +158,27 @@ export default function Sidebar({ onOpenActivation }) {
               </div>
             )}
           </div>
-          <div className={`flex items-center gap-1 ${collapsed ? "flex-col" : ""}`}>
-            <button onClick={signOut} title="Switch user" className={`p-1.5 rounded-lg ${t.textMuted}`}>
-              <Users className="w-4 h-4" />
-            </button>
-            <button onClick={handlePowerOff} title="Power off" className="p-1.5 rounded-lg text-red-500">
-              <Power className="w-4 h-4" />
-            </button>
-          </div>
+          {/* Not on a phone -- at any width.
+              This sidebar is hidden below the md breakpoint, which is a
+              width, not a device. Turn a phone on its side and it is wide
+              enough: the desktop sidebar appears, and with it a switch-user
+              button and a power-off button on a shell that has neither
+              staff accounts nor an app to quit. Android owns quitting, and
+              the Users tab was removed from the phone for the same reason
+              it should never have been offered here.
+
+              Which is the lesson from the Users tab repeated: a breakpoint
+              answers "how much room is there", never "which app is this". */}
+          {!IS_ANDROID_APP && (
+            <div className={`flex items-center gap-1 ${collapsed ? "flex-col" : ""}`}>
+              <button onClick={signOut} title="Switch user" className={`p-1.5 rounded-lg ${t.textMuted}`}>
+                <Users className="w-4 h-4" />
+              </button>
+              <button onClick={handlePowerOff} title="Power off" className="p-1.5 rounded-lg text-red-500">
+                <Power className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </aside>

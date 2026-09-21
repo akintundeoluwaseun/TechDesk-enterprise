@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Monitor, RefreshCw } from "lucide-react";
 import { api } from "./api";
 import { session } from "./session";
+import { notifyNewActivity, requestPermission } from "./notify";
 import BottomNav from "./components/BottomNav";
 import LoginScreen from "./screens/LoginScreen";
 import HomeScreen from "./screens/HomeScreen";
@@ -35,6 +36,10 @@ export default function App() {
     if (res.ok) {
       setData(res);
       setError("");
+      // Anything in the feed this phone has not seen becomes a notification.
+      // Deliberately not awaited: a slow or refused notification must never
+      // hold up the numbers appearing on screen.
+      notifyNewActivity(res.activity).catch(() => {});
       return;
     }
     // The session ended -- expired, or signed out from elsewhere. Clearing it
@@ -50,6 +55,14 @@ export default function App() {
     // screen. Stale numbers are more use to a shop owner than an error page.
     setError(res.message || "Couldn't refresh just now.");
   }, []);
+
+  // Asked once we know who they are, not on the splash screen -- a
+  // permission prompt before the app has shown what it does is the one most
+  // people refuse.
+  useEffect(() => {
+    if (!token) return;
+    requestPermission().catch(() => {});
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
