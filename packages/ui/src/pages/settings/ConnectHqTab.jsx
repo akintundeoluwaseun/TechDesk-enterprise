@@ -3,7 +3,7 @@ import { Building2, CheckCircle2, Link2, Phone, RefreshCw, Unlink } from "lucide
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import { hq } from "../../lib/hq";
-import { IS_DESKTOP_APP } from "../../lib/platform";
+import { IS_ANDROID_APP } from "../../lib/platform";
 
 export default function ConnectHqTab() {
   const t = useThemeTokens();
@@ -107,22 +107,29 @@ export default function ConnectHqTab() {
   // The web build keeps the connection in this browser's storage rather than
   // in a file only the app can read, so it is worth saying so on the screen
   // where someone decides to connect -- not only in a README.
-  const WHERE_IT_LIVES =
-    "This browser holds the link to head office. Clearing site data disconnects " +
-    "it -- nothing already sent is lost, and you can connect again.";
+  // Said in the words of whichever shell this is. "Clearing site data" is
+  // not a thing a shop does to a phone app, and being warned about it there
+  // is worse than not being warned at all.
+  const WHERE_IT_LIVES = IS_ANDROID_APP
+    ? "This phone holds the link to head office. Clearing the app's data disconnects " +
+      "it -- nothing already sent is lost, and you can connect again."
+    : "This browser holds the link to head office. Clearing site data disconnects " +
+      "it -- nothing already sent is lost, and you can connect again.";
 
-  // This edition runs in Electron, where the token lives in the main process.
-  // A browser tab of the same build has nowhere safe to keep it.
-  if (!IS_DESKTOP_APP) {
-    return (
-      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-        <h3 className={`font-semibold ${t.textPrimary}`}>Connect to HQ</h3>
-        <p className={`text-sm mt-1 ${t.textSecondary}`}>
-          This needs the installed desktop app, not a browser tab.
-        </p>
-      </div>
-    );
-  }
+  // Head office used to be refused here unless this was the Electron build,
+  // because the desktop keeps its token in the main process and a browser
+  // tab has nowhere as safe to put one.
+  //
+  // That stopped being the whole story when core grew a transport that picks
+  // its own implementation: the desktop still hands the token to the main
+  // process, and the phone and the web app use the same code the web app has
+  // been shipping all along, which keeps it in this origin's storage. Both
+  // work. So the refusal was not protecting anything -- it was just denying
+  // head office to every shop that runs TechDesk on a phone, which is most
+  // of the shops that would want it.
+  //
+  // What is different is where the link is kept, and that is said plainly
+  // below rather than hidden behind a refusal.
 
   if (status?.connected) {
     return (

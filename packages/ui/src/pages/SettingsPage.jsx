@@ -7,6 +7,7 @@ import ReceiptsTab from "./settings/ReceiptsTab";
 import DeviceTab from "./settings/DeviceTab";
 import DeveloperTab from "./settings/DeveloperTab";
 import UpgradeLock from "../components/UpgradeLock";
+import { IS_ANDROID_APP } from "../lib/platform";
 
 // Every tab is here, in every install, for every shop.
 //
@@ -20,7 +21,7 @@ import UpgradeLock from "../components/UpgradeLock";
 const UsersTab = React.lazy(() => import("./settings/UsersTab"));
 const ConnectHqTab = React.lazy(() => import("./settings/ConnectHqTab"));
 
-const TABS = [
+const ALL_TABS = [
   { key: "shop", label: "Shop", Component: ShopTab },
   { key: "receipts", label: "Receipts", Component: ReceiptsTab },
   {
@@ -30,6 +31,12 @@ const TABS = [
     feature: "staff",
     title: "Staff accounts",
     what: "Give each person behind the counter their own login, so you can see who sold what, and keep cost prices and reports to yourself.",
+    // Not on a phone. Staff accounts and the PIN lock exist because several
+    // people share one machine at a counter; a phone is one person's, in
+    // their pocket, already locked by the phone itself. Offering to put a
+    // second PIN on it is answering a question nobody asked, and the PIN
+    // toggle lives on this tab, so both go together.
+    counterOnly: true,
   },
   { key: "device", label: "Device", Component: DeviceTab },
   {
@@ -42,6 +49,8 @@ const TABS = [
   },
   { key: "developer", label: "Developer", Component: DeveloperTab },
 ];
+
+const TABS = ALL_TABS.filter((tab) => !(tab.counterOnly && IS_ANDROID_APP));
 
 export default function SettingsPage() {
   const t = useThemeTokens();
