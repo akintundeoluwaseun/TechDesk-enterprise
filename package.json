@@ -10,6 +10,7 @@
   "workspaces": [
     "apps/desktop",
     "apps/mobile",
+    "apps/web",
     "packages/*"
   ],
   "scripts": {
@@ -20,7 +21,8 @@
     "electron:dev": "npm run electron:dev -w techdesk",
     "build:mobile": "npm run build -w @techdesk/mobile",
     "sync:android": "npm run sync -w @techdesk/mobile",
-    "activation:generate": "node scripts/generate-activation-table.mjs"
+    "activation:generate": "node scripts/generate-activation-table.mjs",
+    "build:web": "npm run build -w @techdesk/web"
   },
   "engines": {
     "node": ">=20"
