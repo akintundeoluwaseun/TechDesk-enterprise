@@ -6,6 +6,16 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import { generateRepairTicketPdf, generateBlankRepairFormPdf } from "../lib/generateRepairPdf";
+import { IS_ANDROID_APP } from "../lib/platform";
+
+// What the ticket button does, said accurately for the shell it is in.
+//
+// Android's WebView has no PDF viewer and no print service a web page can
+// reach, so the ticket goes to the system sheet -- which is where the
+// printer, WhatsApp and Files all are. That is the only route there is, but
+// a button labelled "Print" that opens a share sheet reads as a bug, so it
+// says what will actually happen.
+const TICKET_ACTION = IS_ANDROID_APP ? "Print or send the ticket" : "Print";
 import { openWhatsApp, repairMessage } from "../lib/share";
 
 const STATUSES = ["received", "in progress", "awaiting parts", "completed", "delivered"];
@@ -120,7 +130,7 @@ export default function RepairsPage() {
                     </span>
                   </div>
                   <div className="flex items-center gap-4">
-                    <button onClick={() => generateRepairTicketPdf(r)} className={t.textSecondary} title="Print">
+                    <button onClick={() => generateRepairTicketPdf(r)} className={t.textSecondary} title={TICKET_ACTION}>
                       <FileText className="w-[18px] h-[18px]" />
                     </button>
                     <button onClick={() => sendWhatsApp(r)} className="text-emerald-500" title="WhatsApp">

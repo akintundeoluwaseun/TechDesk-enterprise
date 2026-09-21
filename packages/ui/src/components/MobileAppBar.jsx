@@ -155,6 +155,11 @@ export default function MobileAppBar({ onOpenActivation }) {
             onClick={() => setNotifOpen(false)}
           />
           <div
+            // Same edge-to-edge problem as the header: this sheet drops from
+            // top-0, which on Android 15 is behind the clock and the battery.
+            // The header grew to fit the inset; anything else that starts at
+            // the top of the screen has to as well.
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
             className={`absolute inset-x-0 top-0 max-h-[85vh] flex flex-col rounded-b-2xl overflow-hidden ${
               dark ? "bg-[#1f232b]" : "bg-white"
             }`}

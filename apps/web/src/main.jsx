@@ -18,6 +18,8 @@ import ReactDOM from "react-dom/client";
 import App from "@techdesk/ui";
 import ErrorBoundary from "@techdesk/ui/ErrorBoundary";
 import "@techdesk/ui/index.css";
+import "./install.css";
+import { offerInstall, registerWorker } from "./install";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -26,3 +28,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
     </ErrorBoundary>
   </React.StrictMode>
 );
+
+// Offer to install it, in the browsers that can.
+registerWorker();
+offerInstall();
