@@ -10,19 +10,62 @@
 // comes back every morning is an advert, not an offer.
 const DISMISSED = "techdesk_install_dismissed";
 
+/**
+ * Is this an iPhone or iPad?
+ *
+ * Safari has never fired beforeinstallprompt and is not going to, so a page
+ * that only listens for it offers an iPhone nothing at all -- which is what
+ * TechDesk did. iOS installs by hand: Share, then Add to Home Screen.
+ *
+ * iPadOS reports itself as a Mac, so the touch test is what tells an iPad
+ * apart from a desktop Safari where none of this applies.
+ */
+function isApple() {
+  const ua = navigator.userAgent || "";
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  return /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+}
+
+/** Already added to the home screen, so there is nothing to offer. */
+function alreadyInstalled() {
+  return (
+    window.matchMedia?.("(display-mode: standalone)")?.matches ||
+    // Safari's own flag, which predates display-mode and is still how iOS
+    // reports it.
+    window.navigator.standalone === true
+  );
+}
+
+function dismissed() {
+  try {
+    return localStorage.getItem(DISMISSED) === "1";
+  } catch {
+    // Storage blocked. Offering again is the lesser harm.
+    return false;
+  }
+}
+
 export function offerInstall() {
   if (typeof window === "undefined") return;
+
+  // iOS gets the instructions, because there is no prompt to call. Shown
+  // after a moment so it does not land on top of first paint, and only to a
+  // Safari tab -- Chrome and Firefox on iOS cannot add to the home screen at
+  // all, so telling them how would be telling them to do something they
+  // cannot do.
+  if (isApple() && !alreadyInstalled() && /Safari/.test(navigator.userAgent) &&
+      !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent)) {
+    setTimeout(() => {
+      if (!dismissed()) showApple();
+    }, 3000);
+  }
 
   window.addEventListener("beforeinstallprompt", (event) => {
     // Chrome shows its own mini-infobar unless this is called, and that bar
     // cannot be styled or placed. Taking over means the offer sits where it
     // makes sense instead.
     event.preventDefault();
-    try {
-      if (localStorage.getItem(DISMISSED) === "1") return;
-    } catch {
-      // Storage blocked. Offering again is the lesser harm.
-    }
+    if (dismissed()) return;
     show(event);
   });
 
@@ -30,6 +73,45 @@ export function offerInstall() {
   window.addEventListener("appinstalled", () => {
     try { localStorage.setItem(DISMISSED, "1"); } catch { /* best effort */ }
     document.getElementById("td-install")?.remove();
+  });
+}
+
+/**
+ * The iPhone version: instructions, not a button.
+ *
+ * Nothing here can install anything -- only the person can, through Safari's
+ * own Share menu -- so the bar's job is to say exactly where that is. The
+ * share glyph is drawn rather than described, because "the share button" is
+ * three different icons across three iOS versions and the arrow-out-of-a-box
+ * is the one thing that has not changed.
+ */
+function showApple() {
+  if (document.getElementById("td-install")) return;
+
+  const bar = document.createElement("div");
+  bar.id = "td-install";
+  // Positioned at the top: the bar is pointing at Safari's toolbar, which is
+  // where it would otherwise sit.
+  bar.className = "td-install-apple";
+  bar.setAttribute("role", "region");
+  bar.setAttribute("aria-label", "Install TechDesk");
+  bar.innerHTML = `
+    <div class="td-install-text">
+      <strong>Add TechDesk to your home screen</strong>
+      <span>Tap <svg class="td-share" viewBox="0 0 24 24" width="15" height="15" fill="none"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        aria-label="Share"><path d="M12 16V3"/><path d="m8 7 4-4 4 4"/>
+        <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>
+        below, then <b>Add to Home Screen</b>.</span>
+    </div>
+    <div class="td-install-actions">
+      <button type="button" id="td-install-no">Got it</button>
+    </div>`;
+  document.body.appendChild(bar);
+
+  bar.querySelector("#td-install-no").addEventListener("click", () => {
+    try { localStorage.setItem(DISMISSED, "1"); } catch { /* best effort */ }
+    bar.remove();
   });
 }
 

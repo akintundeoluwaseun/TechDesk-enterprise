@@ -38,6 +38,23 @@
 }
 #td-install button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 
+/* The share glyph sits inside a sentence on iOS, so it rides the text
+   baseline rather than sitting on it. */
+.td-share {
+  display: inline-block;
+  vertical-align: -2px;
+  margin: 0 1px;
+}
+
+/* On an iPhone the bar is pointing AT Safari's own toolbar, which is at the
+   bottom of the screen -- exactly where this bar normally sits. Covering the
+   button you are telling somebody to tap is worse than not telling them, so
+   the iOS variant goes to the top and the sentence reads downwards. */
+#td-install.td-install-apple {
+  bottom: auto;
+  top: calc(12px + env(safe-area-inset-top));
+}
+
 @media (prefers-color-scheme: dark) {
   #td-install {
     background: #161a22;
