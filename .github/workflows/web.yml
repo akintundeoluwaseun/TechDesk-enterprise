@@ -1,0 +1,85 @@
+name: Publish TechDesk Web
+
+# The web app is built here and pushed to the repository Vercel watches.
+#
+# It used to be a separate repository with its own copy of every screen, and
+# that is exactly how it missed the entire tier system: work landed on the
+# desktop, Android and Monitor, and nothing carried it across. So the copy is
+# gone and the build is published instead -- which means the web app cannot
+# fall behind again without this job failing.
+#
+# Needs a token that can push to the deploy repository. Without one the job
+# SKIPS rather than fails: a red cross that means "you have not set this up"
+# is indistinguishable from one that means "you broke it", and this project
+# has already spent eight pushes in that state.
+on:
+  push:
+    branches: [monorepo, enterprise]
+    paths:
+      - "apps/web/**"
+      - "packages/**"
+      - ".github/workflows/web.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-web
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:web
+
+      - name: Check the build actually starts
+        # Publishing something that does not run is worse than not publishing:
+        # it replaces a working site with a broken one.
+        run: |
+          npx --yes http-server apps/web/dist -p 4700 --silent &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4700/ >/dev/null && break; sleep 1; done
+          PAGE=$(curl -sf http://127.0.0.1:4700/)
+          echo "$PAGE" | grep -q '<div id="root">' || { echo "::error::index.html is not the app"; exit 1; }
+          SRC=$(echo "$PAGE" | grep -o 'src="[^"]*\.js"' | head -1 | cut -d'"' -f2 | sed 's|^\./||')
+          curl -sf "http://127.0.0.1:4700/$SRC" >/dev/null || { echo "::error::the page names a script that 404s"; exit 1; }
+          echo "index.html and $SRC both served"
+
+      - name: Is publishing configured?
+        id: cfg
+        env:
+          TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          if [ -n "$TOKEN" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"; else
+            echo "::warning::No RELEASES_TOKEN, so the web app was built and not published."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Push the build to the deploy repository
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          git clone --depth 1 "https://x-access-token:$TOKEN@github.com/akintundeoluwaseun/techdesk-webaapp-.git" deploy
+          cd deploy
+          # Everything except the repository's own metadata and its README.
+          find . -mindepth 1 -maxdepth 1 ! -name .git ! -name README.md ! -name .gitignore -exec rm -rf {} +
+          cp -r ../apps/web/dist/. .
+          git add -A
+          if git diff --cached --quiet; then
+            echo "The published build is already current."
+            exit 0
+          fi
+          git -c user.name="TechDesk CI" -c user.email="seun85148@gmail.com" \
+              commit -m "Web build from ${GITHUB_SHA::7}" \
+              -m "Published by .github/workflows/web.yml from apps/web in the monorepo. Nothing here is edited by hand."
+          git push origin HEAD:main
