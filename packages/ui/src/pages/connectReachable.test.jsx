@@ -71,3 +71,53 @@ describe("connecting a device to its shop", () => {
     expect(screen.getByText("the connect screen")).toBeInTheDocument();
   });
 });
+
+// And the screen behind that door has to make sense to whoever opened it.
+//
+// One screen, two reasons to be on it: an Enterprise shop is connecting a
+// BRANCH to a head office that watches several shops; a Business shop has no
+// head office at all and is putting a second bench in the same shop. The
+// words were written only for the first, so the tier that needs this most was
+// reading about something it does not have.
+describe("what the connect screen says", () => {
+  beforeEach(() => localStorage.clear());
+
+  // Set the way the APP sets it. setCurrentTier alone is overwritten the
+  // moment LicenseProvider mounts and re-reads storage -- which is how the
+  // Business case here first passed while proving nothing: the screen was
+  // showing the shop wording because the tier was free, not because it was
+  // Business.
+  function asTier(tier) {
+    localStorage.setItem("techdesk_tier", tier);
+    setCurrentTier(tier);
+  }
+
+  async function connectScreen() {
+    const { default: ConnectHqTab } = await import("./settings/ConnectHqTab");
+    const { SettingsProvider } = await import("../lib/SettingsContext");
+    const { LicenseProvider } = await import("../lib/LicenseContext");
+    return render(
+      <MemoryRouter>
+        <ThemeProvider><SettingsProvider><LicenseProvider>
+          <ConnectHqTab />
+        </LicenseProvider></SettingsProvider></ThemeProvider>
+      </MemoryRouter>,
+    );
+  }
+
+  it("talks about the shop when there is no head office", async () => {
+    asTier("business");
+    const { container } = await connectScreen();
+    expect(container.textContent).toContain("Connect this device to your shop");
+    expect(container.textContent).toContain("share stock, repairs and customers");
+    // A Business shop has no HQ to ring.
+    expect(container.textContent).not.toContain("Ring them");
+  });
+
+  it("talks about head office when there is one", async () => {
+    asTier("enterprise");
+    const { container } = await connectScreen();
+    expect(container.textContent).toContain("Connect this branch to HQ");
+    expect(container.textContent).toContain("head office");
+  });
+});
