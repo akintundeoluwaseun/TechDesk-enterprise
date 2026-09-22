@@ -56,10 +56,14 @@
 
     IntOp $R1 $R1 + 1
 
-    ; The first two rounds ask; after that, insist. /T takes the helper
-    ; processes with it, which is the point -- killing only the one with a
-    ; window leaves the ones holding the files.
-    IntCmp $R1 2 td_force td_ask td_force
+    ; The first two rounds ask; after that, insist. Asking first gives a
+    ; window that IS open the chance to close itself, which is what somebody
+    ; sitting in front of it expects to see. /T takes the helper processes
+    ; with it, which is the point -- killing only the one with a window
+    ; leaves the ones holding the files.
+    ;
+    ; IntCmp jumps on equal, less, greater: rounds 1 and 2 ask, 3 up force.
+    IntCmp $R1 2 td_ask td_ask td_force
 
     td_ask:
       DetailPrint "Closing TechDesk..."
