@@ -22,7 +22,7 @@ const UsersTab = React.lazy(() => import("./settings/UsersTab"));
 const ConnectHqTab = React.lazy(() => import("./settings/ConnectHqTab"));
 const ShareShopTab = React.lazy(() => import("./settings/ShareShopTab"));
 
-const ALL_TABS = [
+export const ALL_TABS = [
   { key: "shop", label: "Shop", Component: ShopTab },
   { key: "receipts", label: "Receipts", Component: ReceiptsTab },
   {
@@ -50,11 +50,17 @@ const ALL_TABS = [
   { key: "device", label: "Device", Component: DeviceTab },
   {
     key: "hq",
-    label: "Connect to HQ",
+    label: "Connect",
     Component: ConnectHqTab,
-    feature: "hq",
-    title: "Connect to head office",
-    what: "Send this shop's sales and repairs up to your head office account, so you can see every branch from your phone.",
+    // EITHER capability opens this, because one connection serves both.
+    //
+    // It was "hq" alone, and when head office moved to Enterprise that
+    // locked the only door into a shop -- so a Business shop could tick
+    // what it wanted to share and never be able to share it with anybody.
+    // Connecting is the prerequisite for sharing as much as for HQ.
+    feature: ["shareData", "hq"],
+    title: "Connect this device",
+    what: "Link this device to your shop, so the benches in it can share stock, repairs and customers -- and, on Enterprise, so the shop reports up to a head office account.",
   },
   { key: "developer", label: "Developer", Component: DeveloperTab },
 ];

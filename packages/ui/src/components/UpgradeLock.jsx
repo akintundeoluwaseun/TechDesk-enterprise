@@ -4,7 +4,7 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { useTier } from "../lib/useTier";
 import { unlockedBy } from "../lib/tier";
 import { openUpgrade } from "../lib/upgradeModal";
-import { TIER_META } from "@techdesk/editions";
+import { TIER_META, TIERS } from "@techdesk/editions";
 
 // A feature this shop has not paid for.
 //
@@ -19,9 +19,27 @@ import { TIER_META } from "@techdesk/editions";
 // shop has not walked through yet -- never in the middle of a sale, never
 // over records they already have.
 
+/**
+ * A panel can need ANY ONE of several capabilities.
+ *
+ * Connecting a device to a shop is the example: it is how a Business shop
+ * lets its benches share, and how an Enterprise shop reports to head office.
+ * One door, two reasons to walk through it -- and while the door was locked
+ * to a single capability, a Business shop could not reach the thing it had
+ * paid for at all.
+ */
+const asList = (feature) => (Array.isArray(feature) ? feature : [feature]);
+
+/** The cheapest tier that opens any of them. */
+function cheapestTier(feature) {
+  const tiers = asList(feature).map(unlockedBy).filter(Boolean);
+  // TIERS is ordered free -> business -> enterprise, so the first match wins.
+  return TIERS.find((t) => tiers.includes(t)) || null;
+}
+
 /** The plain sentence a locked control shows. */
 export function upgradeLine(feature) {
-  const tier = unlockedBy(feature);
+  const tier = cheapestTier(feature);
   const label = tier && TIER_META[tier] ? TIER_META[tier].label : "a paid plan";
   return `Upgrade to ${label} to use this`;
 }
@@ -33,9 +51,9 @@ export function upgradeLine(feature) {
 export default function UpgradeLock({ feature, title, children, what }) {
   const { can } = useTier();
   const t = useThemeTokens();
-  if (can(feature)) return children;
+  if (asList(feature).some((f) => can(f))) return children;
 
-  const tier = unlockedBy(feature);
+  const tier = cheapestTier(feature);
   const label = tier && TIER_META[tier] ? TIER_META[tier].label : "a paid plan";
 
   return (

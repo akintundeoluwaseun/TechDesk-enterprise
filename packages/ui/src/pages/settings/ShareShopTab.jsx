@@ -99,8 +99,8 @@ export default function ShareShopTab() {
         </div>
         <p className={`text-sm ${t.textSecondary}`}>
           This device isn&rsquo;t part of a shop yet. Connect it on the{" "}
-          <b>Connect to HQ</b> tab, and every device that joins the same shop can share
-          stock, repairs and customers with the others.
+          <b>Connect</b> tab, and every device that joins the same shop can share stock,
+          repairs and customers with the others.
         </p>
       </div>
     );
