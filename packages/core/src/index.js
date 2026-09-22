@@ -21,8 +21,16 @@ export { hq, hqBridge, hqLocal } from "./hq";
 // these are exported so the retry can be tested without a live server.
 export { rememberRevoke, pendingRevoke, clearRevoke } from "./hqStore";
 
-// Sharing between the benches in one shop.
-export { shop, mergeShared, changedSinceShared, SHAREABLE, shareLabel } from "./shop";
+// Syncing with one other person: their number, a code, and a link. Nothing
+// to do with head office, which is the export above this one.
+export {
+  sync,
+  mergeSynced,
+  pruneUnreachable,
+  changedSinceSync,
+  SYNCABLE,
+  syncLabel,
+} from "./sync";
 
 // The numbers the top of each page reports, in one place, because three
 // screens and an export have to agree about what a repair costs.

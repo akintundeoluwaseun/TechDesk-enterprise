@@ -20,7 +20,7 @@ import { IS_ANDROID_APP } from "../lib/platform";
 // `feature` is what the tab needs; UpgradeLock renders the tab or the offer.
 const UsersTab = React.lazy(() => import("./settings/UsersTab"));
 const ConnectHqTab = React.lazy(() => import("./settings/ConnectHqTab"));
-const ShareShopTab = React.lazy(() => import("./settings/ShareShopTab"));
+const SyncTab = React.lazy(() => import("./settings/SyncTab"));
 
 export const ALL_TABS = [
   { key: "shop", label: "Shop", Component: ShopTab },
@@ -40,27 +40,26 @@ export const ALL_TABS = [
     counterOnly: true,
   },
   {
-    key: "share",
-    label: "Share",
-    Component: ShareShopTab,
-    feature: "shareData",
-    title: "Share with the rest of the shop",
-    what: "Put your stock, repairs and customers in front of the other TechDesk devices in this shop, so anyone can see what is on the shelf and fix a count without walking over to the other bench.",
+    key: "sync",
+    label: "Sync",
+    Component: SyncTab,
+    feature: "syncData",
+    title: "Sync with another device",
+    what: "You and one other person work off each other's stock, repairs and customers. You put your number in, they type it, and you read them the code. Nothing to do with head office.",
   },
   { key: "device", label: "Device", Component: DeviceTab },
   {
     key: "hq",
     label: "Connect",
     Component: ConnectHqTab,
-    // EITHER capability opens this, because one connection serves both.
-    //
-    // It was "hq" alone, and when head office moved to Enterprise that
-    // locked the only door into a shop -- so a Business shop could tick
-    // what it wanted to share and never be able to share it with anybody.
-    // Connecting is the prerequisite for sharing as much as for HQ.
-    feature: ["shareData", "hq"],
-    title: "Connect this device",
-    what: "Link this device to your shop, so the benches in it can share stock, repairs and customers -- and, on Enterprise, so the shop reports up to a head office account.",
+    // Head office only. Syncing with the person at the next bench does NOT
+    // come through here -- it has its own tab, its own handshake and its own
+    // tier, because they are different things. Wiring sync through this tab
+    // is exactly the mistake that made a Business shop tick what it wanted
+    // to sync and then need Enterprise to do it.
+    feature: "hq",
+    title: "Connect this branch to head office",
+    what: "Report this branch up to a head office account, so whoever runs the business sees its sales and repairs from their own phone.",
   },
   { key: "developer", label: "Developer", Component: DeveloperTab },
 ];

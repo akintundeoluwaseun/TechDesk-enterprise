@@ -56,15 +56,35 @@ export function installId() {
   return id;
 }
 
-/** The connection, or a disconnected state. Includes the token. */
+/**
+ * The connection, or a disconnected state. Includes the token.
+ *
+ * Two flags, because there are two different questions and they stopped
+ * having the same answer the day a device could sync without a head office:
+ *
+ *   connected    this device has an identity on the server -- a token. It
+ *                can push its records and pull what reaches it. A device
+ *                that only ever registered a sync number has this.
+ *   hqConnected  ...and it belongs to a business, because it went through
+ *                the head-office handshake. Only the Connect tab cares.
+ *
+ * Reading the first where the second was meant is how a device that put its
+ * number in for syncing would announce itself as connected to a head office
+ * it has never heard of.
+ */
 export function readState() {
   const raw = read(KEY_STATE);
-  if (!raw) return { connected: false, installId: installId() };
+  if (!raw) return { connected: false, hqConnected: false, installId: installId() };
   try {
     const state = JSON.parse(raw);
-    return { ...state, connected: Boolean(state.token), installId: installId() };
+    return {
+      ...state,
+      connected: Boolean(state.token),
+      hqConnected: Boolean(state.token && state.businessId),
+      installId: installId(),
+    };
   } catch {
-    return { connected: false, installId: installId() };
+    return { connected: false, hqConnected: false, installId: installId() };
   }
 }
 

@@ -1,9 +1,9 @@
 // One place that knows whether this shop is up to date.
 //
-// There are two errands -- send what this device did, read what the rest of
-// the shop did -- and three things that need to know how they went: the
-// background loop that runs them, the sync button in the menu, and the
-// Connect to HQ screen. They used to be able to disagree, because the loop
+// There are two errands -- send what this device did, read what reached it
+// from anybody it syncs with -- and three things that need to know how they
+// went: the background loop that runs them, the sync button in the menu, and
+// the Connect to HQ screen. They used to be able to disagree, because the loop
 // kept its state in a closure and the screens each asked separately.
 //
 // So the state lives here, the errands run here, and anything that wants to
@@ -12,7 +12,7 @@
 // would be worse than useless.
 
 import { hq } from "./hq";
-import { shop } from "./shop";
+import { sync, pruneUnreachable } from "./sync";
 import { db } from "./db";
 import { can } from "./tier";
 
@@ -104,18 +104,27 @@ export async function runSync({ loud = false } = {}) {
     if (res?.ok) result.sent += res.sent || 0;
     else result = { ...result, ok: false, error: res?.error, message: res?.message };
 
-    if (can("shareData")) {
+    if (can("syncData")) {
       let pulls = 0;
-      let got = await shop.pull();
+      let got = await sync.pull();
       while (got?.ok && got.more && pulls < 20) {
         pulls += 1;
         result.received += got.received || 0;
-        got = await shop.pull();
+        got = await sync.pull();
       }
       if (got?.ok) result.received += got.received || 0;
       // A pull that fails does not fail the whole run: what this device sent
       // still went, and saying "sync failed" would be wrong about the half
       // that worked.
+
+      // Who still reaches this device, and out with anything from anybody
+      // else. A link cut three devices away never reaches this one as an
+      // event -- the only way to find out is to ask, so every finished run
+      // asks once.
+      if (got?.ok) {
+        const state = await sync.refresh();
+        if (state?.ok) pruneUnreachable(state.reachable);
+      }
     }
   } catch {
     result = { ok: false, error: "failed" };

@@ -4,7 +4,6 @@ import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import { hq } from "../../lib/hq";
 import { IS_ANDROID_APP } from "../../lib/platform";
-import { useTier } from "../../lib/useTier";
 import { siteLabel } from "@techdesk/editions";
 
 export default function ConnectHqTab() {
@@ -17,8 +16,6 @@ export default function ConnectHqTab() {
   // stock. Both do exactly the same thing here, and the words were written
   // only for the first, so the tier that needs this most was reading about
   // something it does not have.
-  const { can } = useTier();
-  const forHq = can("hq");
   const [status, setStatus] = useState(null);
   const [step, setStep] = useState("idle");        // idle | code | working
   const [hqPhone, setHqPhone] = useState("");
@@ -34,7 +31,7 @@ export default function ConnectHqTab() {
   useEffect(() => {
     hq.status().then((next) => {
       setStatus(next);
-      if (next?.connected) refreshSync(next);
+      if (next?.hqConnected) refreshSync(next);
     });
   }, []);
 
@@ -153,7 +150,7 @@ export default function ConnectHqTab() {
   // What is different is where the link is kept, and that is said plainly
   // below rather than hidden behind a refusal.
 
-  if (status?.connected) {
+  if (status?.hqConnected) {
     return (
       <div className="flex flex-col gap-5">
         <div className={`rounded-2xl p-6 ${t.cardBg}`}>
@@ -226,21 +223,11 @@ export default function ConnectHqTab() {
           <Link2 className={t.dark ? "text-amber-300" : "text-amber-500"} size={20} />
           <div>
             <h3 className={`font-semibold ${t.textPrimary}`}>
-              {forHq ? "Connect this branch to HQ" : "Connect this device to your shop"}
+              Connect this branch to HQ
             </h3>
             <p className={`text-sm ${t.textSecondary}`}>
-              {forHq ? (
-                <>
-                  Your head office sees this branch&rsquo;s sales and repairs on their phone. We
-                  text them a code &mdash; ring them and they&rsquo;ll read it out.
-                </>
-              ) : (
-                <>
-                  Every device you connect to the same shop can share stock, repairs and
-                  customers with the others. We text a code to the shop&rsquo;s own number to
-                  make sure it is you.
-                </>
-              )}
+              Your head office sees this branch&rsquo;s sales and repairs on their phone. We
+              text them a code &mdash; ring them and they&rsquo;ll read it out.
             </p>
             <p className={`text-xs mt-2 ${t.textMuted}`}>{WHERE_IT_LIVES}</p>
           </div>
@@ -250,7 +237,7 @@ export default function ConnectHqTab() {
           <form onSubmit={submitCode} className="mt-5">
             <p className={`text-sm mb-4 ${t.textSecondary}`}>
               We texted a 6-digit code to <b className={t.textPrimary}>{sentTo}</b>.{" "}
-              {forHq ? "Ring them and ask for it." : "Check that phone."}
+              Ring them and ask for it.
             </p>
             <label className="block mb-4">
               <span className={`block text-xs font-semibold mb-2 ${t.textSecondary}`}>The code</span>
@@ -294,7 +281,7 @@ export default function ConnectHqTab() {
             <label className="block mb-4">
               <span className={`block text-xs font-semibold mb-2 ${t.textSecondary}`}>
                 <Building2 className="inline w-3.5 h-3.5 mr-1 -mt-0.5" />
-                {forHq ? "Name for this branch" : "Name for this device"}
+                Name for this branch
               </span>
               <input
                 className={input}
@@ -303,15 +290,13 @@ export default function ConnectHqTab() {
                 onChange={(e) => setBranchName(e.target.value)}
               />
               <span className={`block text-xs mt-2 ${t.textMuted}`}>
-                {forHq
-                  ? "This is what HQ sees this shop called."
-                  : "What the rest of the shop sees this one called \u2014 the Samsung bench, the front counter."}
+                This is what HQ sees this shop called.
               </span>
             </label>
             <label className="block mb-4">
               <span className={`block text-xs font-semibold mb-2 ${t.textSecondary}`}>
                 <Phone className="inline w-3.5 h-3.5 mr-1 -mt-0.5" />
-                {forHq ? "Your HQ\u2019s phone number" : "Your shop\u2019s phone number"}
+                Your HQ&rsquo;s phone number
               </span>
               <input
                 className={input}
@@ -321,9 +306,7 @@ export default function ConnectHqTab() {
                 onChange={(e) => setHqPhone(e.target.value)}
               />
               <span className={`block text-xs mt-2 ${t.textMuted}`}>
-                {forHq
-                  ? "The number your head office registered with. The code goes to them, not here."
-                  : "The number this shop registered with. The code is texted there, so have that phone to hand."}
+                The number your head office registered with. The code goes to them, not here.
               </span>
             </label>
             {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
@@ -335,7 +318,7 @@ export default function ConnectHqTab() {
               }`}
             >
               <Link2 className="w-4 h-4" />{" "}
-              {step === "working" ? "Sending…" : forHq ? "Send HQ a code" : "Text me a code"}
+              {step === "working" ? "Sending…" : "Send HQ a code"}
             </button>
           </form>
         )}

@@ -33,7 +33,7 @@ describe("paying unlocks the app already installed", () => {
   it("opens the features without a reinstall", () => {
     setCurrentTier("business");
     expect(can("receiptPdf")).toBe(true);
-    expect(can("shareData")).toBe(true);
+    expect(can("syncData")).toBe(true);
     expect(can("staff")).toBe(true);
     // Still not Enterprise, and head office is Enterprise now.
     expect(can("hq")).toBe(false);
