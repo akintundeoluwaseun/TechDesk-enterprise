@@ -22,7 +22,8 @@
     "build:mobile": "npm run build -w @techdesk/mobile",
     "sync:android": "npm run sync -w @techdesk/mobile",
     "activation:generate": "node scripts/generate-activation-table.mjs",
-    "build:web": "npm run build -w @techdesk/web"
+    "build:web": "npm run build -w @techdesk/web && node scripts/build-monitor-web.mjs",
+    "build:monitor-web": "node scripts/build-monitor-web.mjs"
   },
   "engines": {
     "node": ">=20"

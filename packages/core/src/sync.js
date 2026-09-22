@@ -77,9 +77,15 @@ function readSync() {
       phone: s.phone || null,
       label: s.label || null,
       links: Array.isArray(s.links) ? s.links : [],
+      // Everybody whose records reach this device, named. Not the same list
+      // as `links`: a device linked only to one other still receives from
+      // whoever THAT one receives from, and the screen has to be able to say
+      // so or the chain is invisible from inside it.
+      reaching: Array.isArray(s.reaching) ? s.reaching : [],
       reachable: Array.isArray(s.reachable) ? s.reachable : [],
       cursor: s.cursor || null,
       lastPullAt: s.lastPullAt || null,
+      received: Number(s.received) || 0,
     };
   } catch {
     return { registered: false, phone: null, label: null, links: [], reachable: [], cursor: null, lastPullAt: null };
@@ -286,8 +292,10 @@ export const sync = {
       phone: s.phone,
       label: s.label,
       links: s.links,
+      reaching: s.reaching,
       reachable: s.reachable,
       lastPullAt: s.lastPullAt,
+      received: s.received || 0,
     };
   },
 
@@ -303,6 +311,7 @@ export const sync = {
       phone: res.phone || null,
       label: res.label || null,
       links: res.links || [],
+      reaching: res.reaching || [],
       reachable: res.reachable || [],
     });
     return res;
@@ -393,6 +402,11 @@ export const sync = {
       ...current,
       cursor: res.cursor || current.cursor,
       lastPullAt: new Date().toISOString(),
+      // What the last check actually brought in. "Last checked 10:42" alone
+      // does not tell a shop whether syncing is working -- a screen that says
+      // it checked and says nothing about what it found is the one people
+      // stare at wondering.
+      received: (res.records || []).length,
     });
 
     return {
@@ -424,9 +438,11 @@ export const sync = {
       phone: null,
       label: null,
       links: [],
+      reaching: [],
       reachable: [],
       cursor: null,
       lastPullAt: null,
+      received: 0,
     });
   },
 };

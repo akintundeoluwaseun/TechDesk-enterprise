@@ -17,7 +17,9 @@ on:
     branches: [monorepo, enterprise]
     paths:
       - "apps/web/**"
+      - "apps/monitor/**"
       - "packages/**"
+      - "scripts/build-monitor-web.mjs"
       - ".github/workflows/web.yml"
   workflow_dispatch: {}
 
@@ -40,6 +42,17 @@ jobs:
 
       - run: npm ci
       - run: npm test
+
+      # Monitor is not a workspace -- its own Capacitor line, its own release
+      # tag -- so the root `npm ci` above does not touch it and its tests are
+      # not in `npm test`. Both happen here, because build:web now publishes
+      # it at /monitor/ and an untested build is not one to publish.
+      - name: Monitor's own tests
+        working-directory: apps/monitor
+        run: |
+          npm install
+          npm test
+
       - run: npm run build:web
 
       - name: Check the build actually starts
@@ -53,6 +66,17 @@ jobs:
           SRC=$(echo "$PAGE" | grep -o 'src="[^"]*\.js"' | head -1 | cut -d'"' -f2 | sed 's|^\./||')
           curl -sf "http://127.0.0.1:4700/$SRC" >/dev/null || { echo "::error::the page names a script that 404s"; exit 1; }
           echo "index.html and $SRC both served"
+
+          # And Monitor, which now rides along inside the same build. It is a
+          # separate app at a subpath: its own manifest, its own icons, its
+          # own title. A build where /monitor/ 404s is one where the owner's
+          # link is dead, and nothing else here would notice.
+          MON=$(curl -sf http://127.0.0.1:4700/monitor/) || { echo "::error::/monitor/ is not there"; exit 1; }
+          echo "$MON" | grep -q "TechDesk Monitor" || { echo "::error::/monitor/ is not Monitor"; exit 1; }
+          MSRC=$(echo "$MON" | grep -o 'src="[^"]*\.js"' | head -1 | cut -d'"' -f2 | sed 's|^\./||')
+          curl -sf "http://127.0.0.1:4700/monitor/$MSRC" >/dev/null || { echo "::error::/monitor/ names a script that 404s"; exit 1; }
+          curl -sf http://127.0.0.1:4700/monitor/manifest.webmanifest >/dev/null || { echo "::error::Monitor has no manifest, so it cannot be installed"; exit 1; }
+          echo "/monitor/ serves Monitor, its script and its manifest"
 
       - name: Is publishing configured?
         id: cfg

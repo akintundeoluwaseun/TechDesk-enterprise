@@ -10,6 +10,7 @@ import {
   Unlink,
   ArrowUpRight,
   ArrowDownLeft,
+  Users,
 } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { sync, SYNCABLE } from "../../lib/sync";
@@ -137,6 +138,8 @@ export default function SyncTab() {
 
       <PairCard onDone={reload} />
 
+      <ReachingCard reaching={state.reaching} />
+
       {state.links.length === 0 ? (
         <div className={`rounded-2xl p-6 ${t.cardBg}`}>
           <p className={`text-sm ${t.textSecondary}`}>
@@ -214,10 +217,19 @@ export default function SyncTab() {
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <h3 className={`font-semibold ${t.textPrimary}`}>Checking</h3>
+        {/* What it found, not just that it looked. "Last checked 10:42" on its
+            own is the line people stare at wondering whether syncing works. */}
         <p className={`text-sm mt-1 mb-4 ${t.textSecondary}`}>
-          {state.lastPullAt
-            ? `Last checked ${new Date(state.lastPullAt).toLocaleString()}.`
-            : "Not checked yet."}{" "}
+          {state.lastPullAt ? (
+            <>
+              Last checked {timeAgo(state.lastPullAt)}
+              {state.received > 0
+                ? `, and brought in ${state.received} ${state.received === 1 ? "change" : "changes"}.`
+                : ", with nothing new."}
+            </>
+          ) : (
+            "Not checked yet."
+          )}{" "}
           This happens on its own while the app is open. Your takings are never synced.
         </p>
         <button
@@ -242,6 +254,83 @@ export default function SyncTab() {
       </div>
     </div>
   );
+}
+
+/**
+ * Everybody whose records reach this device.
+ *
+ * Not the same list as the links below it, and that is the point. You link to
+ * one person; what arrives is whatever THEY pass on, including what they were
+ * given by somebody further along. A shop linked only to the bench next door
+ * could be reading a third shop's stock and have no way to know it.
+ *
+ * So the ones you set up yourself are marked as yours, and the ones that
+ * arrive down the chain say so. Cutting a link you own is on its card below;
+ * a name here that is not yours to cut is a fact about the chain, and the
+ * person to take it up with is the link it came through.
+ */
+function ReachingCard({ reaching }) {
+  const t = useThemeTokens();
+  const list = reaching || [];
+  if (list.length === 0) return null;
+
+  const indirect = list.filter((r) => !r.direct).length;
+
+  return (
+    <div className={`rounded-2xl p-6 ${t.cardBg}`}>
+      <div className="flex items-center gap-3 mb-1">
+        <Users className={`w-5 h-5 ${t.textSecondary}`} />
+        <h3 className={`font-semibold ${t.textPrimary}`}>
+          Syncing with you{list.length > 1 ? ` \u00b7 ${list.length}` : ""}
+        </h3>
+      </div>
+      <p className={`text-sm mb-4 ${t.textSecondary}`}>
+        {indirect === 0
+          ? "Everyone here is a link you set up."
+          : `${indirect} of these ${indirect === 1 ? "reaches" : "reach"} you through somebody you are linked to, not directly.`}
+      </p>
+
+      <ul className="flex flex-col gap-2">
+        {list.map((r) => (
+          <li
+            key={r.id}
+            className={`flex items-start justify-between gap-3 p-3 rounded-xl flex-wrap ${t.pillBg}`}
+          >
+            <div className="min-w-0">
+              <div className={`text-sm font-semibold ${t.textPrimary}`}>{r.label}</div>
+              <div className={`text-xs mt-0.5 ${t.textSecondary}`}>
+                {(r.kinds || []).map(kindName).join(", ") || "Nothing yet"}
+              </div>
+            </div>
+            <span
+              className={`text-[11px] font-semibold px-2 py-1 rounded-full shrink-0 ${
+                r.direct
+                  ? "bg-blue-500/10 text-blue-500"
+                  : t.dark
+                    ? "bg-white/5 text-slate-400"
+                    : "bg-slate-200 text-slate-600"
+              }`}
+            >
+              {r.direct ? "Your link" : "Down the chain"}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** "2 minutes ago", because a timestamp is not an answer to "is this working". */
+function timeAgo(iso) {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "just now";
+  const secs = Math.max(0, Math.round((Date.now() - then) / 1000));
+  if (secs < 60) return "just now";
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return `${mins} minute${mins === 1 ? "" : "s"} ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? "" : "s"} ago`;
+  return new Date(iso).toLocaleString();
 }
 
 /** Putting your own number in, so other people can reach you. */
