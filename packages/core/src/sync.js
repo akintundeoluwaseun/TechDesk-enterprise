@@ -152,6 +152,30 @@ async function call(fn, body) {
 }
 
 /**
+ * Does this device have a server identity at all?
+ *
+ * The token lives in a different place on each shell: this context's storage
+ * in a browser, Electron's main process on the desktop. The renderer cannot
+ * see the desktop one -- that is the whole point of keeping it there -- so
+ * asking localStorage for it answers "no" on the platform where it is most
+ * likely to be "yes".
+ *
+ * Which is exactly what went wrong: pull() guarded on readState().token and
+ * therefore returned not_registered on EVERY desktop install, for good. The
+ * Sync screen still listed the links, because those come back over the
+ * bridge -- so it looked connected, said "Not checked yet" forever, and no
+ * record ever arrived.
+ *
+ * So where the host holds the token, do not guess: ask, and let the server
+ * answer. Being wrong costs one request that comes back unknown_device.
+ * Guessing wrong cost the entire feature on the main platform.
+ */
+function hasIdentity() {
+  if (hasHostBridge()) return true;
+  return Boolean(readState().token);
+}
+
+/**
  * Puts what arrived over a sync into this device's own lists.
  *
  * Merged rather than replaced, because these lists are where the shop works:
@@ -283,11 +307,10 @@ export const sync = {
   /** What this device knows without asking the server. */
   status() {
     const s = readSync();
-    const state = readState();
     return {
       // Whether this device has an identity on the server at all. Without
       // one there is nothing to sync with and nothing to sync as.
-      ready: Boolean(state.token),
+      ready: hasIdentity(),
       registered: s.registered,
       phone: s.phone,
       label: s.label,
@@ -388,8 +411,7 @@ export const sync = {
    * fetched again, not skipped.
    */
   async pull() {
-    const state = readState();
-    if (!state.token) return { ok: false, error: "not_registered", received: 0 };
+    if (!hasIdentity()) return { ok: false, error: "not_registered", received: 0 };
 
     const current = readSync();
     const res = await call("sync-pull", { since: current.cursor, limit: 400 });
@@ -423,12 +445,29 @@ export const sync = {
    * second call and a full page walk is not the moment to do it.
    */
   async pullAndPrune() {
-    const got = await sync.pull();
+    // Every page, not the first one. A page is capped at 400, and this is
+    // what somebody taps when they want to be up to date NOW -- stopping at
+    // the first page would report "12 new" and quietly leave the rest until
+    // the background run got round to it. Bounded, so a server that always
+    // says `more` cannot spin here.
+    let got = await sync.pull();
     if (!got?.ok) return got;
+
+    const total = { added: 0, updated: 0, removed: 0, received: 0 };
+    let pages = 0;
+    while (got?.ok) {
+      total.received += got.received || 0;
+      total.added += got.added || 0;
+      total.updated += got.updated || 0;
+      total.removed += got.removed || 0;
+      if (!got.more || pages >= 20) break;
+      pages += 1;
+      got = await sync.pull();
+    }
 
     const state = await sync.refresh();
     if (state?.ok) pruneUnreachable(state.reachable);
-    return got;
+    return { ok: true, ...total };
   },
 
   /** Forgets what is set up here, without touching the links on the server. */

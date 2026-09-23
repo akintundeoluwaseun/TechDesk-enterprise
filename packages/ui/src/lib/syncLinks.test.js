@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { sync, mergeSynced, pruneUnreachable, db } from "@techdesk/core";
+import { sync, mergeSynced, pruneUnreachable, setHostBridge, db } from "@techdesk/core";
 
 // Syncing with another device, from this device's side.
 //
@@ -201,6 +201,29 @@ describe("asking the server", () => {
     expect(res.ok).toBe(false);
     // Nothing fetched, nothing skipped: the same page is asked for next time.
     expect(sync.status().lastPullAt).toBe(null);
+  });
+
+  it("still syncs on a desktop, where the token is not in this context", async () => {
+    // The whole feature died here once. Electron keeps the device token in
+    // the main process on purpose, so the renderer's storage has none -- and
+    // a guard that asked localStorage for it answered "not registered" on
+    // every desktop install, for good. Links still listed (those come back
+    // over the bridge), so it looked connected and simply never synced.
+    localStorage.removeItem("techdesk_web_hq");
+
+    const syncCall = vi.fn().mockResolvedValue({
+      ok: true,
+      records: [synced()],
+      cursor: "2026-09-21T09:00:00.000Z",
+    });
+    setHostBridge({ syncCall });
+
+    const res = await sync.pull();
+    setHostBridge(null);
+
+    expect(syncCall).toHaveBeenCalled();
+    expect(syncCall.mock.calls[0][0].fn).toBe("sync-pull");
+    expect(res).toMatchObject({ ok: true, received: 1 });
   });
 
   it("will not pull for a device that has no identity yet", async () => {
