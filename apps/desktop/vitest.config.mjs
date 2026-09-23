@@ -6,6 +6,10 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     globals: true,
-    setupFiles: "./src/test/setup.js",
+    // No setupFiles: it pointed at ./src/test/setup.js, which does not
+    // exist, so this config could never actually run. There was no test
+    // script either -- which is how the main process came to require a
+    // module nobody had declared.
+    include: ["electron/**/*.test.js", "src/**/*.test.{js,jsx}"],
   },
 });

@@ -1,7 +1,7 @@
 {
   "name": "techdesk",
   "productName": "TechDesk",
-  "version": "4.2.0",
+  "version": "4.2.1",
   "description": "The shop, on the computer at the counter. Free to use; Business and Enterprise unlock in place.",
   "homepage": "https://techdesk-one.vercel.app",
   "author": {
@@ -12,12 +12,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "vitest run",
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"npm:dev\" \"wait-on tcp:5173 && electron .\"",
     "electron:build": "npm run build && electron-builder",
     "dist": "npm run build && electron-builder --publish=never"
   },
   "dependencies": {
+    "qrcode": "^1.5.4",
     "selfsigned": "^5.5.0",
     "web-push": "^3.6.7"
   },
