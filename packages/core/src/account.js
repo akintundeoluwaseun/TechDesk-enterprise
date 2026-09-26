@@ -30,6 +30,12 @@ export const account = {
   push: (...args) => impl().push(...args),
   pull: (...args) => impl().pull(...args),
 
+  /** Owner only: issues the code a worker's device redeems below. */
+  inviteStart: (...args) => impl().inviteStart(...args),
+  /** A worker's device, joining with the shop's email, that code, and their
+   * own name -- never the shop's password. */
+  workerJoin: (...args) => impl().workerJoin(...args),
+
   /** Forgets the session on this device. A different account signing in
    * later must not inherit these cursors -- it would silently skip
    * everything before whatever point the previous account's sync reached. */

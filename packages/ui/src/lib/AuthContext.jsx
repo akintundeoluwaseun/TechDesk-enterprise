@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 import { db } from "./db";
+import { account } from "./account";
 
 const AuthContext = createContext(null);
 
@@ -29,6 +30,24 @@ export function AuthProvider({ children }) {
   // if PIN sign-in isn't required, auto-sign-in as Admin on first load only —
   // an explicit "switch user" afterwards should still show the picker.
   const [user, setUser] = useState(() => (db.getSettings().requirePin ? null : ADMIN_USER));
+
+  // A worker's device already proved itself, once, by redeeming an invite
+  // code -- it does not also need a local PIN on top of that, and it must
+  // never land on the PIN picker as if it were a fresh, unclaimed device.
+  // "both" is the exact same role a locally-added seller+repairer staff
+  // account gets: sales, repairs and inventory, no dashboard, no settings,
+  // and (InventoryPage's own isAdmin check) no total stock value.
+  useEffect(() => {
+    let cancelled = false;
+    account.status().then((s) => {
+      if (!cancelled && s?.signedIn && s?.role === "worker") {
+        setUser({ id: "worker", name: s.workerName || "Worker", role: "both" });
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function getAdminPin() {
     return db.getSettings().adminPin || "0000";

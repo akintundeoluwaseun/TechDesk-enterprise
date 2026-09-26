@@ -3,7 +3,7 @@ import { Cloud, HardDrive } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { account, setAccountGateDecision } from "../lib/account";
 
-const MODES = { choose: "choose", signup: "signup", signin: "signin" };
+const MODES = { choose: "choose", signup: "signup", signin: "signin", worker: "worker" };
 
 /**
  * Shown once, on a device's very first run: sign in to sync data across
@@ -17,6 +17,8 @@ export default function AccountGateScreen({ onDone }) {
   const [mode, setMode] = useState(MODES.choose);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [workerCode, setWorkerCode] = useState("");
+  const [workerName, setWorkerName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -30,6 +32,16 @@ export default function AccountGateScreen({ onDone }) {
     e.preventDefault();
     setError("");
     setBusy(true);
+
+    if (mode === MODES.worker) {
+      const res = await account.workerJoin(email, workerCode, workerName);
+      setBusy(false);
+      if (!res.ok) return setError(res.message || "That didn't work. Try again.");
+      setAccountGateDecision("signed-in");
+      onDone();
+      return;
+    }
+
     const res = mode === MODES.signup ? await account.signUp(email, password) : await account.signIn(email, password);
     setBusy(false);
     if (!res.ok) return setError(res.message || "That didn't work. Try again.");
@@ -73,6 +85,12 @@ export default function AccountGateScreen({ onDone }) {
                 Connect to a business -- sign in
               </button>
               <button
+                onClick={() => setMode(MODES.worker)}
+                className={`py-3 rounded-xl font-semibold text-sm ${t.pillBg} ${t.textPrimary}`}
+              >
+                Joining as a worker, with a code
+              </button>
+              <button
                 onClick={continueLocally}
                 className={`flex items-center justify-center gap-2 py-3 mt-2 text-sm underline underline-offset-4 ${t.textSecondary}`}
               >
@@ -80,9 +98,10 @@ export default function AccountGateScreen({ onDone }) {
               </button>
             </div>
             <p className={`mt-4 text-xs text-center ${t.textMuted}`}>
-              Setting up a new shop for the first time? Choose "Set up your business". Joining a
-              shop that already has an account -- another till, another worker's device -- choose
-              "Connect to a business" and sign in with what they gave you.
+              Setting up a new shop for the first time? Choose "Set up your business". Getting a
+              new device of your own for a shop that already has an account? Choose "Connect to a
+              business" and sign in with its email and password. Handed a shop's email and a code
+              by its owner, to work there without their password? Choose "Joining as a worker".
             </p>
           </>
         ) : (
@@ -90,8 +109,17 @@ export default function AccountGateScreen({ onDone }) {
             <div className="flex flex-col items-center mb-6 text-center">
               <Cloud className={`w-8 h-8 mb-2 ${t.dark ? "text-white" : "text-blue-500"}`} />
               <h1 className={`text-xl font-bold ${t.textPrimary}`}>
-                {mode === MODES.signup ? "Set up your business" : "Connect to a business"}
+                {mode === MODES.signup
+                  ? "Set up your business"
+                  : mode === MODES.worker
+                  ? "Joining as a worker"
+                  : "Connect to a business"}
               </h1>
+              {mode === MODES.worker && (
+                <p className={`text-sm mt-2 ${t.textSecondary}`}>
+                  Ask the shop's owner for its email and the code they generated for you.
+                </p>
+              )}
             </div>
             <form onSubmit={submit} className="flex flex-col gap-3">
               <input
@@ -102,13 +130,31 @@ export default function AccountGateScreen({ onDone }) {
                 onChange={(e) => setEmail(e.target.value)}
                 className={input}
               />
-              <input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={input}
-              />
+              {mode === MODES.worker ? (
+                <>
+                  <input
+                    value={workerCode}
+                    onChange={(e) => setWorkerCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="6-digit code"
+                    inputMode="numeric"
+                    className={input}
+                  />
+                  <input
+                    value={workerName}
+                    onChange={(e) => setWorkerName(e.target.value)}
+                    placeholder="Your name"
+                    className={input}
+                  />
+                </>
+              ) : (
+                <input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={input}
+                />
+              )}
               {error && <p className="text-sm text-red-500">{error}</p>}
               {notice && <p className="text-sm text-emerald-500">{notice}</p>}
               <button
@@ -118,19 +164,27 @@ export default function AccountGateScreen({ onDone }) {
                   t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
                 }`}
               >
-                {busy ? "Working…" : mode === MODES.signup ? "Set up your business" : "Connect to a business"}
+                {busy
+                  ? "Working…"
+                  : mode === MODES.signup
+                  ? "Set up your business"
+                  : mode === MODES.worker
+                  ? "Join"
+                  : "Connect to a business"}
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode(mode === MODES.signup ? MODES.signin : MODES.signup);
-                  setError("");
-                  setNotice("");
-                }}
-                className={`text-sm ${t.textSecondary}`}
-              >
-                {mode === MODES.signup ? "Already part of one? Connect to a business" : "Setting up a new one? Set up your business"}
-              </button>
+              {mode !== MODES.worker && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode(mode === MODES.signup ? MODES.signin : MODES.signup);
+                    setError("");
+                    setNotice("");
+                  }}
+                  className={`text-sm ${t.textSecondary}`}
+                >
+                  {mode === MODES.signup ? "Already part of one? Connect to a business" : "Setting up a new one? Set up your business"}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setMode(MODES.choose)}

@@ -1413,7 +1413,16 @@ async function accountAuthFetch(url, key, authPath, body) {
 ipcMain.handle("techdesk:account-read", () => {
   try {
     const s = readAccountState();
-    return { ok: true, state: { signedIn: Boolean(s.accessToken), email: s.email || null } };
+    return {
+      ok: true,
+      state: {
+        signedIn: Boolean(s.accessToken),
+        email: s.email || null,
+        role: s.role || null,
+        workerName: s.workerName || null,
+        businessId: s.businessId || null,
+      },
+    };
   } catch (err) {
     return { ok: false, error: String(err) };
   }
@@ -1487,10 +1496,19 @@ ipcMain.handle("techdesk:account-push", async (event, payload) => {
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: [{ install_id: hqState.installId || null, last_seen_at: new Date().toISOString() }],
   });
+
+  // account_id defaults to auth.uid() in Postgres -- right for the owner,
+  // wrong for a worker's device, whose own uid is its own hidden identity,
+  // not the business it joined. See accountLocal.js's push() for the same
+  // reasoning; kept here too because the desktop's rows never pass through
+  // that file at all.
+  const { businessId } = readAccountState();
+  const stamped = businessId ? (rows || []).map((r) => ({ account_id: businessId, ...r })) : rows || [];
+
   return accountRestFetch(url, key, "/account_records?on_conflict=account_id,kind,record_id", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
-    body: rows || [],
+    body: stamped,
   });
 });
 
@@ -1504,6 +1522,64 @@ ipcMain.handle("techdesk:account-pull", async (event, payload) => {
   if (!res.ok) return res;
   const rows = res.data || [];
   return { ok: true, rows, more: rows.length >= ACCOUNT_PULL_LIMIT };
+});
+
+/** A message a shop owner can actually act on, not a raw Edge Function error code. */
+function friendlyInviteError(data) {
+  const code = data?.error;
+  if (code === "not_signed_in") return "Sign in first.";
+  if (code === "rate_limited") return data?.message || "Too many attempts. Try again shortly.";
+  if (code === "invalid_code") return "That code isn't right, or has expired. Ask for a new one.";
+  if (code === "bad_request") return data?.message || "Check what you typed and try again.";
+  return data?.message || "Couldn't reach TechDesk. Check your internet and try again.";
+}
+
+async function accountFnFetch(url, key, fn, body, { token } = {}) {
+  let res;
+  try {
+    res = await fetch(`${url}/functions/v1/${fn}`, {
+      method: "POST",
+      headers: { apikey: key, Authorization: `Bearer ${token || key}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { ok: false, message: "Couldn't reach TechDesk. Check your internet and try again." };
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data?.ok) return { ok: false, message: friendlyInviteError(data) };
+  return data;
+}
+
+// Owner only: issues the code a worker's device redeems below.
+ipcMain.handle("techdesk:account-invite-start", async (event, payload) => {
+  const { url, key } = payload || {};
+  const s = readAccountState();
+  if (!s.accessToken) return { ok: false, message: "Sign in first." };
+  return accountFnFetch(url, key, "account-invite-start", {}, { token: s.accessToken });
+});
+
+// A worker's device, joining with the shop's email, that code, and their own
+// name -- never the shop's password. Stores its own resulting session here,
+// same file as the owner's, since only one can be signed in on one machine.
+ipcMain.handle("techdesk:account-invite-redeem", async (event, payload) => {
+  const { url, key, email, code, name } = payload || {};
+  const trimmed = (email || "").trim();
+  const trimmedName = (name || "").trim();
+  if (!trimmed) return { ok: false, message: "Enter the shop's email." };
+  if (!trimmedName) return { ok: false, message: "Enter your name." };
+
+  const res = await accountFnFetch(url, key, "account-invite-redeem", { email: trimmed, code, name: trimmedName });
+  if (!res.ok) return res;
+
+  writeAccountState({
+    email: null,
+    accessToken: res.accessToken,
+    refreshToken: res.refreshToken,
+    role: "worker",
+    workerName: res.workerName,
+    businessId: res.businessId,
+  });
+  return { ok: true, workerName: res.workerName };
 });
 
 // ---- Automatic local backups ----

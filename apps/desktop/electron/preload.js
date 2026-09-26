@@ -34,4 +34,6 @@ contextBridge.exposeInMainWorld("techdesk", {
   accountSignOut: () => ipcRenderer.invoke("techdesk:account-sign-out"),
   accountPush: (payload) => ipcRenderer.invoke("techdesk:account-push", payload),
   accountPull: (payload) => ipcRenderer.invoke("techdesk:account-pull", payload),
+  accountInviteStart: (payload) => ipcRenderer.invoke("techdesk:account-invite-start", payload),
+  accountInviteRedeem: (payload) => ipcRenderer.invoke("techdesk:account-invite-redeem", payload),
 });

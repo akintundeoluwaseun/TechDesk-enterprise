@@ -116,6 +116,36 @@ async function pullRows(sinceCursor) {
   return { ok: true, rows: res.data || [] };
 }
 
+/** A message a shop owner can actually act on, not a raw Edge Function error code. */
+function friendlyInviteError(data) {
+  const code = data?.error;
+  if (code === "not_signed_in") return "Sign in first.";
+  if (code === "rate_limited") return data?.message || "Too many attempts. Try again shortly.";
+  if (code === "invalid_code") return "That code isn't right, or has expired. Ask for a new one.";
+  if (code === "bad_request") return data?.message || "Check what you typed and try again.";
+  return data?.message || "Couldn't reach TechDesk. Check your internet and try again.";
+}
+
+async function fnFetch(fn, body, { token } = {}) {
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
+      method: "POST",
+      headers: {
+        apikey: PUBLISHABLE_KEY,
+        Authorization: `Bearer ${token || PUBLISHABLE_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { ok: false, message: "Couldn't reach TechDesk. Check your internet and try again." };
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data?.ok) return { ok: false, message: friendlyInviteError(data) };
+  return data;
+}
+
 export const accountLocal = {
   /** The web app can always try; there is no shell that might be missing. */
   available: () => true,
@@ -165,7 +195,14 @@ export const accountLocal = {
     const batch = db.getSyncBatch(sinceCursor);
     if (!batch.records.length) return { ok: true, sent: 0, more: false, cursor: sinceCursor };
 
+    // account_id defaults to auth.uid() in Postgres, which is right for the
+    // owner (their own uid IS the business) and wrong for a worker's device:
+    // its uid is its own hidden identity, not the business it joined. A
+    // worker's session always carries which business that is, so it is sent
+    // explicitly rather than relied on to default correctly.
+    const { businessId } = readState();
     const rows = batch.records.map((r) => ({
+      ...(businessId ? { account_id: businessId } : {}),
       kind: r.kind,
       record_id: r.id,
       payload: r.deleted ? {} : r.payload,
@@ -202,5 +239,44 @@ export const accountLocal = {
       more: rows.length >= PULL_LIMIT,
       cursor: rows.length ? rows[rows.length - 1].updated_at : sinceCursor,
     };
+  },
+
+  /**
+   * Owner only: asks for a fresh code to read out to a worker. Requires this
+   * device's own real session -- the Edge Function decides whose business
+   * the code belongs to purely from that token, never from anything in the
+   * request body.
+   */
+  async inviteStart() {
+    const { accessToken } = readState();
+    if (!accessToken) return { ok: false, message: "Sign in first." };
+    return fnFetch("account-invite-start", {}, { token: accessToken });
+  },
+
+  /**
+   * A worker's device, joining with the shop's email, the code the owner
+   * read out, and the worker's own name. On success this device holds its
+   * own session from here on -- a real one, but for a hidden identity that
+   * exists only to be this one worker on this one shop, never the shop's own
+   * login.
+   */
+  async workerJoin(email, code, name) {
+    const trimmed = (email || "").trim();
+    const trimmedName = (name || "").trim();
+    if (!trimmed) return { ok: false, message: "Enter the shop's email." };
+    if (!trimmedName) return { ok: false, message: "Enter your name." };
+
+    const res = await fnFetch("account-invite-redeem", { email: trimmed, code, name: trimmedName });
+    if (!res.ok) return res;
+
+    saveState({
+      email: null,
+      accessToken: res.accessToken,
+      refreshToken: res.refreshToken,
+      role: "worker",
+      workerName: res.workerName,
+      businessId: res.businessId,
+    });
+    return { ok: true, workerName: res.workerName };
   },
 };

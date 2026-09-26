@@ -30,4 +30,38 @@ describe("the choice a new device is actually asked", () => {
     fireEvent.click(screen.getByText("Connect to a business -- sign in"));
     expect(screen.getByRole("heading", { name: "Connect to a business" })).toBeInTheDocument();
   });
+
+  it("offers a third door for a worker joining with a code, distinct from the owner's sign-in", () => {
+    render(<ThemeProvider><AccountGateScreen onDone={vi.fn()} /></ThemeProvider>);
+    fireEvent.click(screen.getByText("Joining as a worker, with a code"));
+    expect(screen.getByRole("heading", { name: "Joining as a worker" })).toBeInTheDocument();
+    // A code and a name, never a password -- that is the entire point of
+    // this door existing separately from "Connect to a business" above.
+    expect(screen.getByPlaceholderText("6-digit code")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Your name")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("Password")).not.toBeInTheDocument();
+  });
+});
+
+describe("a worker joining with a code", () => {
+  it("submits the shop email, the code and their name to account.workerJoin", async () => {
+    const { account } = await import("../lib/account");
+    const spy = vi
+      .spyOn(account, "workerJoin")
+      .mockResolvedValue({ ok: true, workerName: "Ade" });
+    const onDone = vi.fn();
+
+    render(<ThemeProvider><AccountGateScreen onDone={onDone} /></ThemeProvider>);
+    fireEvent.click(screen.getByText("Joining as a worker, with a code"));
+
+    fireEvent.change(screen.getByPlaceholderText("Email"), { target: { value: "shop@example.com" } });
+    fireEvent.change(screen.getByPlaceholderText("6-digit code"), { target: { value: "123456" } });
+    fireEvent.change(screen.getByPlaceholderText("Your name"), { target: { value: "Ade" } });
+    fireEvent.click(screen.getByText("Join"));
+
+    await new Promise((r) => setTimeout(r, 0));
+    expect(spy).toHaveBeenCalledWith("shop@example.com", "123456", "Ade");
+    expect(onDone).toHaveBeenCalled();
+    spy.mockRestore();
+  });
 });
