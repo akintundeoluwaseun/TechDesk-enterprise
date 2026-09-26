@@ -252,6 +252,13 @@ export default function InventoryPage() {
                 <div className={`text-xs ${t.textMuted}`}>
                   {p.sku || "\u2014"} &middot; {p.category}
                 </div>
+                {/* Somebody else's shelf, visible here because that is the
+                    point of syncing -- but never selectable in a sale or a
+                    repair, because ringing it up would draw down stock that
+                    physically sits with them, not here. */}
+                {p.sharedFrom && (
+                  <div className={`text-xs mt-0.5 ${t.textMuted}`}>Synced from {p.sharedFrom}</div>
+                )}
               </div>
               {/* The price of one, and then what is actually on the shelf.
                   This column showed the unit price alone, so a shop looking

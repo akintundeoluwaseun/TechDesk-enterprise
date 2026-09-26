@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { storage } from "./storage";
-import { mergeSynced } from "./sync";
+import { db } from "./db";
+import { mergeSynced, isSynced } from "./sync";
 
 const KEY_REPAIRS = "techdesk_repairs";
 const KEY_INVENTORY = "techdesk_inventory";
@@ -66,5 +67,61 @@ describe("mergeSynced", () => {
     expect(repairs).toHaveLength(1);
     expect(repairs[0].ticket).toBe("TKT-00001");
     expect(repairs[0].status).toBe("delivered");
+  });
+});
+
+describe("isSynced", () => {
+  it("is false for a plain local product", () => {
+    expect(isSynced({ id: "p1", name: "Case" })).toBe(false);
+  });
+
+  it("is true for a product mergeSynced just brought in from a partner", () => {
+    mergeSynced([
+      {
+        id: "p1",
+        kind: "product",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        payload: { id: "p1", name: "Case" },
+        owner: "Alao Photocopy",
+        ownerId: "d2",
+      },
+    ]);
+    expect(isSynced(readList(KEY_INVENTORY)[0])).toBe(true);
+  });
+
+  it("is false again for this device's own record even after a sync partner edits it", () => {
+    // rec.mine: this shop's own product, sent back with somebody else's
+    // edit -- still this shop's own stock, not theirs.
+    mergeSynced([
+      { id: "p1", kind: "product", updatedAt: "2026-01-01T00:00:00.000Z", payload: { id: "p1", name: "Case", stock: 3 }, mine: true },
+    ]);
+    expect(isSynced(readList(KEY_INVENTORY)[0])).toBe(false);
+  });
+});
+
+describe("the bug this exists to close: a repair drawing down a partner's stock", () => {
+  beforeEach(() => storage.clear());
+
+  it("a product synced in from another shop is never among what db.getInventory() offers a repair or a sale to fit", () => {
+    // This shop's own screen, and a partner shop's screen that arrived over
+    // a sync link -- both real rows in the same inventory list.
+    db.addInventoryItem({ id: "own", name: "Local screen", stock: 5, price: 10000 });
+    mergeSynced([
+      {
+        id: "theirs",
+        kind: "product",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+        payload: { id: "theirs", name: "Partner screen", stock: 5, price: 10000 },
+        owner: "Alao Photocopy",
+        ownerId: "d2",
+      },
+    ]);
+
+    const fittable = db.getInventory().filter((p) => !isSynced(p));
+    expect(fittable.map((p) => p.id)).toEqual(["own"]);
+    // The partner's screen is still a real row -- Inventory can still show
+    // it, so a shop can see what a linked partner stocks -- it is just never
+    // among what a repair or a sale here can draw down.
+    expect(db.getInventory().map((p) => p.id).sort()).toEqual(["own", "theirs"]);
   });
 });

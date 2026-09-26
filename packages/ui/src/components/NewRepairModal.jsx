@@ -5,6 +5,7 @@ import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import { currencySymbol, money } from "../lib/currency";
+import { isSynced } from "@techdesk/core";
 import MoneyInput from "./MoneyInput";
 import SignatureField from "./SignatureField";
 
@@ -31,7 +32,12 @@ export default function NewRepairModal({ onClose, onCompleted }) {
   const [parts, setParts] = useState([]);
   const [partSearch, setPartSearch] = useState("");
 
-  const inventory = useMemo(() => db.getInventory(), []);
+  // Never a synced-in partner's stock: fitting a part into a job draws down
+  // whatever product it names, and a product that arrived over a sync sits
+  // on a DIFFERENT shop's shelf. Seeing it in Inventory is the point of
+  // syncing; fitting it here would silently spend a stranger's stock for a
+  // job this shop did the work on.
+  const inventory = useMemo(() => db.getInventory().filter((p) => !isSynced(p)), []);
 
   const partMatches = useMemo(() => {
     const q = partSearch.trim().toLowerCase();

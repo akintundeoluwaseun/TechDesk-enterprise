@@ -40,6 +40,7 @@ export {
   changedSinceSync,
   SYNCABLE,
   syncLabel,
+  isSynced,
 } from "./sync";
 
 // The numbers the top of each page reports, in one place, because three

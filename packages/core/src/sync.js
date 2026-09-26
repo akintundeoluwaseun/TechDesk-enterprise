@@ -68,6 +68,25 @@ export function syncLabel(kind) {
   return KIND_LABELS[kind] || kind;
 }
 
+/**
+ * Whether a record in one of this device's own lists actually arrived over
+ * a sync, rather than being this shop's own.
+ *
+ * The bug this exists to rule out: a synced-in product is a real row in
+ * this device's own inventory list -- there is nothing about its shape that
+ * marks it apart from a product this shop stocks itself, so a repair or a
+ * sale could pick it as a part or an item and draw down its stock. That
+ * silently spends stock that physically sits on a DIFFERENT shop's shelf,
+ * for a job this shop did not actually fit anything into. Seeing a synced
+ * partner's stock is the point of syncing ("C sees A's stock too", above);
+ * fitting it into a job as if it were this shop's own is not the same
+ * thing, and callers that draw down stock -- not ones that only display it --
+ * should filter it out with this first.
+ */
+export function isSynced(record) {
+  return Boolean(record?.sharedFrom);
+}
+
 function readSync() {
   try {
     const raw = storage.getItem(KEY_SYNC);
