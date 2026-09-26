@@ -5,6 +5,7 @@ import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import { currencySymbol } from "../lib/currency";
+import MoneyInput from "./MoneyInput";
 
 export default function ProductModal({ product, onClose, onSaved }) {
   const t = useThemeTokens();
@@ -96,20 +97,18 @@ export default function ProductModal({ product, onClose, onSaved }) {
             <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
               Selling Price ({currencySymbol(settings)}) <span className="text-red-500">*</span>
             </label>
-            <input
-              type="number"
+            <MoneyInput
               value={price}
-              onChange={(e) => setPrice(e.target.value)}
+              onChange={setPrice}
               className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
             />
           </div>
           {isAdmin && (
             <div>
               <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Cost Price ({currencySymbol(settings)})</label>
-              <input
-                type="number"
+              <MoneyInput
                 value={costPrice}
-                onChange={(e) => setCostPrice(e.target.value)}
+                onChange={setCostPrice}
                 className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
               />
               {/* Said here rather than discovered in the report: a cost above

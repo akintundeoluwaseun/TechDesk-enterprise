@@ -5,6 +5,7 @@ import { useAuth } from "../lib/AuthContext";
 import { db } from "../lib/db";
 import { currencySymbol, money } from "../lib/currency";
 import { useSettings } from "../lib/SettingsContext";
+import MoneyInput from "./MoneyInput";
 
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "POS", "Transfer + Cash"];
 
@@ -352,10 +353,9 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Price</label>
-                  <input
-                    type="number"
+                  <MoneyInput
                     value={manualPrice}
-                    onChange={(e) => setManualPrice(e.target.value)}
+                    onChange={setManualPrice}
                     placeholder="0"
                     className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
                   />
@@ -540,10 +540,9 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
             </div>
             <div>
               <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Discount ({currencySymbol(settings)})</label>
-              <input
-                type="number"
+              <MoneyInput
                 value={discount}
-                onChange={(e) => setDiscount(e.target.value)}
+                onChange={setDiscount}
                 placeholder="0"
                 className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
               />
@@ -552,10 +551,9 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
 
           <div className="mb-5">
             <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>Amount Paid ({currencySymbol(settings)})</label>
-            <input
-              type="number"
+            <MoneyInput
               value={amountPaid}
-              onChange={(e) => setAmountPaid(e.target.value)}
+              onChange={setAmountPaid}
               placeholder="0"
               className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
             />

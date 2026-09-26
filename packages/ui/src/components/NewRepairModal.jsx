@@ -5,6 +5,7 @@ import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import { currencySymbol, money } from "../lib/currency";
+import MoneyInput from "./MoneyInput";
 
 const STATUSES = ["received", "in progress", "awaiting parts", "completed", "delivered"];
 
@@ -195,10 +196,9 @@ export default function NewRepairModal({ onClose, onCompleted }) {
             <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
               {labels.ticketSingular} cost ({currencySymbol(settings)}){parts.length > 0 && <span className={`font-normal ${t.textMuted}`}> &mdash; labour</span>}
             </label>
-            <input
-              type="number"
+            <MoneyInput
               value={cost}
-              onChange={(e) => setCost(e.target.value)}
+              onChange={setCost}
               className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
             />
             {parts.length > 0 && (
