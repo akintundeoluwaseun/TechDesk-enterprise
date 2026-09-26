@@ -64,13 +64,13 @@ export default function AccountGateScreen({ onDone }) {
                   t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
                 }`}
               >
-                <Cloud className="w-4 h-4" /> Create an account
+                <Cloud className="w-4 h-4" /> Set up your business
               </button>
               <button
                 onClick={() => setMode(MODES.signin)}
                 className={`py-3 rounded-xl font-semibold text-sm ${t.pillBg} ${t.textPrimary}`}
               >
-                I already have one -- sign in
+                Connect to a business -- sign in
               </button>
               <button
                 onClick={continueLocally}
@@ -79,13 +79,18 @@ export default function AccountGateScreen({ onDone }) {
                 <HardDrive className="w-4 h-4" /> Continue locally, no account
               </button>
             </div>
+            <p className={`mt-4 text-xs text-center ${t.textMuted}`}>
+              Setting up a new shop for the first time? Choose "Set up your business". Joining a
+              shop that already has an account -- another till, another worker's device -- choose
+              "Connect to a business" and sign in with what they gave you.
+            </p>
           </>
         ) : (
           <>
             <div className="flex flex-col items-center mb-6 text-center">
               <Cloud className={`w-8 h-8 mb-2 ${t.dark ? "text-white" : "text-blue-500"}`} />
               <h1 className={`text-xl font-bold ${t.textPrimary}`}>
-                {mode === MODES.signup ? "Create your account" : "Sign in"}
+                {mode === MODES.signup ? "Set up your business" : "Connect to a business"}
               </h1>
             </div>
             <form onSubmit={submit} className="flex flex-col gap-3">
@@ -113,7 +118,7 @@ export default function AccountGateScreen({ onDone }) {
                   t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
                 }`}
               >
-                {busy ? "Working…" : mode === MODES.signup ? "Create account" : "Sign in"}
+                {busy ? "Working…" : mode === MODES.signup ? "Set up your business" : "Connect to a business"}
               </button>
               <button
                 type="button"
@@ -124,7 +129,7 @@ export default function AccountGateScreen({ onDone }) {
                 }}
                 className={`text-sm ${t.textSecondary}`}
               >
-                {mode === MODES.signup ? "Already have an account? Sign in" : "New here? Create an account"}
+                {mode === MODES.signup ? "Already part of one? Connect to a business" : "Setting up a new one? Set up your business"}
               </button>
               <button
                 type="button"
