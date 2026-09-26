@@ -126,3 +126,97 @@ describe("mergeBackup", () => {
     expect(() => db.mergeBackup(JSON.stringify({ data: {} }))).toThrow();
   });
 });
+
+describe("applyIncoming", () => {
+  beforeEach(() => storage.clear());
+
+  // A real record's own payload always carries its own updatedAt -- that is
+  // what the OUTGOING side (getSyncBatch) reads to decide what changed, so
+  // it always matches the envelope's updatedAt exactly.
+  function record(kind, id, updatedAt, payload) {
+    return { id, kind, updatedAt, payload: { ...payload, updatedAt } };
+  }
+
+  it("adds a record new to this device", () => {
+    const { applied } = db.applyIncoming([
+      record("customer", "c1", "2026-01-01T00:00:00.000Z", { id: "c1", name: "Musa" }),
+    ]);
+    expect(applied).toBe(1);
+    expect(db.getCustomers().map((c) => c.id)).toEqual(["c1"]);
+  });
+
+  it("a newer version replaces an older one, and an older one is ignored", () => {
+    db.applyIncoming([record("customer", "c1", "2026-01-01T00:00:00.000Z", { id: "c1", name: "Musa" })]);
+    db.applyIncoming([record("customer", "c1", "2025-01-01T00:00:00.000Z", { id: "c1", name: "Stale" })]);
+    expect(db.getCustomers()[0].name).toBe("Musa");
+
+    db.applyIncoming([record("customer", "c1", "2026-06-01T00:00:00.000Z", { id: "c1", name: "Musa II" })]);
+    expect(db.getCustomers()[0].name).toBe("Musa II");
+  });
+
+  it("deletes a record the other side removed", () => {
+    db.applyIncoming([record("customer", "c1", "2026-01-01T00:00:00.000Z", { id: "c1" })]);
+    db.applyIncoming([{ id: "c1", kind: "customer", updatedAt: "2026-01-02T00:00:00.000Z", deleted: true }]);
+    expect(db.getCustomers()).toHaveLength(0);
+  });
+
+  it("reissues an incoming invoice number that collides with one already here", () => {
+    storage.setItem(db.KEYS.sales, JSON.stringify([{ id: "local", invoice: "INV-00001", items: [], total: 10 }]));
+    db.applyIncoming([
+      record("sale", "incoming", "2026-01-01T00:00:00.000Z", { id: "incoming", invoice: "INV-00001", items: [], total: 99 }),
+    ]);
+
+    const sales = db.getSales();
+    expect(sales).toHaveLength(2);
+    const invoices = sales.map((s) => s.invoice);
+    expect(new Set(invoices).size).toBe(2);
+    // the record already here keeps its number -- whatever already printed
+    // it, or looked it up by it, is holding that copy
+    expect(sales.find((s) => s.id === "local").invoice).toBe("INV-00001");
+    expect(sales.find((s) => s.id === "incoming").invoice).not.toBe("INV-00001");
+  });
+
+  it("does the same for a repair ticket number", () => {
+    storage.setItem(db.KEYS.repairs, JSON.stringify([{ id: "local", ticket: "TKT-00001", device: "x" }]));
+    db.applyIncoming([
+      record("repair", "incoming", "2026-01-01T00:00:00.000Z", { id: "incoming", ticket: "TKT-00001", device: "y" }),
+    ]);
+
+    const repairs = db.getRepairs();
+    expect(repairs).toHaveLength(2);
+    const tickets = repairs.map((r) => r.ticket);
+    expect(new Set(tickets).size).toBe(2);
+    expect(repairs.find((r) => r.id === "local").ticket).toBe("TKT-00001");
+    expect(repairs.find((r) => r.id === "incoming").ticket).not.toBe("TKT-00001");
+  });
+
+  it("never renumbers a record this device already knows, only a genuinely new one", () => {
+    db.applyIncoming([
+      record("sale", "s1", "2026-01-01T00:00:00.000Z", { id: "s1", invoice: "INV-00001", items: [], total: 10 }),
+    ]);
+    // The same record, edited, arrives again -- same id, so it is an update,
+    // not a second sale that happens to share a number.
+    db.applyIncoming([
+      record("sale", "s1", "2026-01-02T00:00:00.000Z", { id: "s1", invoice: "INV-00001", items: [], total: 20 }),
+    ]);
+    const sales = db.getSales();
+    expect(sales).toHaveLength(1);
+    expect(sales[0].invoice).toBe("INV-00001");
+    expect(sales[0].total).toBe(20);
+  });
+
+  it("moves the counter past a reissued number so the next LOCAL sale can't collide", () => {
+    storage.setItem(db.KEYS.sales, JSON.stringify([{ id: "local", invoice: "INV-00001", items: [], total: 10 }]));
+    db.applyIncoming([
+      record("sale", "incoming", "2026-01-01T00:00:00.000Z", { id: "incoming", invoice: "INV-00001", items: [], total: 99 }),
+    ]);
+    const next = db.createSale({ items: [], total: 0 });
+    expect(next.invoice).not.toBe("INV-00001");
+    expect(db.getSales().map((s) => s.invoice).filter((i) => i === next.invoice)).toHaveLength(1);
+  });
+
+  it("ignores records with no updatedAt rather than crashing", () => {
+    expect(() => db.applyIncoming([{ id: "c1", kind: "customer", payload: { id: "c1" } }])).not.toThrow();
+    expect(db.getCustomers()).toHaveLength(0);
+  });
+});

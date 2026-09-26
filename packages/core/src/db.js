@@ -677,6 +677,17 @@ export const db = {
       return latest || null;
     }
 
+    // A sale or repair carries a printed number a customer may already be
+    // holding a paper copy of. Two devices signed into the same account can
+    // each create one before either has synced with the other, and nothing
+    // stopped them landing on the same number -- so a record NEW to this
+    // device gets it reissued, exactly the way mergeBackup already reissues
+    // one merged in from another edition. A record already known here keeps
+    // what it has: that is the copy whatever already looked it up, or
+    // already printed it, is holding, and only the side seeing it for the
+    // first time has a number that has not been relied on by anyone yet.
+    const NUMBERED = { sale: { field: "invoice", prefix: "INV" }, repair: { field: "ticket", prefix: "TKT" } };
+
     let applied = 0;
     for (const { kind, key } of db.SYNC_KINDS) {
       const forThisKind = incoming.filter((r) => r.kind === kind);
@@ -684,6 +695,11 @@ export const db = {
 
       const local = read(key);
       const byId = new Map(local.map((r) => [r.id, r]));
+      const numbering = NUMBERED[kind];
+      const usedNumbers = numbering ? new Set(local.map((r) => r?.[numbering.field]).filter(Boolean)) : null;
+      let highest = numbering
+        ? local.reduce((max, r) => Math.max(max, parseNumericSuffix(r?.[numbering.field])), 0)
+        : 0;
       let changed = false;
 
       for (const rec of forThisKind) {
@@ -703,14 +719,41 @@ export const db = {
 
         const existing = byId.get(rec.id);
         const existingAt = existing ? new Date(existing.updatedAt || existing.createdAt || 0).getTime() : -1;
-        if (incomingAt > existingAt) {
-          byId.set(rec.id, rec.payload);
-          applied++;
-          changed = true;
+        if (incomingAt <= existingAt) continue;
+
+        let payload = rec.payload;
+        // Only a record genuinely new here needs its number checked -- one
+        // this device already knows about already cleared this check the
+        // first time it arrived, whichever side has edited it since.
+        if (numbering && !existing) {
+          const current = payload?.[numbering.field];
+          if (!current || usedNumbers.has(current)) {
+            highest += 1;
+            payload = { ...payload, [numbering.field]: `${numbering.prefix}-${String(highest).padStart(5, "0")}` };
+          } else {
+            highest = Math.max(highest, parseNumericSuffix(current));
+          }
+          usedNumbers.add(payload[numbering.field]);
         }
+
+        byId.set(rec.id, payload);
+        applied++;
+        changed = true;
       }
 
       if (changed) write(key, Array.from(byId.values()));
+
+      // The local counter must clear whatever just came in, or the next
+      // sale or repair made ON THIS DEVICE would reissue a number a synced
+      // one just took.
+      if (numbering && highest > 0) {
+        const counterKey = kind === "sale" ? "invoice" : "ticket";
+        const storedCounters = read(KEYS.counters);
+        const counters = Array.isArray(storedCounters) ? {} : storedCounters;
+        if (highest > (counters[counterKey] || 0)) {
+          write(KEYS.counters, { ...counters, [counterKey]: highest });
+        }
+      }
     }
     return { applied };
   },

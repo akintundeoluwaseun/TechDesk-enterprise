@@ -175,6 +175,21 @@ function hasIdentity() {
   return Boolean(readState().token);
 }
 
+function parseNumericSuffix(str) {
+  const m = /(\d+)$/.exec(str || "");
+  return m ? Number(m[1]) : 0;
+}
+
+// Repair tickets carry a printed number a customer may already hold a
+// paper copy of. Two different shops, syncing independently, can each
+// create one before ever meeting -- nothing stopped them landing on the
+// same number, and once merged into one list there is no way to tell them
+// apart by it. A ticket new to this device gets it reissued, the same way
+// db.applyIncoming reissues one arriving at a second device on the same
+// account; a ticket already known here -- including this device's own,
+// edited elsewhere and coming back -- keeps what it has.
+const NUMBERED = { repair: { field: "ticket", prefix: "TKT" } };
+
 /**
  * Puts what arrived over a sync into this device's own lists.
  *
@@ -201,6 +216,11 @@ export function mergeSynced(records) {
     const key = KIND_KEYS[kind];
     const rows = readList(key);
     const index = new Map(rows.map((r, i) => [r.id, i]));
+    const numbering = NUMBERED[kind];
+    const usedNumbers = numbering ? new Set(rows.map((r) => r?.[numbering.field]).filter(Boolean)) : null;
+    let highest = numbering
+      ? rows.reduce((max, r) => Math.max(max, parseNumericSuffix(r?.[numbering.field])), 0)
+      : 0;
     let changed = false;
 
     for (const rec of list) {
@@ -239,6 +259,19 @@ export function mergeSynced(records) {
       };
 
       if (at === undefined) {
+        // Only a record genuinely new here needs its number checked -- one
+        // already in this list already cleared this check the first time
+        // it arrived.
+        if (numbering) {
+          const current = incoming[numbering.field];
+          if (!current || usedNumbers.has(current)) {
+            highest += 1;
+            incoming[numbering.field] = `${numbering.prefix}-${String(highest).padStart(5, "0")}`;
+          } else {
+            highest = Math.max(highest, parseNumericSuffix(current));
+          }
+          usedNumbers.add(incoming[numbering.field]);
+        }
         rows.push(incoming);
         index.set(rec.id, rows.length - 1);
         counts.added += 1;
