@@ -1357,6 +1357,155 @@ async function postRevoke(url, key, token) {
   }
 }
 
+// ---- The shop's own cloud account (sign in or continue locally) ----
+//
+// Kept in its own state file, deliberately apart from hq.json: this is a
+// password session, not a branch credential, and a shop turns it on and off
+// independently of both HQ and device-to-device sync.
+const ACCOUNT_FILE = () => path.join(app.getPath("userData"), "account.json");
+
+function readAccountState() {
+  try {
+    return JSON.parse(fs.readFileSync(ACCOUNT_FILE(), "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
+function writeAccountState(next) {
+  const tmp = ACCOUNT_FILE() + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(next), "utf-8");
+  fs.renameSync(tmp, ACCOUNT_FILE());
+}
+
+/** A message a shop owner can actually act on, not a raw Supabase error code. */
+function friendlyAccountAuthError(data) {
+  const code = data?.error_code || data?.code || "";
+  if (code === "user_already_exists" || code === "email_exists") {
+    return "An account already exists for that email. Try signing in instead.";
+  }
+  if (code === "invalid_credentials") {
+    return "That email and password don't match.";
+  }
+  if (code === "weak_password") {
+    return "Choose a longer password -- at least 6 characters.";
+  }
+  return data?.msg || data?.error_description || data?.message ||
+    "Couldn't reach TechDesk. Check your details and try again.";
+}
+
+async function accountAuthFetch(url, key, authPath, body) {
+  let res;
+  try {
+    res = await fetch(`${url}/auth/v1${authPath}`, {
+      method: "POST",
+      headers: { apikey: key, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    return { ok: false, error: "offline", message: "Couldn't reach TechDesk. Check your internet and try again." };
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return { ok: false, error: data?.error_code || "auth_failed", message: friendlyAccountAuthError(data) };
+  return { ok: true, data };
+}
+
+ipcMain.handle("techdesk:account-read", () => {
+  try {
+    const s = readAccountState();
+    return { ok: true, state: { signedIn: Boolean(s.accessToken), email: s.email || null } };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+ipcMain.handle("techdesk:account-sign-up", async (event, payload) => {
+  const { url, key, email, password } = payload || {};
+  const res = await accountAuthFetch(url, key, "/signup", { email, password });
+  if (!res.ok) return res;
+  if (!res.data.access_token) return { ok: true, needsConfirmation: true };
+  writeAccountState({ email, accessToken: res.data.access_token, refreshToken: res.data.refresh_token });
+  return { ok: true };
+});
+
+ipcMain.handle("techdesk:account-sign-in", async (event, payload) => {
+  const { url, key, email, password } = payload || {};
+  const res = await accountAuthFetch(url, key, "/token?grant_type=password", { email, password });
+  if (!res.ok) return res;
+  writeAccountState({ email, accessToken: res.data.access_token, refreshToken: res.data.refresh_token });
+  return { ok: true };
+});
+
+ipcMain.handle("techdesk:account-sign-out", () => {
+  try {
+    writeAccountState({});
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String(err) };
+  }
+});
+
+async function accountRestFetch(url, key, restPath, { method = "GET", body, headers = {} } = {}) {
+  const s = readAccountState();
+  if (!s.accessToken) return { ok: false, error: "not_signed_in" };
+  let res;
+  try {
+    res = await fetch(`${url}/rest/v1${restPath}`, {
+      method,
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${s.accessToken}`,
+        "Content-Type": "application/json",
+        ...headers,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    return { ok: false, error: "offline" };
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: `http_${res.status}`, message: data?.message };
+  }
+  const data = res.status === 204 ? null : await res.json().catch(() => null);
+  return { ok: true, data };
+}
+
+// Sends this shop's changes up to its own cloud account. The token stays in
+// this process, exactly like hq-sync -- it never has to reach the renderer,
+// because the renderer only ever needed to know what to send.
+ipcMain.handle("techdesk:account-push", async (event, payload) => {
+  const { url, key, rows } = payload || {};
+  // Reuses HQ's install id rather than minting a second one for the same
+  // physical device -- one machine, one id, whichever cloud feature is
+  // asking about it.
+  const hqState = readHqState();
+  // Best-effort: a shop's data still needs to go up even if this particular
+  // device never manages to register itself in the devices list.
+  await accountRestFetch(url, key, "/account_devices?on_conflict=account_id,install_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: [{ install_id: hqState.installId || null, last_seen_at: new Date().toISOString() }],
+  });
+  return accountRestFetch(url, key, "/account_records?on_conflict=account_id,kind,record_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: rows || [],
+  });
+});
+
+const ACCOUNT_PULL_LIMIT = 400;
+
+ipcMain.handle("techdesk:account-pull", async (event, payload) => {
+  const { url, key, sinceCursor } = payload || {};
+  const parts = ["order=updated_at.asc", `limit=${ACCOUNT_PULL_LIMIT}`];
+  if (sinceCursor) parts.push(`updated_at=gt.${encodeURIComponent(sinceCursor)}`);
+  const res = await accountRestFetch(url, key, `/account_records?${parts.join("&")}`);
+  if (!res.ok) return res;
+  const rows = res.data || [];
+  return { ok: true, rows, more: rows.length >= ACCOUNT_PULL_LIMIT };
+});
+
 // ---- Automatic local backups ----
 // Renderer calls this roughly once a day; we keep the most recent 14 files.
 ipcMain.handle("techdesk:save-backup", (event, jsonString) => {

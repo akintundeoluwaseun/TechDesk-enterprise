@@ -24,4 +24,14 @@ contextBridge.exposeInMainWorld("techdesk", {
   getNetworkInfo: () => ipcRenderer.invoke("techdesk:network-info"),
   syncActivity: (activities) => ipcRenderer.send("techdesk:sync-activity", activities),
   showNetworkQr: (url) => ipcRenderer.invoke("techdesk:show-network-qr", url),
+
+  // The shop's own cloud account. Same rule as HQ: the password and the
+  // session token are written and read in the main process only -- accountRead
+  // deliberately reports whether a session exists, not what it is.
+  accountRead: () => ipcRenderer.invoke("techdesk:account-read"),
+  accountSignUp: (payload) => ipcRenderer.invoke("techdesk:account-sign-up", payload),
+  accountSignIn: (payload) => ipcRenderer.invoke("techdesk:account-sign-in", payload),
+  accountSignOut: () => ipcRenderer.invoke("techdesk:account-sign-out"),
+  accountPush: (payload) => ipcRenderer.invoke("techdesk:account-push", payload),
+  accountPull: (payload) => ipcRenderer.invoke("techdesk:account-pull", payload),
 });

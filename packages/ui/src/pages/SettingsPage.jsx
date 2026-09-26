@@ -21,6 +21,7 @@ import { IS_ANDROID_APP } from "../lib/platform";
 const UsersTab = React.lazy(() => import("./settings/UsersTab"));
 const ConnectHqTab = React.lazy(() => import("./settings/ConnectHqTab"));
 const SyncTab = React.lazy(() => import("./settings/SyncTab"));
+const AccountTab = React.lazy(() => import("./settings/AccountTab"));
 
 export const ALL_TABS = [
   { key: "shop", label: "Shop", Component: ShopTab },
@@ -48,6 +49,12 @@ export const ALL_TABS = [
     what: "You and one other person work off each other's stock, repairs and customers. You put your number in, they type it, and you read them the code. Nothing to do with head office.",
   },
   { key: "device", label: "Device", Component: DeviceTab },
+  // No feature gate: a cloud account for this shop's own records is the one
+  // cloud feature every tier gets, on every platform -- it is what makes
+  // "sign in or continue locally" a real choice instead of a paid one.
+  // Nothing to do with head office or with syncing another person's bench --
+  // those keep their own tabs above.
+  { key: "account", label: "Account", Component: AccountTab },
   {
     key: "hq",
     label: "Connect",

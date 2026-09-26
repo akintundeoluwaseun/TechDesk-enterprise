@@ -653,6 +653,68 @@ export const db = {
     };
   },
 
+  /**
+   * Merges records pulled from this shop's own cloud account back into local
+   * storage -- newest write wins, per record, and a tombstone that postdates
+   * an incoming write beats it even if the write arrived after.
+   *
+   * Unlike sync.js's mergeSynced, nothing here is tagged as "somebody else's":
+   * every device pulling from the same account is the same shop, so a record
+   * from another of the shop's own devices carries no ownership badge -- it
+   * is just the current version of that record.
+   */
+  applyIncoming: (incoming) => {
+    if (!Array.isArray(incoming) || !incoming.length) return { applied: 0 };
+
+    const tombstones = read(KEYS.tombstones);
+    function tombstonedAt(kind, id) {
+      let latest = 0;
+      for (const t of tombstones) {
+        if (t.kind !== kind || t.id !== id) continue;
+        const at = new Date(t.deletedAt).getTime();
+        if (Number.isFinite(at) && at > latest) latest = at;
+      }
+      return latest || null;
+    }
+
+    let applied = 0;
+    for (const { kind, key } of db.SYNC_KINDS) {
+      const forThisKind = incoming.filter((r) => r.kind === kind);
+      if (!forThisKind.length) continue;
+
+      const local = read(key);
+      const byId = new Map(local.map((r) => [r.id, r]));
+      let changed = false;
+
+      for (const rec of forThisKind) {
+        const incomingAt = new Date(rec.updatedAt).getTime();
+        if (!Number.isFinite(incomingAt)) continue;
+
+        const deletedAt = tombstonedAt(kind, rec.id);
+        if (deletedAt !== null && deletedAt >= incomingAt) continue;
+
+        if (rec.deleted) {
+          if (byId.delete(rec.id)) {
+            applied++;
+            changed = true;
+          }
+          continue;
+        }
+
+        const existing = byId.get(rec.id);
+        const existingAt = existing ? new Date(existing.updatedAt || existing.createdAt || 0).getTime() : -1;
+        if (incomingAt > existingAt) {
+          byId.set(rec.id, rec.payload);
+          applied++;
+          changed = true;
+        }
+      }
+
+      if (changed) write(key, Array.from(byId.values()));
+    }
+    return { applied };
+  },
+
   eraseAllData: () => {
     Object.values(KEYS).forEach((k) => storage.removeItem(k));
   },

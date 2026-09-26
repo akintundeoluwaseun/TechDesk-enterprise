@@ -1,0 +1,206 @@
+// The shop's own cloud account, WITHOUT a native host.
+//
+// A browser tab and an Android WebView are the same situation as they are
+// for HQ: one JavaScript context, one origin, nowhere to hide a secret. So
+// the auth request happens here and the session lives in accountStore.js,
+// which is plain about what that does and does not mean.
+//
+// This is separate from hq.js/sync.js on purpose:
+//
+//   Connect to HQ   this shop reports up to an account that watches several.
+//   Sync your data  two devices agree to work off each other's lists.
+//   This account    the shop's own cloud copy of ITS OWN records, so a second
+//                   device signed in to the same account sees the same shop.
+//
+// Signing in or out here never touches an HQ connection or a sync link --
+// they are turned on and off independently, and a shop that signs out of its
+// account has not asked to stop reporting to head office or syncing with the
+// bench next door.
+
+import { db } from "./db";
+import { installId } from "./hqStore";
+import { readState, readPublicState, saveState, clearState } from "./accountStore";
+
+// Public by design, same as hq.js and sync.js: this only gets a request to
+// the door. The database, behind Postgres row-level security, decides what a
+// signed-in user's own token is allowed to read and write.
+const SUPABASE_URL = "https://wuwerzyydtvargvqjufb.supabase.co";
+const PUBLISHABLE_KEY = "sb_publishable_aiiQjedgBx4Tq-NX_jIGtw_ekAYgxV_";
+// A pull is capped the same way a push batch is: a shop with months of
+// history behind it should not have to hold one giant response in memory,
+// and the caller already knows how to keep going while there is more.
+const PULL_LIMIT = 400;
+
+/** A message a shop owner can actually act on, not a raw Supabase error code. */
+function friendlyAuthError(data) {
+  const code = data?.error_code || data?.code || "";
+  if (code === "user_already_exists" || code === "email_exists") {
+    return "An account already exists for that email. Try signing in instead.";
+  }
+  if (code === "invalid_credentials") {
+    return "That email and password don't match.";
+  }
+  if (code === "weak_password") {
+    return "Choose a longer password -- at least 6 characters.";
+  }
+  return data?.msg || data?.error_description || data?.message || "Couldn't reach TechDesk. Check your details and try again.";
+}
+
+async function authFetch(path, body) {
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL}/auth/v1${path}`, {
+      method: "POST",
+      headers: { apikey: PUBLISHABLE_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // No connection at all. Said plainly, because a shop on a dropped line
+    // should not be left wondering whether it was their fault.
+    return { ok: false, error: "offline", message: "Couldn't reach TechDesk. Check your internet and try again." };
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return { ok: false, error: data?.error_code || "auth_failed", message: friendlyAuthError(data) };
+  return { ok: true, data };
+}
+
+/** PostgREST, called with the signed-in user's own token -- never a service
+ * key. Only ever used from a browser build: on desktop this same request
+ * happens in main.js, where the token lives. */
+async function restFetch(path, { method = "GET", body, headers = {} } = {}) {
+  const s = readState();
+  if (!s.accessToken) return { ok: false, error: "not_signed_in" };
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+      method,
+      headers: {
+        apikey: PUBLISHABLE_KEY,
+        Authorization: `Bearer ${s.accessToken}`,
+        "Content-Type": "application/json",
+        ...headers,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    return { ok: false, error: "offline" };
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: `http_${res.status}`, message: data?.message };
+  }
+  const data = res.status === 204 ? null : await res.json().catch(() => null);
+  return { ok: true, data };
+}
+
+async function pushRows(rows) {
+  // Best-effort: a shop's data still needs to go up even if this particular
+  // device never manages to register itself in the devices list.
+  await restFetch("/account_devices?on_conflict=account_id,install_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: [{ install_id: installId(), last_seen_at: new Date().toISOString() }],
+  });
+  return restFetch("/account_records?on_conflict=account_id,kind,record_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    body: rows,
+  });
+}
+
+async function pullRows(sinceCursor) {
+  const parts = ["order=updated_at.asc", `limit=${PULL_LIMIT}`];
+  if (sinceCursor) parts.push(`updated_at=gt.${encodeURIComponent(sinceCursor)}`);
+  const res = await restFetch(`/account_records?${parts.join("&")}`);
+  if (!res.ok) return res;
+  return { ok: true, rows: res.data || [] };
+}
+
+export const accountLocal = {
+  /** The web app can always try; there is no shell that might be missing. */
+  available: () => true,
+
+  /** Whether this device is signed in, and to whom. Never the token. */
+  async status() {
+    return readPublicState();
+  },
+
+  async signUp(email, password) {
+    const trimmed = (email || "").trim();
+    if (!trimmed || !password) return { ok: false, message: "Enter an email and a password." };
+
+    const res = await authFetch("/signup", { email: trimmed, password });
+    if (!res.ok) return res;
+    if (!res.data.access_token) {
+      // Email confirmation is required before there is a session to store.
+      return { ok: true, needsConfirmation: true };
+    }
+    saveState({ email: trimmed, accessToken: res.data.access_token, refreshToken: res.data.refresh_token });
+    return { ok: true };
+  },
+
+  async signIn(email, password) {
+    const trimmed = (email || "").trim();
+    if (!trimmed || !password) return { ok: false, message: "Enter an email and a password." };
+
+    const res = await authFetch("/token?grant_type=password", { email: trimmed, password });
+    if (!res.ok) return res;
+    saveState({ email: trimmed, accessToken: res.data.access_token, refreshToken: res.data.refresh_token });
+    return { ok: true };
+  },
+
+  /** Forgets the session on this device. The account itself is untouched. */
+  async signOut() {
+    clearState();
+    return { ok: true };
+  },
+
+  /**
+   * Sends everything changed since `sinceCursor`. The cursor moves only on a
+   * confirmed success, so a failed push is retried rather than skipped, and
+   * it is always a time from this device's own clock -- the server's reply
+   * would drift against it.
+   */
+  async push(sinceCursor) {
+    const batch = db.getSyncBatch(sinceCursor);
+    if (!batch.records.length) return { ok: true, sent: 0, more: false, cursor: sinceCursor };
+
+    const rows = batch.records.map((r) => ({
+      kind: r.kind,
+      record_id: r.id,
+      payload: r.deleted ? {} : r.payload,
+      deleted: Boolean(r.deleted),
+      updated_at: r.updatedAt,
+    }));
+
+    const res = await pushRows(rows);
+    if (!res.ok) return { ok: false, error: res.error, sent: 0, more: batch.more, cursor: sinceCursor };
+    return { ok: true, sent: rows.length, more: batch.more, cursor: batch.cursor };
+  },
+
+  /**
+   * Pulls everything changed since `sinceCursor` and merges it straight into
+   * local storage via db.applyIncoming. Returns how many rows actually
+   * changed something, and whether there is more waiting behind the cap.
+   */
+  async pull(sinceCursor) {
+    const res = await pullRows(sinceCursor);
+    if (!res.ok) return res;
+
+    const rows = res.rows || [];
+    const records = rows.map((row) => ({
+      id: row.record_id,
+      kind: row.kind,
+      updatedAt: row.updated_at,
+      deleted: row.deleted,
+      payload: row.payload,
+    }));
+    const { applied } = db.applyIncoming(records);
+    return {
+      ok: true,
+      applied,
+      more: rows.length >= PULL_LIMIT,
+      cursor: rows.length ? rows[rows.length - 1].updated_at : sinceCursor,
+    };
+  },
+};

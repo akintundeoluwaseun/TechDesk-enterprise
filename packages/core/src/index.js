@@ -17,6 +17,16 @@ export { setHostBridge, hostBridge, hasHostBridge } from "./bridge";
 
 export { db } from "./db";
 export { hq, hqBridge, hqLocal } from "./hq";
+
+// The shop's own cloud account: sign in or continue locally, and the push/
+// pull that keeps a second signed-in device in step with this one. Separate
+// from HQ (reporting up) and from sync (with one other person) -- see the
+// note at the top of account.js.
+export {
+  account, accountBridge, accountLocal,
+  getPushCursor, setPushCursor, getPullCursor, setPullCursor,
+  getAccountGateDecision, setAccountGateDecision,
+} from "./account";
 // A disconnect the server has not been told about yet. The app retries it;
 // these are exported so the retry can be tested without a live server.
 export { rememberRevoke, pendingRevoke, clearRevoke } from "./hqStore";

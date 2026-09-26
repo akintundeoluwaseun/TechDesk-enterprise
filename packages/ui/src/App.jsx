@@ -7,9 +7,12 @@ import { LicenseProvider } from "./lib/LicenseContext";
 import { HelpProvider, useHelp } from "./lib/HelpContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import { useLanSync } from "./lib/useLanSync";
+import { useAccountSync } from "./lib/useAccountSync";
 import { findOtherEditions, getMergeDecision, hasLocalRecords } from "./lib/editionData";
+import { getAccountGateDecision } from "./lib/account";
 import Splash from "./components/Splash";
 import LoginScreen from "./pages/LoginScreen";
+import AccountGateScreen from "./pages/AccountGateScreen";
 import Sidebar from "./components/Sidebar";
 import MobileNav from "./components/MobileNav";
 import MobileAppBar from "./components/MobileAppBar";
@@ -71,6 +74,7 @@ function Shell() {
   useAutoBackup();
   useLanSync();
   useHqSync();
+  useAccountSync();
 
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>
@@ -102,8 +106,21 @@ function Shell() {
   );
 }
 
+// "Sign in to sync data, or continue locally" -- asked once, on a device's
+// very first run, and never again once answered. A device that already has
+// records of its own predates this feature (or was already answered by
+// choosing to sign in, which stores its own decision above) -- either way it
+// is not a fresh install, and interrupting an already-running shop with this
+// is exactly the surprise this check exists to avoid.
+function useFirstRunAccountGate() {
+  const [show, setShow] = useState(() => !getAccountGateDecision() && !hasLocalRecords());
+  return [show, () => setShow(false)];
+}
+
 function Root() {
   const { user } = useAuth();
+  const [showGate, dismissGate] = useFirstRunAccountGate();
+  if (showGate) return <AccountGateScreen onDone={dismissGate} />;
   if (!user) return <LoginScreen />;
   return <Shell />;
 }
