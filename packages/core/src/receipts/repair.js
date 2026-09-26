@@ -242,9 +242,18 @@ export function buildRepairTicketPdf(repair) {
   doc.text("RECEIVED BY (TECHNICIAN)", marginX + boxW2 + 30, sigY + 16);
   doc.line(marginX + boxW2 + 30, sigY + sigH - 16, marginX + boxW2 * 2 + 10, sigY + sigH - 16);
 
-  doc.roundedRect(marginX + (boxW2 + 20) * 2, sigY, boxW2, sigH, 4, 4, "S");
-  doc.text("CUSTOMER SIGNATURE", marginX + (boxW2 + 20) * 2 + 10, sigY + 16);
-  doc.line(marginX + (boxW2 + 20) * 2 + 10, sigY + sigH - 16, pageW - marginX - 10, sigY + sigH - 16);
+  const custSigX = marginX + (boxW2 + 20) * 2;
+  doc.roundedRect(custSigX, sigY, boxW2, sigH, 4, 4, "S");
+  doc.text("CUSTOMER SIGNATURE", custSigX + 10, sigY + 16);
+  if (repair.signature) {
+    // A signature captured on screen fills the same box a customer would
+    // otherwise sign by hand -- reuses drawLogo rather than a second image
+    // helper, since scaling to fit and surviving a corrupt data URI without
+    // stopping the ticket printing is exactly the same problem either way.
+    drawLogo(doc, { logo: repair.signature }, custSigX + 10, sigY + 22, boxW2 - 20, sigH - 38);
+  } else {
+    doc.line(custSigX + 10, sigY + sigH - 16, pageW - marginX - 10, sigY + sigH - 16);
+  }
 
   return doc;
 }

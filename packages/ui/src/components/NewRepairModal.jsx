@@ -6,6 +6,7 @@ import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import { currencySymbol, money } from "../lib/currency";
 import MoneyInput from "./MoneyInput";
+import SignatureField from "./SignatureField";
 
 const STATUSES = ["received", "in progress", "awaiting parts", "completed", "delivered"];
 
@@ -23,6 +24,7 @@ export default function NewRepairModal({ onClose, onCompleted }) {
   const [status, setStatus] = useState("received");
   const [cost, setCost] = useState("0");
   const [notes, setNotes] = useState("");
+  const [signature, setSignature] = useState(null);
 
   // Parts taken off the shelf for this job. Same shape as a sale's items, so
   // one decrement serves both and the receipt can print either.
@@ -96,6 +98,7 @@ export default function NewRepairModal({ onClose, onCompleted }) {
       repairCost: Number(cost) || 0,
       notes,
       parts,
+      signature,
       // Who took the job in. Sales have always recorded this; repairs did not,
       // so half the shop's work was invisible to any "who did what" question.
       actor: authUser?.name,
@@ -291,6 +294,10 @@ export default function NewRepairModal({ onClose, onCompleted }) {
               cost above &mdash; so that cost is your labour, not the whole bill.
             </p>
           )}
+        </div>
+
+        <div className="mb-4">
+          <SignatureField value={signature} onChange={setSignature} />
         </div>
 
         <div className="mb-5">

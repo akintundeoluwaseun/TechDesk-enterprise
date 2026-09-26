@@ -53,3 +53,25 @@ describe("a long shop name never prints on top of a repair document's title", ()
     expect(() => buildRepairTicketPdf(REPAIR)).not.toThrow();
   });
 });
+
+describe("a captured customer signature prints on the ticket", () => {
+  beforeEach(() => storage.clear());
+
+  it("draws the signature when one was captured", () => {
+    db.saveSettings({ shopName: "TechDesk" });
+    const doc = buildRepairTicketPdf({ ...REPAIR, signature: LOGO });
+    expect(hasImage(doc)).toBe(true);
+  });
+
+  it("still just prints the blank line when there is no signature", () => {
+    db.saveSettings({ shopName: "TechDesk" });
+    expect(hasImage(buildRepairTicketPdf(REPAIR))).toBe(false);
+  });
+
+  it("survives a signature that is not a usable image", () => {
+    db.saveSettings({ shopName: "TechDesk" });
+    expect(() =>
+      buildRepairTicketPdf({ ...REPAIR, signature: "data:image/png;base64,not-really-a-png" })
+    ).not.toThrow();
+  });
+});

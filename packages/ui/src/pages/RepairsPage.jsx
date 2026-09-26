@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Plus, Search, FileText, MessageCircle, Trash2, ChevronRight } from "lucide-react";
 import Topbar from "../components/Topbar";
 import NewRepairModal from "../components/NewRepairModal";
+import SignatureField from "../components/SignatureField";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
@@ -236,6 +237,12 @@ export default function RepairsPage() {
                     </div>
                     <div className={`col-span-2 ${t.textSecondary}`}>
                       Notes: <span className={t.textPrimary}>{r.notes || "\u2014"}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <SignatureField
+                        value={r.signature}
+                        onChange={(signature) => updateField(r.id, "signature", signature)}
+                      />
                     </div>
                   </div>
                 )}
