@@ -495,6 +495,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                   value={custPhone}
                   onChange={(e) => setCustPhone(e.target.value)}
                   placeholder="For receipt"
+                  inputMode="tel"
                   className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
                 />
               </div>

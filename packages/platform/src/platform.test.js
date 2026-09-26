@@ -72,6 +72,72 @@ describe("the browser adapter", () => {
   });
 });
 
+// Found on iPhone: <a download> on a blob: URL is not reliable in Safari, in
+// a tab or installed to the home screen. It can open the PDF instead of
+// saving it, or -- in standalone mode, with no browser chrome to fall back
+// on -- do nothing a shop can see happen at all. navigator.share, where the
+// OS actually accepts files, is the one path known to work there.
+describe("the browser adapter reaches for the OS share sheet first", () => {
+  let shared;
+  beforeEach(() => {
+    shared = null;
+    URL.createObjectURL = vi.fn(() => "blob:fake");
+    URL.revokeObjectURL = vi.fn();
+    HTMLAnchorElement.prototype.click = vi.fn();
+  });
+  afterEach(() => {
+    delete navigator.share;
+    delete navigator.canShare;
+  });
+
+  it("hands the file to navigator.share when the OS can take it", async () => {
+    navigator.canShare = vi.fn(() => true);
+    navigator.share = vi.fn(async (payload) => { shared = payload; });
+
+    const res = await browserAdapter.saveFile(new Blob(["x"], { type: "application/pdf" }), "Ade - INV-00001.pdf");
+
+    expect(res).toEqual({ ok: true, via: "share" });
+    expect(shared.files[0].name).toBe("Ade - INV-00001.pdf");
+    // The anchor path must not have run as well -- one delivery, not two.
+    expect(HTMLAnchorElement.prototype.click).not.toHaveBeenCalled();
+  });
+
+  it("shareFile takes the same path as saveFile -- there is a real share sheet now", async () => {
+    navigator.canShare = vi.fn(() => true);
+    navigator.share = vi.fn(async () => {});
+    const res = await browserAdapter.shareFile(new Blob(["x"]), "receipt.pdf");
+    expect(res).toEqual({ ok: true, via: "share" });
+  });
+
+  it("falls back to the anchor untouched where canShare says no", async () => {
+    // Most of the world: desktop Chrome with no share target wired up,
+    // Electron, any browser with no Web Share API at all. This is the exact
+    // path every test above this describe block already covers -- it must
+    // not have changed.
+    navigator.canShare = vi.fn(() => false);
+    navigator.share = vi.fn();
+    const res = await browserAdapter.saveFile(new Blob(["x"]), "receipt.pdf");
+    expect(res).toEqual({ ok: true, via: "download" });
+    expect(navigator.share).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the anchor where navigator.share does not exist at all", async () => {
+    // jsdom's own baseline, and Electron's renderer: no polyfill assumed.
+    expect(typeof navigator.share).toBe("undefined");
+    const res = await browserAdapter.saveFile(new Blob(["x"]), "receipt.pdf");
+    expect(res).toEqual({ ok: true, via: "download" });
+  });
+
+  it("does not crash the save button when canShare throws on an unexpected shape", async () => {
+    navigator.share = vi.fn();
+    navigator.canShare = vi.fn(() => {
+      throw new Error("not supported");
+    });
+    const res = await browserAdapter.saveFile(new Blob(["x"]), "receipt.pdf");
+    expect(res).toEqual({ ok: true, via: "download" });
+  });
+});
+
 describe("the electron adapter", () => {
   it("delivers like a browser but answers to its own name", () => {
     expect(electronAdapter.name).toBe("electron");

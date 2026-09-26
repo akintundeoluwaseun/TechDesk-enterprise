@@ -133,6 +133,7 @@ export default function NewRepairModal({ onClose, onCompleted }) {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="08012345678"
+              inputMode="tel"
               className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
             />
           </div>
