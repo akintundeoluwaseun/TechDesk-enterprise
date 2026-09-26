@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import { db } from "../db";
 import { pdfSafe } from "../pdfSafe";
 import { currencyPdfSymbol } from "../currency";
+import { fitFontSize, drawLogo } from "./layout";
 
 function contactLine(settings) {
   return [settings.phone, settings.address, settings.email]
@@ -49,39 +50,29 @@ function textBox(doc, x, y, w, text, minH = 30) {
   return y + h;
 }
 
-function header(doc, marginX, settings, big = 22) {
+function header(doc, marginX, settings, big = 22, maxNameWidth = Infinity) {
   let y = 42;
 
-  // The shop's logo when it has one. The empty rectangle that used to sit
-  // here read as a picture that had failed to load, on every ticket handed
-  // to a customer -- and the shop's real logo, uploaded in Settings, was
-  // never used by any document.
-  const hasLogo = drawLogoLeft(doc, settings, marginX, y - 26, 26, 20);
-  const textX = marginX + (hasLogo ? 34 : 0);
+  // The shop's logo when it has one, big enough to actually be seen. It used
+  // to be drawn into a 26x20pt box, which on a printed ticket is barely a
+  // smudge next to the shop's own name.
+  const LOGO_W = 36,
+    LOGO_H = 28;
+  const logoH = drawLogo(doc, settings, marginX, y - 26, LOGO_W, LOGO_H);
+  const textX = marginX + (logoH > 0 ? LOGO_W + 8 : 0);
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(big);
-  doc.text(pdfSafe(settings.shopName || "TechDesk").toUpperCase(), textX, y - 8);
+  // Shrunk to fit whatever is drawn beside it, rather than left to grow into
+  // it -- a long shop name and the centred title beside it, both left at
+  // their natural size, print directly on top of each other.
+  const name = pdfSafe(settings.shopName || "TechDesk").toUpperCase();
+  fitFontSize(doc, name, maxNameWidth - (textX - marginX), { max: big });
+  doc.text(name, textX, y - 8);
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
   doc.text(settings.tagline || "", textX, y + 6);
 
   return y + 24;
-}
-
-/** Left-aligned logo for the ticket header. True when one was drawn. */
-function drawLogoLeft(doc, settings, x, y, maxW, maxH) {
-  const data = settings.logo;
-  if (!data || typeof data !== "string" || !data.startsWith("data:image/")) return false;
-  try {
-    const props = doc.getImageProperties(data);
-    const scale = Math.min(maxW / props.width, maxH / props.height);
-    doc.addImage(data, x, y, props.width * scale, props.height * scale);
-    return true;
-  } catch {
-    // An unreadable image must not stop a ticket printing.
-    return false;
-  }
 }
 
 export function buildRepairTicketPdf(repair) {
@@ -92,11 +83,18 @@ export function buildRepairTicketPdf(repair) {
   const marginX = 40;
   const contentW = pageW - marginX * 2;
 
-  header(doc, marginX, settings, 22);
+  // Measured before the shop name is drawn, so a long one can be kept clear
+  // of the centred title rather than printed over it.
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(20);
+  const ticketTitle = pdfSafe(settings.labels.ticketTitle).toUpperCase();
+  const titleLeftEdge = pageW / 2 - doc.getTextWidth(ticketTitle) / 2;
+
+  header(doc, marginX, settings, 22, titleLeftEdge - marginX - 16);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(20);
-  doc.text(pdfSafe(settings.labels.ticketTitle).toUpperCase(), pageW / 2, 46, { align: "center" });
+  doc.text(ticketTitle, pageW / 2, 46, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10.5);
   doc.text("SERVICE PASS", pageW / 2, 62, { align: "center" });
@@ -266,16 +264,27 @@ export function buildBlankRepairFormPdf() {
 
   function copyHeader(sectionTop, labelText) {
     let y = sectionTop + 34;
+
+    // Measured before the shop name is drawn, so a long one can be kept
+    // clear of the centred title instead of printed over it.
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(14);
-    doc.text(pdfSafe(settings.shopName || "TechDesk").toUpperCase(), marginX, y);
+    doc.setFontSize(16);
+    const titleText = pdfSafe(settings.labels.ticketTitle).toUpperCase();
+    const titleLeftEdge = pageW / 2 - doc.getTextWidth(titleText) / 2;
+
+    const logoH = drawLogo(doc, settings, marginX, y - 22, 30, 22);
+    const nameX = marginX + (logoH > 0 ? 38 : 0);
+
+    const nameText = pdfSafe(settings.shopName || "TechDesk").toUpperCase();
+    fitFontSize(doc, nameText, titleLeftEdge - 16 - nameX, { max: 14 });
+    doc.text(nameText, nameX, y);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.text(settings.tagline || "", marginX, y + 12);
+    doc.text(settings.tagline || "", nameX, y + 12);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
-    doc.text(pdfSafe(settings.labels.ticketTitle).toUpperCase(), pageW / 2, y - 6, { align: "center" });
+    doc.text(titleText, pageW / 2, y - 6, { align: "center" });
     doc.setFillColor(15, 15, 15);
     const lw = doc.getTextWidth(labelText) + 16;
     doc.setFontSize(8.5);
@@ -464,15 +473,26 @@ export function buildBlankRepairFormPdf() {
 
   // ---- Section 3: Service receipt ----
   y = cutY2 + 34;
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
-  doc.text(pdfSafe(settings.shopName || "TechDesk").toUpperCase(), marginX, y);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
-  doc.text(settings.tagline || "", marginX, y + 12);
+
+  // Measured before the shop name is drawn, so a long one can be kept clear
+  // of the centred title instead of printed over it.
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
-  doc.text("SERVICE RECEIPT", pageW / 2, y - 8, { align: "center" });
+  const serviceTitle = "SERVICE RECEIPT";
+  const serviceTitleLeftEdge = pageW / 2 - doc.getTextWidth(serviceTitle) / 2;
+
+  const logoH3 = drawLogo(doc, settings, marginX, y - 20, 30, 22);
+  const nameX3 = marginX + (logoH3 > 0 ? 38 : 0);
+  const nameText3 = pdfSafe(settings.shopName || "TechDesk").toUpperCase();
+  fitFontSize(doc, nameText3, serviceTitleLeftEdge - 16 - nameX3, { max: 14 });
+  doc.text(nameText3, nameX3, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.text(settings.tagline || "", nameX3, y + 12);
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.text(serviceTitle, pageW / 2, y - 8, { align: "center" });
   doc.setFont("helvetica", "italic");
   doc.setFontSize(8);
   doc.text("(After Job Completion)", pageW / 2, y + 6, { align: "center" });
