@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { dayKey, normalizeState, advance, mergeStates } from "./trial";
+import { clampUsed, remaining as pdfsRemainingFrom } from "./pdfAllowance";
 import { IS_ANDROID_APP } from "./platform";
 import { isTier, tierCan, isUpgrade } from "@techdesk/editions";
 import { FREE_TIER, setCurrentTier } from "./tier";
@@ -14,6 +15,7 @@ const KEY_TRIAL_START_LEGACY = "techdesk_trial_start";
 const KEY_ACTIVATED = "techdesk_activated";
 const KEY_TIER = "techdesk_tier";
 const KEY_UNLOCKS = "techdesk_unlocks";
+const KEY_PDF_TRIAL = "techdesk_free_pdf_count";
 
 // What a device activated before any of this counts as.
 //
@@ -86,6 +88,20 @@ function writeLocalTrial(state) {
   } catch {
     // Out of quota, or storage blocked. The userData file is the durable
     // copy, so losing this mirror is survivable.
+  }
+}
+
+// The free-tier PDF trial's count. Unlike the trial clock above, this is not
+// mirrored to a userData file: it is not meant to be tamper-proof, the same
+// way tier.js's own licence flag is not -- what actually defends a paid
+// capability is the server, and this is a taste offered to a free shop, not
+// a lock. A shop determined enough to clear localStorage for three more free
+// PDFs is not the problem this exists to solve.
+function readPdfsUsed() {
+  try {
+    return clampUsed(localStorage.getItem(KEY_PDF_TRIAL));
+  } catch {
+    return 0;
   }
 }
 
@@ -171,6 +187,21 @@ export function LicenseProvider({ children }) {
   tierRef.current = tier;
   const unlocksRef = useRef(unlocks);
   unlocksRef.current = unlocks;
+
+  const [pdfsUsed, setPdfsUsed] = useState(readPdfsUsed);
+
+  /** A free shop just spent one of its three free PDF saves. */
+  function recordPdfSaved() {
+    setPdfsUsed((n) => {
+      const next = n + 1;
+      try {
+        localStorage.setItem(KEY_PDF_TRIAL, String(next));
+      } catch {
+        // Not durable, and does not need to be -- see readPdfsUsed's note.
+      }
+      return next;
+    });
+  }
 
   // Render immediately from local storage; the userData file is read a tick
   // later and reconciled, so the sidebar never waits on IPC to show a number.
@@ -424,6 +455,9 @@ export function LicenseProvider({ children }) {
         daysUsed: trial.daysUsed,
         restricted,
         verifyCode,
+        pdfsUsed,
+        pdfsRemaining: pdfsRemainingFrom(pdfsUsed),
+        recordPdfSaved,
       }}
     >
       {children}

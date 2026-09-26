@@ -12,6 +12,7 @@ import { generateInvoicePdf } from "../lib/generateInvoicePdf";
 import { generateThermalReceiptPdf } from "../lib/generateThermalReceipt";
 import { openWhatsApp, saleMessage } from "../lib/share";
 import { LockedButton } from "../components/UpgradeLock";
+import PdfSaveButton from "../components/PdfSaveButton";
 import { money } from "../lib/currency";
 
 const PAYMENT_STATUSES = ["Paid", "Pending", "Partial"];
@@ -199,9 +200,11 @@ export default function SalesPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 {/* Print stays free: a shop that cannot hand a customer a
                     receipt is not a shop. Saving the file and sending it are
-                    what Business is for. Both buttons stay visible and
-                    locked -- a button that vanishes reads as a bug, and a
-                    free shop never discovers the paid version does it. */}
+                    what Business is for -- Save A4/58mm give a free shop
+                    three tries at that first (PdfSaveButton), WhatsApp does
+                    not. Every one of them stays visible even locked -- a
+                    button that vanishes reads as a bug, and a free shop
+                    never discovers the paid version does it. */}
                 <LockedButton
                   feature="receiptShare"
                   title="WhatsApp"
@@ -216,22 +219,20 @@ export default function SalesPage() {
                 >
                   <Printer className="w-4 h-4 shrink-0" /> Print
                 </button>
-                <LockedButton
-                  feature="receiptPdf"
+                <PdfSaveButton
                   title="Save A4"
-                  onClick={() => generateInvoicePdf(sale)}
+                  onSave={() => generateInvoicePdf(sale)}
                   className={`flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium ${t.pillBg}`}
                 >
                   <FileText className="w-4 h-4 shrink-0" /> Save A4
-                </LockedButton>
-                <LockedButton
-                  feature="receiptPdf"
+                </PdfSaveButton>
+                <PdfSaveButton
                   title="Save 58mm"
-                  onClick={() => generateThermalReceiptPdf(sale)}
+                  onSave={() => generateThermalReceiptPdf(sale)}
                   className={`flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium ${t.pillBg}`}
                 >
                   <Receipt className="w-4 h-4 shrink-0" /> 58mm
-                </LockedButton>
+                </PdfSaveButton>
                 <button
                   onClick={() => {
                     setEditingSale(sale);
