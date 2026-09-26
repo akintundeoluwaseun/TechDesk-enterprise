@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import { db } from "../db";
 import { pdfSafe } from "../pdfSafe";
 import { currencyPdfSymbol } from "../currency";
+import { fitFontSize } from "./layout";
 
 export function buildInvoicePdf(sale) {
   const settings = db.getSettings();
@@ -22,9 +23,12 @@ export function buildInvoicePdf(sale) {
   // reaches about 19pt above it. At +16 the shop name sat inside the logo.
   y = afterLogo > y ? afterLogo + 30 : y + 4;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(26);
-  doc.text(pdfSafe(settings.shopName || "TechDesk").toUpperCase(), pageW / 2, y, { align: "center" });
+  // Shrunk to fit the printable width, rather than left to run past the
+  // page margins -- a long registered shop name at a fixed 26pt used to keep
+  // going straight off the edge instead of wrapping or shrinking.
+  const shopName = pdfSafe(settings.shopName || "TechDesk").toUpperCase();
+  fitFontSize(doc, shopName, contentW, { max: 26 });
+  doc.text(shopName, pageW / 2, y, { align: "center" });
   y += 20;
 
   if (settings.tagline) {

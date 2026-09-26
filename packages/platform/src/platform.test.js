@@ -77,10 +77,25 @@ describe("the browser adapter", () => {
 // saving it, or -- in standalone mode, with no browser chrome to fall back
 // on -- do nothing a shop can see happen at all. navigator.share, where the
 // OS actually accepts files, is the one path known to work there.
-describe("the browser adapter reaches for the OS share sheet first", () => {
+//
+// That share-first path is for iOS Safari specifically now, on saveFile --
+// canShare() answers "yes" on plenty of non-iOS browsers too (Android Chrome,
+// recent desktop Chrome), and reaching for a share sheet on every one of
+// those turned a Save tap into an unwanted "who do you want to send this
+// to?" prompt on the browsers most shops are actually using.
+function stubIOS() {
+  Object.defineProperty(navigator, "userAgent", {
+    value: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+    configurable: true,
+  });
+}
+
+describe("the browser adapter reaches for the OS share sheet first, on iOS", () => {
   let shared;
+  let originalUA;
   beforeEach(() => {
     shared = null;
+    originalUA = navigator.userAgent;
     URL.createObjectURL = vi.fn(() => "blob:fake");
     URL.revokeObjectURL = vi.fn();
     HTMLAnchorElement.prototype.click = vi.fn();
@@ -88,9 +103,11 @@ describe("the browser adapter reaches for the OS share sheet first", () => {
   afterEach(() => {
     delete navigator.share;
     delete navigator.canShare;
+    Object.defineProperty(navigator, "userAgent", { value: originalUA, configurable: true });
   });
 
-  it("hands the file to navigator.share when the OS can take it", async () => {
+  it("hands the file to navigator.share on iOS, when the OS can take it", async () => {
+    stubIOS();
     navigator.canShare = vi.fn(() => true);
     navigator.share = vi.fn(async (payload) => { shared = payload; });
 
@@ -102,18 +119,15 @@ describe("the browser adapter reaches for the OS share sheet first", () => {
     expect(HTMLAnchorElement.prototype.click).not.toHaveBeenCalled();
   });
 
-  it("shareFile takes the same path as saveFile -- there is a real share sheet now", async () => {
+  it("shareFile reaches for the share sheet regardless of platform -- that is what the Share button asked for", async () => {
     navigator.canShare = vi.fn(() => true);
     navigator.share = vi.fn(async () => {});
     const res = await browserAdapter.shareFile(new Blob(["x"]), "receipt.pdf");
     expect(res).toEqual({ ok: true, via: "share" });
   });
 
-  it("falls back to the anchor untouched where canShare says no", async () => {
-    // Most of the world: desktop Chrome with no share target wired up,
-    // Electron, any browser with no Web Share API at all. This is the exact
-    // path every test above this describe block already covers -- it must
-    // not have changed.
+  it("falls back to the anchor on iOS where canShare says no", async () => {
+    stubIOS();
     navigator.canShare = vi.fn(() => false);
     navigator.share = vi.fn();
     const res = await browserAdapter.saveFile(new Blob(["x"]), "receipt.pdf");
@@ -122,6 +136,7 @@ describe("the browser adapter reaches for the OS share sheet first", () => {
   });
 
   it("falls back to the anchor where navigator.share does not exist at all", async () => {
+    stubIOS();
     // jsdom's own baseline, and Electron's renderer: no polyfill assumed.
     expect(typeof navigator.share).toBe("undefined");
     const res = await browserAdapter.saveFile(new Blob(["x"]), "receipt.pdf");
@@ -129,12 +144,44 @@ describe("the browser adapter reaches for the OS share sheet first", () => {
   });
 
   it("does not crash the save button when canShare throws on an unexpected shape", async () => {
+    stubIOS();
     navigator.share = vi.fn();
     navigator.canShare = vi.fn(() => {
       throw new Error("not supported");
     });
     const res = await browserAdapter.saveFile(new Blob(["x"]), "receipt.pdf");
     expect(res).toEqual({ ok: true, via: "download" });
+  });
+});
+
+describe("everywhere that is not iOS Safari, Save just saves", () => {
+  beforeEach(() => {
+    URL.createObjectURL = vi.fn(() => "blob:fake");
+    URL.revokeObjectURL = vi.fn();
+    HTMLAnchorElement.prototype.click = vi.fn();
+  });
+  afterEach(() => {
+    delete navigator.share;
+    delete navigator.canShare;
+  });
+
+  it("downloads directly on Android Chrome even though it can share files", async () => {
+    // jsdom's own userAgent is not iOS -- this is the same browser every
+    // other test in this file already runs under, standing in for Android
+    // Chrome and desktop Chrome, both of which answer canShare's question
+    // "yes" today.
+    navigator.canShare = vi.fn(() => true);
+    navigator.share = vi.fn(async () => {});
+    const res = await browserAdapter.saveFile(new Blob(["x"]), "receipt.pdf");
+    expect(res).toEqual({ ok: true, via: "download" });
+    expect(navigator.share).not.toHaveBeenCalled();
+  });
+
+  it("still shares when the Share button is the one tapped", async () => {
+    navigator.canShare = vi.fn(() => true);
+    navigator.share = vi.fn(async () => {});
+    const res = await browserAdapter.shareFile(new Blob(["x"]), "receipt.pdf");
+    expect(res).toEqual({ ok: true, via: "share" });
   });
 });
 

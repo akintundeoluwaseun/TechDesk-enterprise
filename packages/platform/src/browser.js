@@ -22,6 +22,28 @@
 // (desktop Chrome without a wired share target, Electron, a browser with no
 // Web Share API at all) nothing changes: the anchor download below is byte
 // -for-byte what it always was.
+//
+// But "can share" and "should reach for the share sheet on a Save tap" are
+// different questions. Chrome on Android and recent desktop Chrome answer
+// canShare's question "yes" too -- that is most of this app's actual traffic,
+// not the exception. Routing all of it through a share sheet turned pressing
+// Save into an unwanted "who do you want to send this to?" prompt on
+// everything except Safari, which is the one browser the share-first path
+// was actually written for. So the OS share sheet is reached for on a *save*
+// only where the anchor download is the one known not to work at all --
+// iOS/iPadOS Safari, in or out of the home-screen app -- and everywhere else
+// the anchor is trusted to do exactly what it always did.
+
+/** iOS and iPadOS Safari, the one shell `<a download>` on a blob: URL is
+ * unreliable on -- iPadOS reports as "Macintosh" but keeps touch points a
+ * real Mac never has. */
+function isIosSafari() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const isIPhoneFamily = /iPad|iPhone|iPod/.test(ua);
+  const isIpadAsMac = /Macintosh/.test(ua) && navigator.maxTouchPoints > 1;
+  return isIPhoneFamily || isIpadAsMac;
+}
 
 /** Would navigator.share actually accept this file, right now? */
 async function canShareFile(file) {
@@ -67,7 +89,10 @@ export const browserAdapter = {
   name: "browser",
 
   async saveFile(blob, filename) {
-    return (await shareViaOs(blob, filename)) || anchorDownload(blob, filename);
+    if (isIosSafari()) {
+      return (await shareViaOs(blob, filename)) || anchorDownload(blob, filename);
+    }
+    return anchorDownload(blob, filename);
   },
 
   async shareFile(blob, filename) {
