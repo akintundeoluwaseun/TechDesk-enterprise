@@ -46,11 +46,19 @@ export {
 // The numbers the top of each page reports, in one place, because three
 // screens and an export have to agree about what a repair costs.
 export {
-  isToday, startOfDay, repairTotal, repairOwed, isOpenRepair,
+  isToday, startOfDay, repairTotal, repairOwed, saleOwed, isOpenRepair,
   repairsSummary, salesSummary, customerKey, customerTotals, customersSummary,
+  pendingPaymentsSummary,
 } from "./summary";
 
 export { computeReport, reportToCsv, getRangeStart } from "./reports";
+
+// The 3-hourly pending-payment reminder's clock -- see the note at the top
+// of owedReminder.js for why "last reminded" is a persisted timestamp
+// rather than a plain setInterval.
+export {
+  REMINDER_INTERVAL_MS, getLastRemindedAt, setLastRemindedAt, dueForReminder,
+} from "./owedReminder";
 export { searchEverything } from "./searchAll";
 export { notificationFeed, isUnread, unreadCount, timeAgo } from "./notifications";
 export { searchDestinations, DESTINATIONS } from "./destinations";

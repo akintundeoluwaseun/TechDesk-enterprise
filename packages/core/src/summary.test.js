@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
-  isToday, repairTotal, repairOwed, isOpenRepair,
+  isToday, repairTotal, repairOwed, saleOwed, isOpenRepair,
   repairsSummary, salesSummary, customerKey, customerTotals, customersSummary,
+  pendingPaymentsSummary,
 } from "./summary";
 
 const NOW = new Date("2026-09-21T14:00:00+01:00");
@@ -143,10 +144,12 @@ describe("matching work to a customer", () => {
 });
 
 describe("what each customer has spent", () => {
+  // Paid in full: this group is about SPENDING, not what is still owed --
+  // see "what each customer owes" below for a sale left unpaid.
   const sales = [
-    { customerPhone: "0801", total: 12000, createdAt: today() },
-    { customerPhone: "0801", total: 8000, createdAt: yesterday },
-    { total: 5000, createdAt: today() },                        // walk-in
+    { customerPhone: "0801", total: 12000, createdAt: today(), paymentStatus: "Paid" },
+    { customerPhone: "0801", total: 8000, createdAt: yesterday, paymentStatus: "Paid" },
+    { total: 5000, createdAt: today(), paymentStatus: "Paid" }, // walk-in
   ];
   const repairs = [
     { customerPhone: "0801", repairCost: 4000, parts: [{ price: 1000, qty: 2 }],
@@ -175,5 +178,68 @@ describe("what each customer has spent", () => {
       NOW,
     );
     expect(s).toMatchObject({ total: 2, newToday: 1, owed: 6000, owing: 1 });
+  });
+});
+
+describe("what a sale is still owed", () => {
+  it("is nothing on a paid sale", () => {
+    expect(saleOwed({ total: 20000, amountPaid: 20000, paymentStatus: "Paid" })).toBe(0);
+  });
+
+  it("is the whole total on one recorded as pending, with nothing paid in", () => {
+    expect(saleOwed({ total: 20000, paymentStatus: "Pending" })).toBe(20000);
+  });
+
+  it("is what is left, not the whole total, on a partial payment", () => {
+    // amountPaid records how much actually came in -- reading "not Paid" as
+    // "none of it paid" would tell a shop it is owed 20,000 on a sale it has
+    // already collected 15,000 of.
+    expect(saleOwed({ total: 20000, amountPaid: 15000, paymentStatus: "Partial" })).toBe(5000);
+  });
+
+  it("never goes negative, however it was recorded", () => {
+    expect(saleOwed({ total: 20000, amountPaid: 25000, paymentStatus: "Partial" })).toBe(0);
+  });
+});
+
+describe("the sales header also totals what is owed", () => {
+  it("adds unpaid and partial sales, and leaves paid ones out", () => {
+    const sales = [
+      { total: 20000, paymentStatus: "Paid", createdAt: today() },
+      { total: 15000, paymentStatus: "Pending", createdAt: today() },
+      { total: 10000, amountPaid: 4000, paymentStatus: "Partial", createdAt: yesterday },
+    ];
+    expect(salesSummary(sales, NOW).owed).toBe(21000);
+  });
+});
+
+describe("a sale left unpaid counts toward what a customer owes", () => {
+  it("adds to the same customer total a repair already does", () => {
+    // customerTotals used to only read repairs for this -- a customer who
+    // walked off with an unpaid sale looked fully settled everywhere this
+    // total is read.
+    const sales = [{ customerPhone: "0801", total: 9000, paymentStatus: "Pending", createdAt: today() }];
+    const repairs = [{ customerPhone: "0801", repairCost: 4000, paymentStatus: "Unpaid", createdAt: today() }];
+    expect(customerTotals(sales, repairs).get("p:0801").owed).toBe(13000);
+  });
+});
+
+describe("everything still owed, sales and repairs together", () => {
+  it("adds up both, and names the oldest one", () => {
+    const sales = [
+      { total: 9000, paymentStatus: "Pending", createdAt: today(9) },
+      { total: 5000, paymentStatus: "Paid", createdAt: today(10) }, // settled, not counted
+    ];
+    const repairs = [
+      { repairCost: 4000, paymentStatus: "Unpaid", createdAt: yesterday },
+    ];
+    const s = pendingPaymentsSummary(sales, repairs);
+    expect(s.count).toBe(2);
+    expect(s.total).toBe(13000);
+    expect(s.oldestAt).toBe(yesterday);
+  });
+
+  it("says nothing is owed for a shop with nothing outstanding, rather than throwing", () => {
+    expect(pendingPaymentsSummary([], [])).toMatchObject({ count: 0, total: 0, oldestAt: null });
   });
 });

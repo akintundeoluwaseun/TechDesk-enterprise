@@ -63,6 +63,18 @@ export function repairOwed(repair) {
   return repairTotal(repair);
 }
 
+/**
+ * Still to be collected on this sale. Same reasoning as repairOwed: a sale
+ * marked "Partial" recorded that something was paid, not how much, so this
+ * reads amountPaid against the total rather than treating "not fully paid"
+ * as "none of it paid" -- a sale for 20,000 with 15,000 already in is owed
+ * 5,000, not 20,000.
+ */
+export function saleOwed(sale) {
+  if (sale?.paymentStatus === "Paid") return 0;
+  return Math.max(0, num(sale?.total) - num(sale?.amountPaid));
+}
+
 const DONE = new Set(["completed", "delivered"]);
 
 /** Is this job still on the bench? */
@@ -92,6 +104,7 @@ export function salesSummary(sales = [], now = new Date()) {
   let today = 0;
   let todayTotal = 0;
   let allTotal = 0;
+  let owed = 0;
 
   for (const s of sales) {
     const total = num(s?.total);
@@ -100,9 +113,10 @@ export function salesSummary(sales = [], now = new Date()) {
       today += 1;
       todayTotal += total;
     }
+    owed += saleOwed(s);
   }
 
-  return { total: sales.length, today, todayTotal, allTotal };
+  return { total: sales.length, today, todayTotal, allTotal, owed };
 }
 
 /**
@@ -149,6 +163,11 @@ export function customerTotals(sales = [], repairs = []) {
     const row = entry(key);
     row.sales += 1;
     row.spent += num(s?.total);
+    // A sale left Pending or Partial is money this customer owes too, not
+    // only a repair -- this used to only count repairs, so a customer who
+    // walked off with an unpaid sale looked fully settled everywhere this
+    // total is read.
+    row.owed += saleOwed(s);
     seen(row, s?.createdAt);
   }
 
@@ -180,4 +199,33 @@ export function customersSummary(customers = [], totals = new Map(), now = new D
   }
 
   return { total: customers.length, newToday, owed, owing };
+}
+
+/**
+ * Every sale and repair still owed money, in one figure -- what the
+ * 3-hourly pending-payment reminder reads to decide whether it has anything
+ * worth interrupting the shop for. `oldestAt` is the earliest of them, so a
+ * reminder built from this can carry a stable timestamp instead of "now",
+ * which would put it back at the top of a feed on every render.
+ */
+export function pendingPaymentsSummary(sales = [], repairs = []) {
+  let count = 0;
+  let total = 0;
+  let oldestAt = null;
+
+  function fold(records, owedFn) {
+    for (const record of records) {
+      const owed = owedFn(record);
+      if (owed <= 0) continue;
+      count += 1;
+      total += owed;
+      const at = record?.createdAt;
+      if (at && (!oldestAt || new Date(at) < new Date(oldestAt))) oldestAt = at;
+    }
+  }
+
+  fold(sales, saleOwed);
+  fold(repairs, repairOwed);
+
+  return { count, total, oldestAt };
 }

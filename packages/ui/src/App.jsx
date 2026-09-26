@@ -8,6 +8,7 @@ import { HelpProvider, useHelp } from "./lib/HelpContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import { useLanSync } from "./lib/useLanSync";
 import { useAccountSync } from "./lib/useAccountSync";
+import { useOwedReminder } from "./lib/useOwedReminder";
 import { findOtherEditions, getMergeDecision, hasLocalRecords } from "./lib/editionData";
 import { getAccountGateDecision } from "./lib/account";
 import Splash from "./components/Splash";
@@ -75,6 +76,7 @@ function Shell() {
   useLanSync();
   useHqSync();
   useAccountSync();
+  useOwedReminder();
 
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>

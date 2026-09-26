@@ -11,6 +11,8 @@
 // eventually anywhere else.
 
 import { db } from "./db";
+import { pendingPaymentsSummary } from "./summary";
+import { money } from "./currency";
 
 export function timeAgo(iso) {
   const d = new Date(iso);
@@ -43,6 +45,12 @@ export function notificationFeed(clearedAt = null, limit = 8) {
     .getInventory()
     .filter((p) => Number(p.stock || 0) <= Number(p.lowStockThreshold || 5));
 
+  // Same reasoning as low stock: a live state, not a recorded event, so it
+  // borrows a timestamp from the data rather than "now" -- the oldest still
+  // owed, so the one line stays put instead of jumping to the top of the
+  // list every time the bell is opened.
+  const pending = pendingPaymentsSummary(db.getSales(), db.getRepairs());
+
   const merged = [
     ...activity,
     ...lowStock.map((p) => ({
@@ -50,6 +58,13 @@ export function notificationFeed(clearedAt = null, limit = 8) {
       message: `${p.name || "Item"} — only ${p.stock ?? 0} remaining.`,
       createdAt: p.createdAt || p.updatedAt || new Date(0).toISOString(),
     })),
+    ...(pending.count > 0
+      ? [{
+          type: "owed",
+          message: `${pending.count} payment${pending.count === 1 ? "" : "s"} still pending — ${money(pending.total, db.getSettings())} owed.`,
+          createdAt: pending.oldestAt || new Date(0).toISOString(),
+        }]
+      : []),
   ];
   const cut = clearedAt ? new Date(clearedAt) : null;
   // >= rather than >: clearing and then selling in the same millisecond is
