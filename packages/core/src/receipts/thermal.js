@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { db } from "../db";
 import { pdfSafe } from "../pdfSafe";
 import { currencyPdfSymbol } from "../currency";
+import { fitFontSize } from "./layout";
 
 const WIDTH_MM = 58;
 const MARGIN_MM = 3;
@@ -57,7 +58,15 @@ export function buildThermalReceiptPdf(sale) {
   y = afterLogo > y ? afterLogo + 6 : y;
 
   // ---- Header ----
-  center(pdfSafe(settings.shopName || "TechDesk").toUpperCase(), 12, true);
+  // Shrunk to fit the roll's own width, and wrapped if even the smallest
+  // legible size still doesn't -- a 58mm roll has far less room than the A4
+  // receipts even had, and a long registered shop name at a fixed 12pt used
+  // to run straight off both edges with nothing catching it. Wrapping is
+  // only reached for a genuinely long name: splitTextToSize hands back the
+  // whole string as a single line whenever it already fits.
+  const shopName = pdfSafe(settings.shopName || "TechDesk").toUpperCase();
+  const shopNameSize = fitFontSize(doc, shopName, contentW, { max: 12, min: 8 });
+  doc.splitTextToSize(shopName, contentW).forEach((line) => center(line, shopNameSize, true));
   if (settings.tagline) center(pdfSafe(settings.tagline), 6.5);
   if (settings.phone) center(pdfSafe(settings.phone), 6.5);
   if (settings.address) {
@@ -116,7 +125,12 @@ export function buildThermalReceiptPdf(sale) {
   center("We appreciate your trust in us.", 6.5);
   if (settings.phone) center(pdfSafe(settings.phone), 6.5);
   y += 1;
-  center(`Powered by ${pdfSafe(settings.shopName || "TechDesk")}`, 6);
+  // Wrapped rather than shrunk further -- 6pt is already close to the
+  // smallest legible size on a thermal roll, so a long name goes to a
+  // second line instead of shrinking toward unreadable.
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  doc.splitTextToSize(`Powered by ${pdfSafe(settings.shopName || "TechDesk")}`, contentW).forEach((l) => center(l, 6));
 
   return doc;
 }

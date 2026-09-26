@@ -3,6 +3,7 @@ import autoTable from "jspdf-autotable";
 import { db } from "../db";
 import { pdfSafe } from "../pdfSafe";
 import { currencyPdfSymbol } from "../currency";
+import { fitFontSize } from "./layout";
 
 const FILTER_LABELS = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days", month: "This month" };
 
@@ -15,9 +16,12 @@ export function buildReportPdf(report, filter) {
   const contentW = pageW - marginX * 2;
   let y = 46;
 
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(20);
-  doc.text(`${pdfSafe(settings.shopName || "TechDesk")} - Report`, marginX, y);
+  // Shrunk to fit the printable width instead of left to run past it -- a
+  // long registered shop name plus " - Report" at a fixed 20pt used to keep
+  // going straight off the page edge.
+  const title = `${pdfSafe(settings.shopName || "TechDesk")} - Report`;
+  fitFontSize(doc, title, contentW, { max: 20 });
+  doc.text(title, marginX, y);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10.5);
   y += 18;
