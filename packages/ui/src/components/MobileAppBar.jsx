@@ -99,7 +99,7 @@ export default function MobileAppBar({ onOpenActivation }) {
       <header
         style={{ paddingTop: "env(safe-area-inset-top)" }}
         className={`md:hidden sticky top-0 z-30 flex items-center gap-3 px-4 h-14 box-content border-b ${t.divider} ${
-          dark ? "bg-[#1f232b]" : "bg-white"
+          dark ? "bg-slate-950" : "bg-white"
         }`}
       >
         <button
@@ -162,7 +162,7 @@ export default function MobileAppBar({ onOpenActivation }) {
             // the top of the screen has to as well.
             style={{ paddingTop: "env(safe-area-inset-top)" }}
             className={`absolute inset-x-0 top-0 max-h-[85vh] flex flex-col rounded-b-2xl overflow-hidden ${
-              dark ? "bg-[#1f232b]" : "bg-white"
+              dark ? "bg-slate-950" : "bg-white"
             }`}
           >
             <div className={`px-4 py-3 flex items-center justify-between border-b ${t.divider}`}>
@@ -257,7 +257,7 @@ export default function MobileAppBar({ onOpenActivation }) {
             className="absolute inset-0 bg-black/50"
             onClick={() => setDrawer(false)}
           />
-          <div className={`relative w-80 max-w-[88%] h-full flex flex-col ${dark ? "bg-[#1f232b]" : "bg-white"}`}>
+          <div className={`relative w-80 max-w-[88%] h-full flex flex-col ${dark ? "bg-slate-950" : "bg-white"}`}>
             <div className="flex items-start justify-between gap-3 p-4 pb-3">
               <div className="min-w-0">
                 <div className={`text-base font-bold truncate ${t.textPrimary}`}>{settings.shopName}</div>

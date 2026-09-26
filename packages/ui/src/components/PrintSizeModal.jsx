@@ -25,7 +25,7 @@ export default function PrintSizeModal({ onPick, onClose, title = "Print" }) {
       <div
         onClick={(e) => e.stopPropagation()}
         className={`w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl p-5 ${
-          t.dark ? "bg-[#1f232b]" : "bg-white"
+          t.dark ? "bg-slate-950" : "bg-white"
         }`}
         style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
       >

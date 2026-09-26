@@ -54,9 +54,7 @@ export default function DataMergeModal({ editions, onClose }) {
     onClose();
   }
 
-  const panel = t.dark
-    ? "bg-[#1a1a2e]/90 backdrop-blur-lg border border-white/10"
-    : "bg-white/35 backdrop-blur-lg backdrop-brightness-90 border border-white/50";
+  const panel = t.cardBg;
 
   if (result) {
     const total = Object.values(result.added).reduce((a, b) => a + b, 0);

@@ -105,11 +105,7 @@ export default function SettingsPage() {
             key={x.key}
             onClick={() => selectTab(x.key)}
             className={`px-4 md:px-5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
-              tab === x.key
-                ? t.dark
-                  ? "bg-[#1e222a] shadow-[2px_2px_4px_#14171d,-2px_-2px_4px_#282d37] text-white"
-                  : "bg-[#e9ecf1] shadow-[2px_2px_4px_#c8cdd4,-2px_-2px_4px_#ffffff] text-slate-800"
-                : t.textSecondary
+              tab === x.key ? `${t.cardBg} ${t.textPrimary}` : t.textSecondary
             }`}
           >
             {x.label}

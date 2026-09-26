@@ -111,8 +111,8 @@ export default function Sidebar({ onOpenActivation }) {
                   } ${
                     isActive
                       ? t.dark
-                        ? "shadow-[inset_3px_3px_6px_#14171d,inset_-3px_-3px_6px_#282d37] text-white"
-                        : "shadow-[inset_3px_3px_6px_#c8cdd4,inset_-3px_-3px_6px_#ffffff] text-blue-600"
+                        ? "bg-slate-800 text-white"
+                        : "bg-blue-50 text-blue-600"
                       : t.dark
                       ? "text-slate-300 hover:bg-white/5"
                       : "text-slate-600 hover:bg-black/5"
