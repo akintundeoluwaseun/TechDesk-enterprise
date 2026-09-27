@@ -97,7 +97,7 @@ describe("search reaches every screen, not just records", () => {
 
   it("sends settings results to the tab itself", () => {
     const hq = searchDestinations("hq")[0];
-    expect(hq.path).toBe("/settings?tab=hq");
+    expect(hq.path).toBe("/settings?tab=account");
   });
 
   it("does not offer a screen the role cannot open", () => {

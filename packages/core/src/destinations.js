@@ -22,13 +22,17 @@ export const DESTINATIONS = [
 
   // ---- settings tabs ----
   // Deep links: SettingsPage reads ?tab= so a result lands on the tab itself
-  // rather than dropping someone on Shop to go hunting.
+  // rather than dropping someone on Shop to go hunting. Receipts is a section
+  // inside Shop now, and Sync, Connect to HQ and Support are sections inside
+  // Account -- they keep their own search entries, with the name someone
+  // would actually type, just landing on the tab that holds them.
   { label: "Shop details", type: "Settings", path: "/settings?tab=shop", keywords: "shop name address business type logo currency" },
-  { label: "Receipts", type: "Settings", path: "/settings?tab=receipts", keywords: "receipt invoice template footer thermal printer whatsapp message" },
+  { label: "Receipts", type: "Settings", path: "/settings?tab=shop", keywords: "receipt invoice template footer thermal printer whatsapp message" },
   { label: "Users", type: "Settings", path: "/settings?tab=users", keywords: "user staff worker pin password role seller repairer permission" },
   { label: "Device", type: "Settings", path: "/settings?tab=device", keywords: "device backup restore data export import printer storage" },
-  { label: "Connect to HQ", type: "Settings", path: "/settings?tab=hq", keywords: "hq head office connect branch sync link otp code monitor" },
-  { label: "Support", type: "Settings", path: "/settings?tab=developer", keywords: "developer support help contact about version licence license activation" },
+  { label: "Sync with another device", type: "Settings", path: "/settings?tab=account", keywords: "sync pair link bench phone number code stock repairs customers" },
+  { label: "Connect to HQ", type: "Settings", path: "/settings?tab=account", keywords: "hq head office connect branch link otp code monitor" },
+  { label: "Support", type: "Settings", path: "/settings?tab=account", keywords: "developer support help contact about version licence license activation" },
 ];
 
 /**

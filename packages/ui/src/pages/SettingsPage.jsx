@@ -3,9 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import Topbar from "../components/Topbar";
 import { useThemeTokens } from "../lib/ThemeContext";
 import ShopTab from "./settings/ShopTab";
-import ReceiptsTab from "./settings/ReceiptsTab";
 import DeviceTab from "./settings/DeviceTab";
-import DeveloperTab from "./settings/DeveloperTab";
 import UpgradeLock from "../components/UpgradeLock";
 import { IS_ANDROID_APP } from "../lib/platform";
 
@@ -18,14 +16,19 @@ import { IS_ANDROID_APP } from "../lib/platform";
 // indistinguishable from TechDesk simply not doing staff accounts.
 //
 // `feature` is what the tab needs; UpgradeLock renders the tab or the offer.
+//
+// Receipts lives inside Shop now, and Sync, Connect (head office) and
+// Support live inside Account -- fewer top-level tabs, each locked at the
+// section level instead of the tab level. Sync and Connect used to be two
+// separate tabs with a comment arguing they were different things; the
+// person running this shop reads them as the same kind of screen ("link
+// this device to something else"), so they are one stop now, each section
+// still gated by its own feature.
 const UsersTab = React.lazy(() => import("./settings/UsersTab"));
-const ConnectHqTab = React.lazy(() => import("./settings/ConnectHqTab"));
-const SyncTab = React.lazy(() => import("./settings/SyncTab"));
 const AccountTab = React.lazy(() => import("./settings/AccountTab"));
 
 export const ALL_TABS = [
   { key: "shop", label: "Shop", Component: ShopTab },
-  { key: "receipts", label: "Receipts", Component: ReceiptsTab },
   {
     key: "users",
     label: "Users",
@@ -40,35 +43,11 @@ export const ALL_TABS = [
     // toggle lives on this tab, so both go together.
     counterOnly: true,
   },
-  {
-    key: "sync",
-    label: "Sync",
-    Component: SyncTab,
-    feature: "syncData",
-    title: "Sync with another device",
-    what: "You and one other person work off each other's stock, repairs and customers. You put your number in, they type it, and you read them the code. Nothing to do with head office.",
-  },
   { key: "device", label: "Device", Component: DeviceTab },
-  // No feature gate: a cloud account for this shop's own records is the one
-  // cloud feature every tier gets, on every platform -- it is what makes
-  // "sign in or continue locally" a real choice instead of a paid one.
-  // Nothing to do with head office or with syncing another person's bench --
-  // those keep their own tabs above.
+  // No feature gate on the tab itself: a cloud account for this shop's own
+  // records is the one cloud feature every tier gets. Sync and Connect,
+  // folded in below it, keep their own per-section gates inside AccountTab.
   { key: "account", label: "Account", Component: AccountTab },
-  {
-    key: "hq",
-    label: "Connect",
-    Component: ConnectHqTab,
-    // Head office only. Syncing with the person at the next bench does NOT
-    // come through here -- it has its own tab, its own handshake and its own
-    // tier, because they are different things. Wiring sync through this tab
-    // is exactly the mistake that made a Business shop tick what it wanted
-    // to sync and then need Enterprise to do it.
-    feature: "hq",
-    title: "Connect this branch to head office",
-    what: "Report this branch up to a head office account, so whoever runs the business sees its sales and repairs from their own phone.",
-  },
-  { key: "developer", label: "Support", Component: DeveloperTab },
 ];
 
 const TABS = ALL_TABS.filter((tab) => !(tab.counterOnly && IS_ANDROID_APP));
@@ -80,6 +59,9 @@ export default function SettingsPage() {
   // for "Connect to HQ" that dropped you on Shop to go hunting for it would
   // not be much of a result. It also makes Back step between tabs, which is
   // what the button appears to promise.
+  //
+  // Receipts lives inside Shop, and Sync, Connect and Support live inside
+  // Account -- fewer top-level tabs to scan, without losing anything.
   const [params, setParams] = useSearchParams();
   const requested = params.get("tab");
   const tab = TABS.some((x) => x.key === requested) ? requested : "shop";
@@ -87,7 +69,7 @@ export default function SettingsPage() {
   const Active = active.Component || ShopTab;
 
   function selectTab(key) {
-    // replace: clicking through five tabs should not mean five taps of Back
+    // replace: clicking through tabs should not mean as many taps of Back
     // to leave Settings.
     setParams(key === "shop" ? {} : { tab: key }, { replace: true });
   }

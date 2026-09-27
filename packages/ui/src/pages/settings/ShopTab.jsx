@@ -4,6 +4,7 @@ import { useTheme, useThemeTokens } from "../../lib/ThemeContext";
 import { useSettings } from "../../lib/SettingsContext";
 import { shrinkImage } from "../../lib/shrinkImage";
 import BusinessTypeSection from "./BusinessTypeSection";
+import ReceiptsTab from "./ReceiptsTab";
 import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
 import Fold from "../../components/Fold";
 import { BUSINESS_PRESETS } from "@techdesk/core";
@@ -281,6 +282,9 @@ export default function ShopTab() {
         value={currentAppearanceLabel}
         onOpen={() => setOpenSection("appearance")}
       />
+
+      <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Receipts</h2>
+      <ReceiptsTab />
 
       {openSection === "businessType" && (
         <SettingsModal

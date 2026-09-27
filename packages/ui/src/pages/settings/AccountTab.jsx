@@ -10,6 +10,10 @@ import {
   getPullCursor,
   setPullCursor,
 } from "../../lib/account";
+import SyncTab from "./SyncTab";
+import ConnectHqTab from "./ConnectHqTab";
+import DeveloperTab from "./DeveloperTab";
+import UpgradeLock from "../../components/UpgradeLock";
 
 const MODES = { signin: "signin", signup: "signup", worker: "worker" };
 
@@ -200,9 +204,8 @@ export default function AccountTab() {
 
   if (!status) return null;
 
-  if (status.signedIn) {
-    const isWorker = status.role === "worker";
-    return (
+  const isWorker = status.role === "worker";
+  const accountSection = status.signedIn ? (
       <div className="flex flex-col gap-5">
         <div className={`rounded-2xl p-6 ${t.cardBg}`}>
           <div className="flex items-center gap-3">
@@ -251,10 +254,7 @@ export default function AccountTab() {
           </button>
         </div>
       </div>
-    );
-  }
-
-  return (
+  ) : (
     <div className={`rounded-2xl p-6 ${t.cardBg}`}>
       <div className="flex items-center gap-3 mb-4">
         <Mail className={t.dark ? "text-amber-300" : "text-amber-500"} size={20} />
@@ -337,6 +337,39 @@ export default function AccountTab() {
           )}
         </div>
       </form>
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-3">
+        <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Account &amp; sync</h2>
+        {accountSection}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Sync with another device</h2>
+        <UpgradeLock
+          feature="syncData"
+          title="Sync with another device"
+          what="You and one other person work off each other's stock, repairs and customers. You put your number in, they type it, and you read them the code. Nothing to do with head office."
+        >
+          <SyncTab />
+        </UpgradeLock>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Connect to head office</h2>
+        <UpgradeLock
+          feature="hq"
+          title="Connect this branch to head office"
+          what="Report this branch up to a head office account, so whoever runs the business sees its sales and repairs from their own phone."
+        >
+          <ConnectHqTab />
+        </UpgradeLock>
+      </div>
+
+      <DeveloperTab />
     </div>
   );
 }
