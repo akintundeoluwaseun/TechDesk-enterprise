@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import ActivationModal from "./ActivationModal";
 import { ThemeProvider } from "../lib/ThemeContext";
 import { SettingsProvider } from "../lib/SettingsContext";
@@ -9,14 +9,13 @@ import { setCurrentTier } from "../lib/tier";
 
 // A shop that has paid opened this and thought it still had to activate.
 //
-// The screen had kept the shape of the old trial activation screen: the PIN
-// in the biggest type on the page under "read this out when you pay", and a
-// black Unlock button under an empty code box. The line saying they were
-// already on Enterprise was small and grey, above all of it.
-//
-// So these pin the order of the argument, not the wording: what you HAVE is
-// the loudest thing, and the code box only leads the screen for somebody who
-// has not bought yet.
+// The screen used to lead with a PIN and an empty code box even for a shop
+// that had already bought everything, with the line saying so small and grey
+// above it. The PIN and the code box are gone now -- there is no manual code
+// path left at all, only "Pay with card, bank transfer or USSD" -- but the
+// same order of argument still matters: what you HAVE is the loudest thing
+// on the screen, and the upgrade pitch only leads for a shop that hasn't
+// bought the tier above yet.
 
 function openAs(tier) {
   localStorage.clear();
@@ -42,7 +41,7 @@ function openAs(tier) {
   );
 }
 
-const codeBox = () => screen.queryByLabelText("Activation code");
+const payButton = () => screen.queryByRole("button", { name: /Pay with card/i });
 
 describe("the licence screen leads with what you already have", () => {
   beforeEach(() => localStorage.clear());
@@ -52,35 +51,28 @@ describe("the licence screen leads with what you already have", () => {
     expect(screen.getByRole("heading", { name: /TechDesk Business is on/i })).toBeInTheDocument();
   });
 
-  it("does not put a PIN and a code box in front of a shop that has paid", () => {
+  it("never shows a PIN or a code box -- paying happens on this screen, not by typing one in", () => {
     const { container } = openAs("business");
-    expect(codeBox()).toBe(null);
+    expect(screen.queryByLabelText(/Activation code/i)).toBe(null);
     expect(container.textContent).not.toContain("read this out when you pay");
   });
 
-  it("still offers the tier above, and the code box when asked for it", () => {
+  it("still offers the tier above, with the pay button in front, not behind a toggle", () => {
     openAs("business");
     expect(screen.getByText(/Upgrade to TechDesk Enterprise/i)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /I have an upgrade code/i }));
-    expect(codeBox()).toBeInTheDocument();
+    expect(payButton()).toBeInTheDocument();
   });
 
-  it("offers nothing to buy at the top tier", () => {
+  it("offers nothing to buy, and no way to pay, at the top tier", () => {
     const { container } = openAs("enterprise");
     expect(screen.getByRole("heading", { name: /TechDesk Enterprise is on/i })).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/Upgrade to/i);
-    // But a shop that moved to a new computer still needs somewhere to type
-    // the code it already paid for.
-    fireEvent.click(screen.getByRole("button", { name: /Moved to a new computer/i }));
-    expect(codeBox()).toBeInTheDocument();
+    expect(payButton()).toBe(null);
   });
 
-  it("still leads with the PIN and the code box for a shop that has not paid", () => {
-    // The screen's original job, and it must not be buried by the fix.
-    const { container } = openAs("free");
-    expect(codeBox()).toBeInTheDocument();
-    expect(container.textContent).toContain("read this out when you pay");
+  it("leads with the upgrade pitch and the pay button for a shop that has not paid", () => {
+    openAs("free");
     expect(screen.getByText(/Upgrade to TechDesk Business/i)).toBeInTheDocument();
+    expect(payButton()).toBeInTheDocument();
   });
 });
