@@ -1,28 +1,48 @@
 import React, { useState } from "react";
-import { X, ShieldCheck, Phone, Mail, Globe, Check, CreditCard } from "lucide-react";
+import { X, ShieldCheck, Phone, Mail, Globe, Check, CreditCard, ChevronRight, ArrowLeft } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useLicense } from "../lib/LicenseContext";
 import { useSettings } from "../lib/SettingsContext";
-import { CAPABILITIES, TIER_META, sitePage, siteLabel } from "@techdesk/editions";
+import { CAPABILITIES, TIERS, TIER_META, isUpgrade, tierRank, sitePage, siteLabel } from "@techdesk/editions";
 import { checkout } from "@techdesk/core";
 import { addedBy } from "../lib/featureLabels";
 import { payWithFlutterwave } from "../lib/flutterwave";
 
 // The licence screen.
 //
-// There used to be a second way in here: a PIN read out over the phone, and
-// a typed code sent back by hand. That was the whole activation system
-// before this screen could reach a payment gateway directly, and it is gone
-// now -- paying is a card, a bank transfer or a USSD dial, done on this
-// screen, confirmed by the server, applied the moment it clears. There is
-// nowhere left in this component that shows a PIN or asks for a code; the
-// PIN still exists one layer down (verifyCode() still checks a code against
-// it), because that is also how a payment this screen takes gets applied,
-// just never by a shop typing it in by hand.
+// A free shop can buy Business, or skip straight to Enterprise -- both are
+// real, priced things, not a chain you're forced up one link at a time. That
+// used to mean showing both on one long page: the pitch for one tier, the
+// pitch for the other, then a single PIN and a single code box underneath
+// both, because there was only ever one "next" tier to activate.
 //
-// The screen still leads with what you HAVE, not with a sales pitch: a shop
-// that has already paid is told so, in the biggest type on the page, before
-// anything about the tier above it.
+// So this is two screens, not one. First a plain choice -- which tier --
+// each a short line, nothing more. Then, only once that's picked, that
+// tier's own page: what it adds, and the one button to pay for THAT tier.
+// Nothing about the tier not chosen shows up on it. A shop that already
+// owns everything but Enterprise has one card to pick from, not a choice at
+// all in substance, but the same two-screen shape either way -- picking is
+// picking, whether there are one or two things to pick from.
+//
+// There is no PIN shown and no code to type anywhere in here. Paying is a
+// card, a bank transfer or a USSD dial, done on this screen, confirmed by
+// the server, applied the moment it clears. The PIN still exists one layer
+// down (verifyCode() still checks a code against it), because that is also
+// how a payment this screen takes gets applied -- just never by a shop
+// typing it in by hand.
+
+/**
+ * What a tier itself adds, over the tier just below it -- not over whatever
+ * tier the shop happens to be on now. Skipping from free straight to
+ * Enterprise still means the Business card and the Enterprise card describe
+ * two different things, instead of both leading with the same three items
+ * Enterprise only has because Business had them first.
+ */
+function ownFeatures(candidateTier) {
+  const rank = tierRank(candidateTier);
+  const below = rank > 0 ? CAPABILITIES[TIERS[rank - 1]] : [];
+  return addedBy(below, CAPABILITIES[candidateTier]);
+}
 
 function humanDate(iso) {
   const d = new Date(iso);
@@ -36,6 +56,9 @@ export default function ActivationModal({ onClose }) {
   const { pin, tier, unlocks, verifyCode } = useLicense();
   const { settings } = useSettings();
   const [note, setNote] = useState("");
+
+  // Which tier this screen is open on. Null while the shop is still picking.
+  const [chosenTier, setChosenTier] = useState(null);
 
   // Paying online, straight through to Flutterwave.
   //
@@ -51,14 +74,26 @@ export default function ActivationModal({ onClose }) {
   const [payTxRef, setPayTxRef] = useState(null);
 
   const meta = TIER_META[tier];
-  const next = meta.upgradeTo;
-  const nextMeta = next ? TIER_META[next] : null;
-  const gains = next ? addedBy(CAPABILITIES[tier], CAPABILITIES[next]) : [];
+  const paid = tier !== "free";
+  const newest = unlocks.length ? unlocks[unlocks.length - 1] : null;
+  const upgradeOptions = TIERS.filter((candidate) => isUpgrade(tier, candidate));
+  const chosen = chosenTier ? TIER_META[chosenTier] : null;
+  const gains = chosenTier ? addedBy(CAPABILITIES[tier], CAPABILITIES[chosenTier]) : [];
 
   function resetPay() {
     setPayStep("idle");
     setPayError("");
     setPayTxRef(null);
+  }
+
+  function pick(candidate) {
+    setChosenTier(candidate);
+    resetPay();
+  }
+
+  function backToPlans() {
+    setChosenTier(null);
+    resetPay();
   }
 
   async function applyClaimedCode(claimedCode, claimedTier, txRef) {
@@ -76,6 +111,7 @@ export default function ActivationModal({ onClose }) {
       return;
     }
     setNote(`Done. ${TIER_META[claimedTier]?.label || claimedTier} is unlocked on this computer.`);
+    setChosenTier(null);
     resetPay();
   }
 
@@ -108,30 +144,41 @@ export default function ActivationModal({ onClose }) {
       return;
     }
     setPayStep("paying");
-    const order = await checkout.startOrder({ pin, tier: next, contact: trimmedEmail });
+    const order = await checkout.startOrder({ pin, tier: chosenTier, contact: trimmedEmail });
     if (!order.ok) {
       setPayError(order.message || "Couldn't start that order. Try again.");
       setPayStep("failed");
       return;
     }
     setPayTxRef(order.txRef);
-    await payWithFlutterwave({ order, email: trimmedEmail, title: nextMeta?.label });
+    await payWithFlutterwave({ order, email: trimmedEmail, title: chosen?.label });
     await claim(order.txRef);
   }
-
-  const paid = tier !== "free";
-  const newest = unlocks.length ? unlocks[unlocks.length - 1] : null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6 overflow-y-auto">
       <div className={`w-full max-w-sm rounded-2xl p-6 my-auto ${t.cardBg}`}>
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2 min-w-0">
-            <ShieldCheck
-              className={`w-5 h-5 shrink-0 ${paid ? "text-emerald-500" : t.textPrimary}`}
-            />
+            {chosenTier ? (
+              <button
+                onClick={backToPlans}
+                className={`${t.textMuted} shrink-0`}
+                aria-label="Back to plans"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+            ) : (
+              <ShieldCheck
+                className={`w-5 h-5 shrink-0 ${paid ? "text-emerald-500" : t.textPrimary}`}
+              />
+            )}
             <h2 className={`text-lg font-bold ${t.textPrimary}`}>
-              {paid ? `${meta.label} is on` : "Unlock more of TechDesk"}
+              {chosenTier
+                ? `Upgrade to ${chosen.label}`
+                : paid
+                ? `${meta.label} is on`
+                : "Unlock more of TechDesk"}
             </h2>
           </div>
           <button onClick={onClose} className={`${t.textMuted} shrink-0`} aria-label="Close">
@@ -139,121 +186,149 @@ export default function ActivationModal({ onClose }) {
           </button>
         </div>
 
-        {paid ? (
-          <p className={`text-sm mb-4 ${t.textSecondary}`}>
-            {next
-              ? `Every ${meta.label.replace("TechDesk ", "").toLowerCase()} feature is open on this computer.`
-              : "Every feature is open on this computer. Thank you for supporting TechDesk."}
-            {newest ? ` Unlocked ${humanDate(newest.at)}.` : ""}
-          </p>
-        ) : (
-          <p className={`text-sm mb-4 ${t.textSecondary}`}>
-            You&rsquo;re on {meta.label} &mdash; a whole working shop, free, forever. This is where
-            you open the rest.
-          </p>
-        )}
-
-        {next && (
-          <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
-            <div className={`font-semibold mb-2 ${t.textPrimary}`}>
-              Upgrade to {nextMeta.label}
-            </div>
-            {gains.length > 0 && (
-              <ul className={`text-sm space-y-1.5 ${t.textSecondary}`}>
-                {gains.map((line) => (
-                  <li key={line} className="flex items-start gap-2">
-                    <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-500" />
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <p className={`text-xs mt-3 ${t.textMuted}`}>
-              One payment, not a subscription. Your records stay exactly where they are &mdash;
-              nothing to download, nothing to reinstall.
+        {!chosenTier && (
+          paid ? (
+            <p className={`text-sm mb-4 ${t.textSecondary}`}>
+              {upgradeOptions.length > 0
+                ? `Every ${meta.label.replace("TechDesk ", "").toLowerCase()} feature is open on this computer.`
+                : "Every feature is open on this computer. Thank you for supporting TechDesk."}
+              {newest ? ` Unlocked ${humanDate(newest.at)}.` : ""}
             </p>
-          </div>
+          ) : (
+            <p className={`text-sm mb-4 ${t.textSecondary}`}>
+              You&rsquo;re on {meta.label} &mdash; a whole working shop, free, forever. This is
+              where you open the rest.
+            </p>
+          )
         )}
 
-        {next && payStep === "idle" && (
-          <button
-            onClick={() => setPayStep("email")}
-            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold mb-4 ${
-              t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
-            }`}
-          >
-            <CreditCard className="w-4 h-4" /> Pay with card, bank transfer or USSD
-          </button>
-        )}
+        {/* The choice, plain: pick a tier, nothing else on this screen. What
+            each one adds lives on ITS OWN page, one tap away, not stacked
+            here underneath the choice itself. */}
+        {!chosenTier && upgradeOptions.map((candidate) => {
+          const candidateMeta = TIER_META[candidate];
+          const preview = ownFeatures(candidate).slice(0, 3).join(", ");
+          return (
+            <button
+              key={candidate}
+              onClick={() => pick(candidate)}
+              className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
+            >
+              <span className="min-w-0">
+                <span className={`block font-semibold ${t.textPrimary}`}>
+                  Upgrade to {candidateMeta.label}
+                </span>
+                {preview && (
+                  <span className={`block text-xs mt-0.5 truncate ${t.textMuted}`}>{preview}</span>
+                )}
+              </span>
+              <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
+            </button>
+          );
+        })}
 
-        {next && payStep === "email" && (
-          <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
-            <label htmlFor="pay-email" className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
-              Email for the receipt
-            </label>
-            <input
-              id="pay-email"
-              type="email"
-              value={payEmail}
-              onChange={(e) => { setPayEmail(e.target.value); setPayError(""); }}
-              placeholder="you@example.com"
-              autoComplete="email"
-              className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none mb-3 ${t.inputBg}`}
-            />
-            {payError && <p className="text-xs text-red-500 mb-3">{payError}</p>}
-            <div className="flex gap-2">
-              <button
-                onClick={startPayment}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold ${
-                  t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
-                }`}
-              >
-                Continue to payment
-              </button>
-              <button
-                onClick={resetPay}
-                className={`px-4 py-2.5 rounded-xl text-sm font-medium ${t.pillBg}`}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {next && (payStep === "paying" || payStep === "confirming") && (
-          <div className={`rounded-xl p-4 mb-4 text-sm ${t.insetBg} ${t.textSecondary}`}>
-            {payStep === "paying" ? "Opening secure checkout…" : "Confirming your payment…"}
-          </div>
-        )}
-
-        {next && (payStep === "waiting" || payStep === "failed") && (
-          <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
-            <p className="text-sm text-red-500 mb-1">{payError}</p>
-            {payTxRef && (
-              <p className={`text-xs mb-3 ${t.textMuted}`}>Reference: {payTxRef}</p>
+        {/* Everything below is that one tier's own page -- what it adds, then
+            the one way to pay for it. */}
+        {chosenTier && (
+          <>
+            {gains.length > 0 && (
+              <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
+                <ul className={`text-sm space-y-1.5 ${t.textSecondary}`}>
+                  {gains.map((line) => (
+                    <li key={line} className="flex items-start gap-2">
+                      <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-500" />
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className={`text-xs mt-3 ${t.textMuted}`}>
+                  One payment, not a subscription. Your records stay exactly where they are &mdash;
+                  nothing to download, nothing to reinstall.
+                </p>
+              </div>
             )}
-            <div className="flex gap-2">
+
+            {payStep === "idle" && (
               <button
-                onClick={() => (payStep === "waiting" ? claim(payTxRef) : setPayStep("email"))}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold ${
+                onClick={() => setPayStep("email")}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold mb-4 ${
                   t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
                 }`}
               >
-                {payStep === "waiting" ? "Check again" : "Try again"}
+                <CreditCard className="w-4 h-4" /> Pay with card, bank transfer or USSD
               </button>
-              <button onClick={resetPay} className={`px-4 py-2.5 rounded-xl text-sm font-medium ${t.pillBg}`}>
-                Dismiss
-              </button>
-            </div>
-          </div>
+            )}
+
+            {payStep === "email" && (
+              <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
+                <label htmlFor="pay-email" className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
+                  Email for the receipt
+                </label>
+                <input
+                  id="pay-email"
+                  type="email"
+                  value={payEmail}
+                  onChange={(e) => { setPayEmail(e.target.value); setPayError(""); }}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none mb-3 ${t.inputBg}`}
+                />
+                {payError && <p className="text-xs text-red-500 mb-3">{payError}</p>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={startPayment}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold ${
+                      t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                    }`}
+                  >
+                    Continue to payment
+                  </button>
+                  <button
+                    onClick={resetPay}
+                    className={`px-4 py-2.5 rounded-xl text-sm font-medium ${t.pillBg}`}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {(payStep === "paying" || payStep === "confirming") && (
+              <div className={`rounded-xl p-4 mb-4 text-sm ${t.insetBg} ${t.textSecondary}`}>
+                {payStep === "paying" ? "Opening secure checkout…" : "Confirming your payment…"}
+              </div>
+            )}
+
+            {(payStep === "waiting" || payStep === "failed") && (
+              <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
+                <p className="text-sm text-red-500 mb-1">{payError}</p>
+                {payTxRef && (
+                  <p className={`text-xs mb-3 ${t.textMuted}`}>Reference: {payTxRef}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => (payStep === "waiting" ? claim(payTxRef) : setPayStep("email"))}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold ${
+                      t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                    }`}
+                  >
+                    {payStep === "waiting" ? "Check again" : "Try again"}
+                  </button>
+                  <button onClick={resetPay} className={`px-4 py-2.5 rounded-xl text-sm font-medium ${t.pillBg}`}>
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {note && <p className={`text-sm text-emerald-600 mb-4`}>{note}</p>}
 
-        {/* Only once there is a progression to show. A single line repeating
-            the date already in the paragraph above is noise; two lines
-            saying Business then Enterprise is the story of the account. */}
-        {unlocks.length > 1 && (
+        {/* Only once there is a progression to show, and only on the plans
+            screen -- a single tier's own page is not the place to recap the
+            whole account's history. */}
+        {!chosenTier && unlocks.length > 1 && (
           <div className={`text-xs mb-4 ${t.textMuted}`}>
             {unlocks.map((u) => (
               <div key={u.tier}>
@@ -264,7 +339,9 @@ export default function ActivationModal({ onClose }) {
         )}
 
         <div className={`text-xs mb-2 ${t.textMuted}`}>
-          {paid && !next ? "Moved to a new computer, or need help?" : "Paid already and it hasn't unlocked, or need help?"}
+          {paid && upgradeOptions.length === 0
+            ? "Moved to a new computer, or need help?"
+            : "Paid already and it hasn't unlocked, or need help?"}
         </div>
         <div className="flex flex-col gap-2">
           <a

@@ -50,6 +50,7 @@ function open() {
 }
 
 function goToEmailStep(email) {
+  fireEvent.click(screen.getByRole("button", { name: /Upgrade to TechDesk Business/i }));
   fireEvent.click(screen.getByRole("button", { name: /Pay with card/i }));
   fireEvent.change(screen.getByLabelText(/Email for the receipt/i), { target: { value: email } });
   fireEvent.click(screen.getByRole("button", { name: /Continue to payment/i }));
@@ -113,6 +114,7 @@ describe("paying for an upgrade online", () => {
 
   it("will not start an order without an email", () => {
     open();
+    fireEvent.click(screen.getByRole("button", { name: /Upgrade to TechDesk Business/i }));
     fireEvent.click(screen.getByRole("button", { name: /Pay with card/i }));
     fireEvent.click(screen.getByRole("button", { name: /Continue to payment/i }));
     expect(screen.getByText(/Enter an email/i)).toBeInTheDocument();
@@ -127,5 +129,25 @@ describe("paying for an upgrade online", () => {
 
     await waitFor(() => expect(screen.getByText(/not on sale yet/i)).toBeInTheDocument());
     expect(payWithFlutterwave).not.toHaveBeenCalled();
+  });
+
+  it("can buy Enterprise straight from free, skipping Business entirely", async () => {
+    startOrder.mockResolvedValue({ ok: true, txRef: "td-3", amount: 20000, currency: "NGN", publicKey: "FLWPUBK-x" });
+    payWithFlutterwave.mockResolvedValue({ attempted: true });
+    claimCode.mockResolvedValue({ ok: true, code: "ABCD-EFGH-IJKL", tier: "enterprise" });
+    verifyCode.mockResolvedValue({ ok: true, applied: true, tier: "enterprise" });
+
+    open();
+    fireEvent.click(screen.getByRole("button", { name: /Upgrade to TechDesk Enterprise/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Pay with card/i }));
+    fireEvent.change(screen.getByLabelText(/Email for the receipt/i), { target: { value: "shop@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: /Continue to payment/i }));
+
+    await waitFor(() =>
+      expect(startOrder).toHaveBeenCalledWith({ pin: "482913", tier: "enterprise", contact: "shop@example.com" }),
+    );
+    await waitFor(() =>
+      expect(screen.getByText(/Done\. TechDesk Enterprise is unlocked/i)).toBeInTheDocument(),
+    );
   });
 });

@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import ActivationModal from "./ActivationModal";
 import { ThemeProvider } from "../lib/ThemeContext";
 import { SettingsProvider } from "../lib/SettingsContext";
@@ -57,9 +57,12 @@ describe("the licence screen leads with what you already have", () => {
     expect(container.textContent).not.toContain("read this out when you pay");
   });
 
-  it("still offers the tier above, with the pay button in front, not behind a toggle", () => {
+  it("offers the one tier above as a single card, which opens that tier's own pay button", () => {
     openAs("business");
-    expect(screen.getByText(/Upgrade to TechDesk Enterprise/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Upgrade to TechDesk Enterprise/i })).toBeInTheDocument();
+    expect(payButton()).toBe(null);
+
+    fireEvent.click(screen.getByRole("button", { name: /Upgrade to TechDesk Enterprise/i }));
     expect(payButton()).toBeInTheDocument();
   });
 
@@ -70,9 +73,18 @@ describe("the licence screen leads with what you already have", () => {
     expect(payButton()).toBe(null);
   });
 
-  it("leads with the upgrade pitch and the pay button for a shop that has not paid", () => {
+  it("lets a free shop pick Business or Enterprise, not just the next tier up", () => {
     openAs("free");
-    expect(screen.getByText(/Upgrade to TechDesk Business/i)).toBeInTheDocument();
+    const businessCard = screen.getByRole("button", { name: /Upgrade to TechDesk Business/i });
+    const enterpriseCard = screen.getByRole("button", { name: /Upgrade to TechDesk Enterprise/i });
+    expect(businessCard).toBeInTheDocument();
+    expect(enterpriseCard).toBeInTheDocument();
+    // The choice is plain -- nothing about either plan shown until one is picked.
+    expect(payButton()).toBe(null);
+
+    fireEvent.click(enterpriseCard);
     expect(payButton()).toBeInTheDocument();
+    // Picking Enterprise never shows Business's own card behind it.
+    expect(screen.queryByRole("button", { name: /Upgrade to TechDesk Business/i })).toBe(null);
   });
 });
