@@ -24,7 +24,14 @@ export const account = {
   // every platform, not a feature only the desktop build has.
   available: () => true,
 
-  status: (...args) => impl().status(...args),
+  // Every real status check keeps the synchronous cache below warm, so any
+  // caller anywhere in the app benefits, not just the one that happened to
+  // ask first.
+  async status(...args) {
+    const s = await impl().status(...args);
+    cacheStatus(s);
+    return s;
+  },
   signUp: (...args) => impl().signUp(...args),
   signIn: (...args) => impl().signIn(...args),
   push: (...args) => impl().push(...args),
@@ -41,6 +48,7 @@ export const account = {
    * everything before whatever point the previous account's sync reached. */
   async signOut(...args) {
     clearAccountCursors();
+    clearCachedStatus();
     return impl().signOut(...args);
   },
 };
@@ -55,6 +63,7 @@ export { accountBridge, accountLocal };
 const KEY_PUSH_CURSOR = "techdesk_account_push_cursor";
 const KEY_PULL_CURSOR = "techdesk_account_pull_cursor";
 const KEY_GATE_DECISION = "techdesk_account_gate_decision";
+const KEY_STATUS_CACHE = "techdesk_account_status_cache";
 
 export function getPushCursor() {
   return storage.getItem(KEY_PUSH_CURSOR) || null;
@@ -79,4 +88,28 @@ export function getAccountGateDecision() {
 }
 export function setAccountGateDecision(decision) {
   storage.setItem(KEY_GATE_DECISION, decision);
+}
+
+// A worker's device already proved itself once, by redeeming an invite code
+// -- it must never sit at admin's own login screen or with admin's own view
+// of the shop, even for the one render before an async status() round trip
+// (real on the desktop build, where the session lives in the main process)
+// comes back and says so. This is that answer, ready before the real one
+// is, from whatever the last CONFIRMED status() call actually said -- not a
+// guess, and cleared on sign-out so a stale worker role can never survive
+// onto a different session on the same device.
+export function getCachedAccountStatus() {
+  const raw = storage.getItem(KEY_STATUS_CACHE);
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+function cacheStatus(status) {
+  if (status && typeof status === "object") storage.setItem(KEY_STATUS_CACHE, JSON.stringify(status));
+}
+function clearCachedStatus() {
+  storage.removeItem(KEY_STATUS_CACHE);
 }

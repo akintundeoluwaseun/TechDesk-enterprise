@@ -160,6 +160,24 @@ describe("applyIncoming", () => {
     expect(db.getCustomers()).toHaveLength(0);
   });
 
+  it("a tombstone beats a write that arrives after it, even though the write is older", () => {
+    // Two devices, one record: this one deletes it, then goes offline. The
+    // other device, still holding its own earlier copy, edits it before ever
+    // seeing the delete, and that edit only arrives here later. The edit is
+    // OLDER than the delete, so the record must stay gone -- a device with a
+    // stale copy syncing back in must never resurrect something the account
+    // already decided was deleted.
+    storage.setItem(
+      db.KEYS.tombstones,
+      JSON.stringify([{ id: "c1", kind: "customer", deletedAt: "2026-01-02T00:00:00.000Z" }])
+    );
+    const { applied } = db.applyIncoming([
+      record("customer", "c1", "2026-01-01T00:00:00.000Z", { id: "c1", name: "Stale edit" }),
+    ]);
+    expect(applied).toBe(0);
+    expect(db.getCustomers()).toHaveLength(0);
+  });
+
   it("reissues an incoming invoice number that collides with one already here", () => {
     storage.setItem(db.KEYS.sales, JSON.stringify([{ id: "local", invoice: "INV-00001", items: [], total: 10 }]));
     db.applyIncoming([

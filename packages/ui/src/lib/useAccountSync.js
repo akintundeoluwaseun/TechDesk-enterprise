@@ -38,21 +38,39 @@ export function useAccountSync() {
 
       running = true;
       try {
+        // The cursor moves after EACH batch that lands, not once at the end
+        // of the whole run -- a big first sync can take many batches, and a
+        // connection that drops partway through must not throw away the
+        // batches that already landed just because a later one in the same
+        // run failed. Re-sending an already-applied batch next time would be
+        // harmless (pull is idempotent), just needless.
+        let cursor = getPullCursor();
+        let more = true;
         let guard = 0;
-        let pulled = await account.pull(getPullCursor());
-        while (!cancelled && pulled?.ok && pulled.more && guard < 20) {
+        while (!cancelled && more && guard < 20) {
           guard += 1;
-          pulled = await account.pull(pulled.cursor);
+          const pulled = await account.pull(cursor);
+          if (!pulled?.ok) break;
+          if (pulled.cursor) {
+            cursor = pulled.cursor;
+            setPullCursor(cursor);
+          }
+          more = pulled.more;
         }
-        if (pulled?.ok && pulled.cursor) setPullCursor(pulled.cursor);
 
+        cursor = getPushCursor();
+        more = true;
         guard = 0;
-        let pushed = await account.push(getPushCursor());
-        while (!cancelled && pushed?.ok && pushed.more && guard < 20) {
+        while (!cancelled && more && guard < 20) {
           guard += 1;
-          pushed = await account.push(pushed.cursor);
+          const pushed = await account.push(cursor);
+          if (!pushed?.ok) break;
+          if (pushed.cursor) {
+            cursor = pushed.cursor;
+            setPushCursor(cursor);
+          }
+          more = pushed.more;
         }
-        if (pushed?.ok && pushed.cursor) setPushCursor(pushed.cursor);
       } catch {
         // Never let a sync failure bubble into the UI.
       } finally {

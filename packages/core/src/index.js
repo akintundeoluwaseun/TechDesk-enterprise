@@ -26,6 +26,7 @@ export {
   account, accountBridge, accountLocal,
   getPushCursor, setPushCursor, getPullCursor, setPullCursor,
   getAccountGateDecision, setAccountGateDecision,
+  getCachedAccountStatus,
 } from "./account";
 // A disconnect the server has not been told about yet. The app retries it;
 // these are exported so the retry can be tested without a live server.
