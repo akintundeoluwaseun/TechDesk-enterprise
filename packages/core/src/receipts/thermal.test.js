@@ -90,3 +90,26 @@ describe("a captured customer signature prints on the 58mm receipt", () => {
     ).not.toThrow();
   });
 });
+
+describe("the shop's own authorized signature, saved once in Settings", () => {
+  beforeEach(() => storage.clear());
+
+  it("prints on every 58mm receipt without the customer signing anything", async () => {
+    db.saveSettings({ shopName: "TechDesk", ownerSignature: LOGO });
+    const { buildThermalReceiptPdf } = await import("./thermal");
+    expect(hasImage(buildThermalReceiptPdf(SALE))).toBe(true);
+  });
+
+  it("and the customer's own signature still prints alongside it", async () => {
+    db.saveSettings({ shopName: "TechDesk", ownerSignature: LOGO });
+    const { buildThermalReceiptPdf } = await import("./thermal");
+    const doc = buildThermalReceiptPdf({ ...SALE, signature: LOGO });
+    expect(doc.output().match(/\/Subtype\s*\/Image/g)?.length).toBe(2);
+  });
+
+  it("survives an owner signature that is not a usable image", async () => {
+    db.saveSettings({ shopName: "TechDesk", ownerSignature: "data:image/png;base64,not-really-a-png" });
+    const { buildThermalReceiptPdf } = await import("./thermal");
+    expect(() => buildThermalReceiptPdf(SALE)).not.toThrow();
+  });
+});

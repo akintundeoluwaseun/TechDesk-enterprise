@@ -18,7 +18,7 @@ export default function SignatureField({ value, onChange, label = "Customer sign
       <label className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>{label}</label>
       {value ? (
         <div className={`flex items-center gap-3 rounded-xl p-3 ${t.insetBg}`}>
-          <img src={value} alt="Customer signature" className="h-12 w-28 object-contain rounded bg-white" />
+          <img src={value} alt={label} className="h-12 w-28 object-contain rounded bg-white" />
           <button type="button" onClick={() => setOpen(true)} className={`text-sm font-medium ${t.textSecondary}`}>
             Change
           </button>

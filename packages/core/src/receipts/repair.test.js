@@ -75,3 +75,24 @@ describe("a captured customer signature prints on the ticket", () => {
     ).not.toThrow();
   });
 });
+
+describe("the shop's own authorized signature, saved once in Settings", () => {
+  beforeEach(() => storage.clear());
+
+  it("prints in the RECEIVED BY box without the customer ever signing anything", () => {
+    db.saveSettings({ shopName: "TechDesk", ownerSignature: LOGO });
+    expect(hasImage(buildRepairTicketPdf(REPAIR))).toBe(true);
+  });
+
+  it("and the customer's own signature still prints alongside it", () => {
+    db.saveSettings({ shopName: "TechDesk", ownerSignature: LOGO });
+    const doc = buildRepairTicketPdf({ ...REPAIR, signature: LOGO });
+    // Both are images on the same page -- two XObjects, not one.
+    expect(doc.output().match(/\/Subtype\s*\/Image/g)?.length).toBe(2);
+  });
+
+  it("survives an owner signature that is not a usable image", () => {
+    db.saveSettings({ shopName: "TechDesk", ownerSignature: "data:image/png;base64,not-really-a-png" });
+    expect(() => buildRepairTicketPdf(REPAIR)).not.toThrow();
+  });
+});

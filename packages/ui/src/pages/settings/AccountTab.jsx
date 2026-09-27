@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Cloud, LogOut, Mail, RefreshCw, UserPlus, Copy } from "lucide-react";
+import { Cloud, LogOut, Mail, RefreshCw, UserPlus, Copy, ChevronRight } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import {
@@ -307,32 +307,38 @@ export default function AccountTab() {
             ? "Connect to a business"
             : "Sign in"}
         </button>
-        <div className="flex flex-col gap-1.5">
+        {/* Plain text here read as description, not as something to tap --
+            nobody clicked them. Each is its own labelled row now, the same
+            shape as every other tappable row on this screen. */}
+        <div className="flex flex-col gap-2">
           {mode !== MODES.signin && (
             <button
               type="button"
               onClick={() => { setMode(MODES.signin); setError(""); setNotice(""); }}
-              className={`text-sm text-left ${t.textSecondary}`}
+              className={`flex items-center justify-between gap-2 w-full text-left px-4 py-3 rounded-xl text-sm font-medium ${t.insetBg} ${t.textPrimary}`}
             >
               Already have an account? Sign in
+              <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
             </button>
           )}
           {mode !== MODES.signup && (
             <button
               type="button"
               onClick={() => { setMode(MODES.signup); setError(""); setNotice(""); }}
-              className={`text-sm text-left ${t.textSecondary}`}
+              className={`flex items-center justify-between gap-2 w-full text-left px-4 py-3 rounded-xl text-sm font-medium ${t.insetBg} ${t.textPrimary}`}
             >
               Setting up a new shop? Set up your business
+              <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
             </button>
           )}
           {mode !== MODES.worker && (
             <button
               type="button"
               onClick={() => { setMode(MODES.worker); setError(""); setNotice(""); }}
-              className={`text-sm text-left ${t.textSecondary}`}
+              className={`flex items-center justify-between gap-2 w-full text-left px-4 py-3 rounded-xl text-sm font-medium ${t.insetBg} ${t.textPrimary}`}
             >
               Joining a shop that already has an account? Connect to a business
+              <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
             </button>
           )}
         </div>

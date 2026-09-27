@@ -240,7 +240,13 @@ export function buildRepairTicketPdf(repair) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.text("RECEIVED BY (TECHNICIAN)", marginX + boxW2 + 30, sigY + 16);
-  doc.line(marginX + boxW2 + 30, sigY + sigH - 16, marginX + boxW2 * 2 + 10, sigY + sigH - 16);
+  if (settings.ownerSignature) {
+    // Signed once in Settings, not re-drawn by hand on every ticket -- same
+    // reuse of drawLogo as the customer's own box just across from it.
+    drawLogo(doc, { logo: settings.ownerSignature }, marginX + boxW2 + 30, sigY + 22, boxW2 - 20, sigH - 38);
+  } else {
+    doc.line(marginX + boxW2 + 30, sigY + sigH - 16, marginX + boxW2 * 2 + 10, sigY + sigH - 16);
+  }
 
   const custSigX = marginX + (boxW2 + 20) * 2;
   doc.roundedRect(custSigX, sigY, boxW2, sigH, 4, 4, "S");

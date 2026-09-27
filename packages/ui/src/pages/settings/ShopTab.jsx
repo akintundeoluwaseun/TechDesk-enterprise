@@ -5,6 +5,7 @@ import { useSettings } from "../../lib/SettingsContext";
 import { shrinkImage } from "../../lib/shrinkImage";
 import BusinessTypeSection from "./BusinessTypeSection";
 import ReceiptsTab from "./ReceiptsTab";
+import SignatureField from "../../components/SignatureField";
 import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
 import Fold from "../../components/Fold";
 import { BUSINESS_PRESETS } from "@techdesk/core";
@@ -285,6 +286,22 @@ export default function ShopTab() {
 
       <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Receipts</h2>
       <ReceiptsTab />
+
+      {/* Signed once, here -- not re-drawn by hand on every repair ticket
+          and every sales receipt this shop ever prints. */}
+      <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>
+        Authorized signature
+      </h2>
+      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
+        <p className={`text-sm mb-3 ${t.textSecondary}`}>
+          Printed automatically on every repair ticket and sales receipt from now on.
+        </p>
+        <SignatureField
+          label="Your signature"
+          value={settings.ownerSignature}
+          onChange={(v) => set("ownerSignature", v)}
+        />
+      </div>
 
       {openSection === "businessType" && (
         <SettingsModal

@@ -15,11 +15,11 @@ export function buildThermalReceiptPdf(sale) {
 
   const itemLines = (sale.items || []).length * 2;
   const contactLines = [settings.phone, settings.address, settings.email].filter(Boolean).length;
-  // +7 for the signature block: a label line, room for the image (or a
-  // blank line to sign on) and a divider -- fixed regardless of whether a
-  // signature was actually captured, so the page is never sized too short
-  // to fit one that gets added later.
-  const estimatedLines = 26 + itemLines + contactLines + 7;
+  // +14 for the two signature blocks (authorized, then customer): a label
+  // line, room for the image (or a blank line to sign on) and a divider
+  // each -- fixed regardless of whether either signature was actually
+  // captured, so the page is never sized too short to fit one added later.
+  const estimatedLines = 26 + itemLines + contactLines + 14;
   const heightMM = Math.max(85, estimatedLines * LINE_H + 20);
 
   const doc = new jsPDF({ unit: "mm", format: [WIDTH_MM, heightMM] });
@@ -121,6 +121,20 @@ export function buildThermalReceiptPdf(sale) {
   kv("Amount Paid", `${cur}${Number(sale.amountPaid || 0).toLocaleString()}`);
   const balance = Math.max(0, Number(sale.total) - Number(sale.amountPaid || 0));
   kv("Balance", `${cur}${balance.toLocaleString()}`);
+  divider();
+
+  // ---- Authorized signature ----
+  left("AUTHORIZED SIGNATURE", 7.5, true);
+  if (settings.ownerSignature) {
+    // Signed once in Settings, printed on every receipt from then on.
+    const afterOwnerSig = drawLogo(doc, { logo: settings.ownerSignature }, WIDTH_MM / 2, y, contentW - 6, 12);
+    y = afterOwnerSig > y ? afterOwnerSig + 2 : y;
+  } else {
+    y += 6;
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN_MM, y, WIDTH_MM - MARGIN_MM, y);
+    y += 2;
+  }
   divider();
 
   // ---- Customer signature ----
