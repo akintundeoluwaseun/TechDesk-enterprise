@@ -1,10 +1,13 @@
 import React, { useState } from "react";
-import { X, ShieldCheck, Phone, Mail, Globe, Copy, Check, ChevronDown } from "lucide-react";
+import { X, ShieldCheck, Phone, Mail, Globe, Copy, Check, ChevronDown, CreditCard } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useLicense } from "../lib/LicenseContext";
+import { useSettings } from "../lib/SettingsContext";
 import { CAPABILITIES, TIER_META, sitePage, siteLabel } from "@techdesk/editions";
+import { checkout } from "@techdesk/core";
 import { addedBy } from "../lib/featureLabels";
 import { formatCode } from "../lib/activationCode";
+import { payWithFlutterwave } from "../lib/flutterwave";
 
 // The licence screen.
 //
@@ -35,16 +38,97 @@ function humanDate(iso) {
 export default function ActivationModal({ onClose }) {
   const t = useThemeTokens();
   const { pin, tier, unlocks, verifyCode } = useLicense();
+  const { settings } = useSettings();
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
   const [note, setNote] = useState("");
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
 
+  // Paying online, straight through to Flutterwave -- an alternative to the
+  // PIN-and-code path below, not a replacement for it: a shop that would
+  // rather pay by transfer to a human, or is not ready to type a card
+  // number into a browser, still has that door.
+  //
+  //   idle        the button that starts it all
+  //   email       collecting where to send the receipt
+  //   paying      order started, Flutterwave's widget is open or just closed
+  //   confirming  asking the server whether it actually went through
+  //   waiting     server says not paid yet -- may just be the webhook lagging
+  //   failed      something else went wrong; paying again means starting over
+  const [payStep, setPayStep] = useState("idle");
+  const [payEmail, setPayEmail] = useState(() => (settings?.email || "").trim());
+  const [payError, setPayError] = useState("");
+  const [payTxRef, setPayTxRef] = useState(null);
+
   const meta = TIER_META[tier];
   const next = meta.upgradeTo;
   const nextMeta = next ? TIER_META[next] : null;
   const gains = next ? addedBy(CAPABILITIES[tier], CAPABILITIES[next]) : [];
+
+  function resetPay() {
+    setPayStep("idle");
+    setPayError("");
+    setPayTxRef(null);
+  }
+
+  async function applyClaimedCode(claimedCode, claimedTier, txRef) {
+    const res = await verifyCode(claimedCode);
+    if (!res.ok || !res.applied) {
+      // A server-issued code always verifies against this device's own PIN --
+      // this is the "should never happen" backstop, not the normal path, so
+      // a shop that really has paid is never just told to go away.
+      setPayError(
+        `Payment went through, but this device couldn't apply the code. ` +
+        `Contact us with this reference so we can sort it out: ${txRef || ""}`,
+      );
+      setPayTxRef(txRef);
+      setPayStep("failed");
+      return;
+    }
+    setNote(`Done. ${TIER_META[claimedTier]?.label || claimedTier} is unlocked on this computer.`);
+    resetPay();
+  }
+
+  async function claim(txRef) {
+    setPayStep("confirming");
+    const res = await checkout.claimCode(txRef);
+    if (!res.ok) {
+      setPayTxRef(txRef);
+      if (res.error === "not_paid") {
+        setPayError("We haven't seen the payment yet. If you completed it, give it a moment and try again.");
+        setPayStep("waiting");
+      } else {
+        setPayError(res.message || "Couldn't confirm that payment. Try again, or use a code below instead.");
+        setPayStep("failed");
+      }
+      return;
+    }
+    await applyClaimedCode(res.code, res.tier, txRef);
+  }
+
+  async function startPayment() {
+    setPayError("");
+    if (!pin) {
+      setPayError("Still preparing this device. Wait a moment and try again.");
+      return;
+    }
+    const trimmedEmail = payEmail.trim();
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setPayError("Enter an email for the receipt first.");
+      return;
+    }
+    setPayStep("paying");
+    const order = await checkout.startOrder({ pin, tier: next, contact: trimmedEmail });
+    if (!order.ok) {
+      setPayError(order.message || "Couldn't start that order. Try again.");
+      setPayStep("failed");
+      return;
+    }
+    setPayTxRef(order.txRef);
+    await payWithFlutterwave({ order, email: trimmedEmail, title: nextMeta?.label });
+    await claim(order.txRef);
+  }
 
   // A shop that has paid is not here to activate. The PIN and the code box
   // are what they need when they are BUYING -- so they lead the screen on the
@@ -135,6 +219,79 @@ export default function ActivationModal({ onClose }) {
               One payment, not a subscription. Your records stay exactly where they are &mdash;
               nothing to download, nothing to reinstall.
             </p>
+          </div>
+        )}
+
+        {/* Straight through to Flutterwave -- an alternative to reading a PIN
+            out over the phone, not a replacement for it. A shop that would
+            rather pay a human still has the contact links at the bottom. */}
+        {next && payStep === "idle" && (
+          <button
+            onClick={() => setPayStep("email")}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold mb-3 ${
+              t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+            }`}
+          >
+            <CreditCard className="w-4 h-4" /> Pay with card, bank transfer or USSD
+          </button>
+        )}
+
+        {next && payStep === "email" && (
+          <div className={`rounded-xl p-4 mb-3 ${t.insetBg}`}>
+            <label htmlFor="pay-email" className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
+              Email for the receipt
+            </label>
+            <input
+              id="pay-email"
+              type="email"
+              value={payEmail}
+              onChange={(e) => { setPayEmail(e.target.value); setPayError(""); }}
+              placeholder="you@example.com"
+              autoComplete="email"
+              className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none mb-3 ${t.inputBg}`}
+            />
+            {payError && <p className="text-xs text-red-500 mb-3">{payError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={startPayment}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold ${
+                  t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                }`}
+              >
+                Continue to payment
+              </button>
+              <button
+                onClick={resetPay}
+                className={`px-4 py-2.5 rounded-xl text-sm font-medium ${t.pillBg}`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {next && (payStep === "paying" || payStep === "confirming") && (
+          <div className={`rounded-xl p-4 mb-3 text-sm ${t.insetBg} ${t.textSecondary}`}>
+            {payStep === "paying" ? "Opening secure checkout…" : "Confirming your payment…"}
+          </div>
+        )}
+
+        {next && (payStep === "waiting" || payStep === "failed") && (
+          <div className={`rounded-xl p-4 mb-3 ${t.insetBg}`}>
+            <p className="text-sm text-red-500 mb-3">{payError}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => (payStep === "waiting" ? claim(payTxRef) : setPayStep("email"))}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold ${
+                  t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                }`}
+              >
+                {payStep === "waiting" ? "Check again" : "Try again"}
+              </button>
+              <button onClick={resetPay} className={`px-4 py-2.5 rounded-xl text-sm font-medium ${t.pillBg}`}>
+                Dismiss
+              </button>
+            </div>
           </div>
         )}
 

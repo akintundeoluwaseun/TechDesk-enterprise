@@ -63,6 +63,7 @@ export { searchEverything } from "./searchAll";
 export { notificationFeed, isUnread, unreadCount, timeAgo } from "./notifications";
 export { searchDestinations, DESTINATIONS } from "./destinations";
 export { rowsToCsv } from "./csv";
+export { checkout } from "./checkout";
 export { pdfSafe } from "./pdfSafe";
 export * from "./currency";
 export { DEFAULT_LABELS, BUSINESS_PRESETS } from "./businessPresets";
