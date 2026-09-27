@@ -358,7 +358,7 @@ export default function AccountTab() {
         <UpgradeLock
           feature="syncData"
           title="Sync with another device"
-          what="You and one other person work off each other's stock, repairs and customers. You put your number in, they type it, and you read them the code. Nothing to do with head office."
+          what="You and one other person work off each other's stock, repairs and customers. You put your email or number in, they type it, and you read them the code. Nothing to do with head office."
         >
           <SyncTab />
         </UpgradeLock>

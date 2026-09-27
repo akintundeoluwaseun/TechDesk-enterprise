@@ -127,12 +127,12 @@ export default function SyncTab() {
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <div className="flex items-center gap-3 mb-1">
           <Phone className={`w-5 h-5 ${t.textSecondary}`} />
-          <h3 className={`font-semibold ${t.textPrimary}`}>Your sync number</h3>
+          <h3 className={`font-semibold ${t.textPrimary}`}>Your sync {state.email ? "email" : "number"}</h3>
         </div>
         <p className={`text-sm ${t.textSecondary}`}>
-          <b className={t.textPrimary}>{state.phone}</b> &mdash; this is what somebody types
-          into their TechDesk to sync with you. When they do, we text the code here and you
-          read it out to them.
+          <b className={t.textPrimary}>{state.email || state.phone}</b> &mdash; this is what
+          somebody types into their TechDesk to sync with you. When they do, we send the code
+          {state.email ? " here" : " to this number"} and you read it out to them.
         </p>
       </div>
 
@@ -153,7 +153,7 @@ export default function SyncTab() {
             <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
               <div className="min-w-0">
                 <h3 className={`font-semibold ${t.textPrimary}`}>{link.label}</h3>
-                <p className={`text-xs ${t.textMuted}`}>{link.phone}</p>
+                <p className={`text-xs ${t.textMuted}`}>{link.email || link.phone}</p>
               </div>
               <button
                 onClick={() => stop(link)}
@@ -384,14 +384,14 @@ function RegisterCard({ onDone }) {
       </div>
       <p className={`text-sm mb-5 ${t.textSecondary}`}>
         Two people, each with their own TechDesk, working off each other&rsquo;s stock,
-        repairs and customers. Put your number in first &mdash; it&rsquo;s what the other
-        person types to find you. We text a code to it to make sure it is yours.
+        repairs and customers. Put your email or number in first &mdash; it&rsquo;s what the
+        other person types to find you. We send a code to it to make sure it is yours.
       </p>
 
       {step === "code" ? (
         <form onSubmit={submitCode}>
           <p className={`text-sm mb-4 ${t.textSecondary}`}>
-            We texted a 6-digit code to <b className={t.textPrimary}>{sent?.phone}</b>.
+            We sent a 6-digit code to <b className={t.textPrimary}>{sent?.email || sent?.phone}</b>.
           </p>
           <input
             className={`${input} text-center text-2xl font-semibold tracking-[0.4em] mb-4`}
@@ -416,12 +416,11 @@ function RegisterCard({ onDone }) {
         <form onSubmit={askForCode}>
           <label className="block mb-4">
             <span className={`block text-xs font-semibold mb-2 ${t.textSecondary}`}>
-              Your number
+              Your email or number
             </span>
             <input
               className={input}
-              inputMode="tel"
-              placeholder="08012345678"
+              placeholder="owner@shop.com or 08012345678"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
@@ -448,7 +447,7 @@ function RegisterCard({ onDone }) {
               step === "working" ? "opacity-60" : ""
             }`}
           >
-            <Phone className="w-4 h-4" /> {step === "working" ? "Sending…" : "Text me a code"}
+            <Phone className="w-4 h-4" /> {step === "working" ? "Sending…" : "Send me a code"}
           </button>
         </form>
       )}
@@ -526,7 +525,7 @@ function PairCard({ onDone }) {
       {step === "code" ? (
         <form onSubmit={submitCode} className="mt-4">
           <p className={`text-sm mb-4 ${t.textSecondary}`}>
-            We texted a 6-digit code to <b className={t.textPrimary}>{sent?.phone}</b>
+            We sent a 6-digit code to <b className={t.textPrimary}>{sent?.email || sent?.phone}</b>
             {sent?.label ? <> &mdash; {sent.label}</> : null}. Ring them and ask for it.
           </p>
           <input
@@ -560,14 +559,13 @@ function PairCard({ onDone }) {
       ) : (
         <form onSubmit={askForCode} className="mt-4">
           <p className={`text-sm mb-4 ${t.textSecondary}`}>
-            Their number, the one they put into TechDesk. The code goes to{" "}
+            Their email or number, the one they put into TechDesk. The code goes to{" "}
             <b className={t.textPrimary}>them</b>, not to you &mdash; ring them and they read
             it out.
           </p>
           <input
             className={`${input} mb-4`}
-            inputMode="tel"
-            placeholder="08012345678"
+            placeholder="owner@shop.com or 08012345678"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             autoFocus

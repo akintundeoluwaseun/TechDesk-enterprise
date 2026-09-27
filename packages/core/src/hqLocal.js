@@ -43,6 +43,7 @@ let pendingState = null;
 // the check works even on a backend that has not stored it.
 let pendingOtpId = null;
 let pendingPhone = null;
+let pendingEmail = null;
 
 async function post(fn, body, token) {
   let res;
@@ -76,11 +77,12 @@ export const hqLocal = {
   },
 
   /**
-   * Step one. Texts a code to the HQ number and keeps the handle that proves
-   * this device asked. Returns the masked number so the person can check they
-   * typed it right before ringing anyone.
+   * Step one. Sends a code to HQ -- an email, free, or a phone, which costs
+   * real money to text -- and keeps the handle that proves this device
+   * asked. Returns the masked identifier so the person can check they typed
+   * it right before reaching out.
    */
-  async connectStart({ hqPhone, branchName, businessName }) {
+  async connectStart({ hqPhone, hqEmail, branchName, businessName }) {
     const label = (branchName || "").trim();
     if (!label) return { ok: false, message: "Give this branch a name first." };
 
@@ -88,7 +90,8 @@ export const hqLocal = {
       installId: installId(),
       requesterRole: "manager",
       requesterLabel: label,
-      targetPhone: hqPhone,
+      targetPhone: hqEmail ? null : hqPhone,
+      targetEmail: hqEmail || null,
       targetRole: "hq",
       branchName: label,
       businessName: businessName || null,
@@ -98,12 +101,13 @@ export const hqLocal = {
     if (res.ok) {
       pendingState = res.state;
       pendingOtpId = res.otpId || null;
-      pendingPhone = hqPhone;
+      pendingPhone = hqEmail ? null : hqPhone;
+      pendingEmail = hqEmail || null;
     }
     return res;
   },
 
-  /** Step two. The code HQ read out. */
+  /** Step two. The code HQ read out, or found in their email. */
   async connectVerify({ code, appVersion }) {
     if (!pendingState) {
       return { ok: false, message: "Ask for a new code first." };
@@ -114,6 +118,7 @@ export const hqLocal = {
       otpId: pendingOtpId,
       installId: installId(),
       targetPhone: pendingPhone,
+      targetEmail: pendingEmail,
       code,
       edition: EDITION,
       appVersion: appVersion || null,
@@ -126,6 +131,7 @@ export const hqLocal = {
       businessId: res.businessId,
       branchId: res.branchId,
       hqPhone: pendingPhone,
+      hqEmail: pendingEmail,
       branchName: res.branchName || null,
     });
     // The handle is spent either way: it cannot be used twice, and keeping it
@@ -133,6 +139,7 @@ export const hqLocal = {
     pendingState = null;
     pendingOtpId = null;
     pendingPhone = null;
+    pendingEmail = null;
 
     if (!saved.ok) {
       // The device IS linked at HQ but the token did not survive locally --
@@ -202,6 +209,7 @@ export const hqLocal = {
     pendingState = null;
     pendingOtpId = null;
     pendingPhone = null;
+    pendingEmail = null;
 
     let told = false;
     if (state.token) {

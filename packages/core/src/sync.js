@@ -365,6 +365,7 @@ export const sync = {
       ready: hasIdentity(),
       registered: s.registered,
       phone: s.phone,
+      email: s.email,
       label: s.label,
       links: s.links,
       reaching: s.reaching,
@@ -384,6 +385,7 @@ export const sync = {
       ...current,
       registered: Boolean(res.registered),
       phone: res.phone || null,
+      email: res.email || null,
       label: res.label || null,
       links: res.links || [],
       reaching: res.reaching || [],
@@ -392,9 +394,15 @@ export const sync = {
     return res;
   },
 
-  /** Step one of putting your own number in: ask for the code. */
-  async registerStart(phone, label) {
-    return await call("sync-start", { mode: "register", phone, label });
+  /**
+   * Step one of putting your own identifier in: ask for the code. Email is
+   * free to send; a phone number costs real money to text, so a shop typing
+   * in an email never touches an SMS provider at all.
+   */
+  async registerStart(identifier, label) {
+    const email = identifier?.includes("@") ? identifier : null;
+    const phone = email ? null : identifier;
+    return await call("sync-start", { mode: "register", phone, email, label });
   },
 
   /**
@@ -410,14 +418,24 @@ export const sync = {
     if (res.token) saveState({ ...readState(), token: res.token, deviceId: res.deviceId });
 
     const current = readSync();
-    writeSync({ ...current, registered: true, phone: res.phone || current.phone });
+    writeSync({
+      ...current,
+      registered: true,
+      phone: res.phone || current.phone,
+      email: res.email || current.email,
+    });
     await sync.refresh();
     return res;
   },
 
-  /** Step one of syncing with somebody: their number, and a code sent to it. */
-  async pairStart(phone) {
-    return await call("sync-start", { mode: "pair", phone });
+  /**
+   * Step one of syncing with somebody: their email or number, and a code
+   * sent to it.
+   */
+  async pairStart(identifier) {
+    const email = identifier?.includes("@") ? identifier : null;
+    const phone = email ? null : identifier;
+    return await call("sync-start", { mode: "pair", phone, email });
   },
 
   /** Step two: the code they read out. */
@@ -527,6 +545,7 @@ export const sync = {
     writeSync({
       registered: false,
       phone: null,
+      email: null,
       label: null,
       links: [],
       reaching: [],

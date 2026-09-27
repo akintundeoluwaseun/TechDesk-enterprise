@@ -18,7 +18,7 @@ export default function ConnectHqTab() {
   // something it does not have.
   const [status, setStatus] = useState(null);
   const [step, setStep] = useState("idle");        // idle | code | working
-  const [hqPhone, setHqPhone] = useState("");
+  const [hqIdentifier, setHqIdentifier] = useState("");
   const [branchName, setBranchName] = useState(() => db.getSettings?.().shopName || "");
   const [code, setCode] = useState("");
   const [sentTo, setSentTo] = useState("");
@@ -74,11 +74,15 @@ export default function ConnectHqTab() {
     e.preventDefault();
     setError("");
     if (!branchName.trim()) return setError("Give this branch a name first.");
-    if (!hqPhone.trim()) return setError("Enter your HQ phone number.");
+    const identifier = hqIdentifier.trim();
+    if (!identifier) return setError("Enter your HQ's email or phone number.");
+    const hqEmail = identifier.includes("@") ? identifier : null;
+    const hqPhone = hqEmail ? null : identifier;
 
     setStep("working");
     const res = await hq.connectStart({
-      hqPhone: hqPhone.trim(),
+      hqPhone,
+      hqEmail,
       branchName: branchName.trim(),
       businessName: db.getSettings?.().shopName || null,
     });
@@ -86,7 +90,7 @@ export default function ConnectHqTab() {
       setStep("idle");
       return setError(res.message || "That didn't work. Try again.");
     }
-    setSentTo(res.targetPhone || hqPhone);
+    setSentTo(res.targetEmail || res.targetPhone || identifier);
     setStep("code");
   }
 
@@ -159,7 +163,7 @@ export default function ConnectHqTab() {
             <div>
               <h3 className={`font-semibold ${t.textPrimary}`}>Connected to HQ</h3>
               <p className={`text-sm ${t.textSecondary}`}>
-                This branch reports to {status.hqPhone || "your HQ"}
+                This branch reports to {status.hqEmail || status.hqPhone || "your HQ"}
                 {status.connectedAt
                   ? ` since ${new Date(status.connectedAt).toLocaleDateString()}`
                   : ""}.
@@ -227,7 +231,7 @@ export default function ConnectHqTab() {
             </h3>
             <p className={`text-sm ${t.textSecondary}`}>
               Your head office sees this branch&rsquo;s sales and repairs on their phone. We
-              text them a code &mdash; ring them and they&rsquo;ll read it out.
+              send them a code &mdash; ring them and they&rsquo;ll read it out.
             </p>
             <p className={`text-xs mt-2 ${t.textMuted}`}>{WHERE_IT_LIVES}</p>
           </div>
@@ -236,7 +240,7 @@ export default function ConnectHqTab() {
         {step === "code" ? (
           <form onSubmit={submitCode} className="mt-5">
             <p className={`text-sm mb-4 ${t.textSecondary}`}>
-              We texted a 6-digit code to <b className={t.textPrimary}>{sentTo}</b>.{" "}
+              We sent a 6-digit code to <b className={t.textPrimary}>{sentTo}</b>.{" "}
               Ring them and ask for it.
             </p>
             <label className="block mb-4">
@@ -272,7 +276,7 @@ export default function ConnectHqTab() {
                 }}
                 className={`px-4 py-2.5 rounded-xl text-sm font-semibold ${t.pillBg}`}
               >
-                Use a different number
+                Use a different email or number
               </button>
             </div>
           </form>
@@ -296,17 +300,16 @@ export default function ConnectHqTab() {
             <label className="block mb-4">
               <span className={`block text-xs font-semibold mb-2 ${t.textSecondary}`}>
                 <Phone className="inline w-3.5 h-3.5 mr-1 -mt-0.5" />
-                Your HQ&rsquo;s phone number
+                Your HQ&rsquo;s email or number
               </span>
               <input
                 className={input}
-                inputMode="tel"
-                placeholder="08012345678"
-                value={hqPhone}
-                onChange={(e) => setHqPhone(e.target.value)}
+                placeholder="hq@shop.com or 08012345678"
+                value={hqIdentifier}
+                onChange={(e) => setHqIdentifier(e.target.value)}
               />
               <span className={`block text-xs mt-2 ${t.textMuted}`}>
-                The number your head office registered with. The code goes to them, not here.
+                Whichever your head office registered with. The code goes to them, not here.
               </span>
             </label>
             {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
@@ -327,8 +330,8 @@ export default function ConnectHqTab() {
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <h3 className={`font-semibold ${t.textPrimary}`}>No HQ yet?</h3>
         <p className={`text-sm mt-1 ${t.textSecondary}`}>
-          Head office signs up once at {siteLabel("hq.html")} with their phone number.
-          Every branch then connects to that number.
+          Head office signs up once at {siteLabel("hq.html")} with their email or phone
+          number. Every branch then connects to that.
         </p>
       </div>
     </div>

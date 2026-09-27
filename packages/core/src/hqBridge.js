@@ -33,6 +33,7 @@ let pendingState = null;
 // the check works even on a backend that has not stored it.
 let pendingOtpId = null;
 let pendingPhone = null;
+let pendingEmail = null;
 
 async function post(fn, body) {
   let res;
@@ -71,7 +72,7 @@ export const hqBridge = {
    * this device asked. Returns the masked number so the person can check they
    * typed it right before ringing anyone.
    */
-  async connectStart({ hqPhone, branchName, businessName }) {
+  async connectStart({ hqPhone, hqEmail, branchName, businessName }) {
     if (!hasHostBridge()) {
       return { ok: false, message: "Connecting to HQ needs the installed desktop app." };
     }
@@ -85,7 +86,8 @@ export const hqBridge = {
       installId: id.installId,
       requesterRole: "manager",
       requesterLabel: label,
-      targetPhone: hqPhone,
+      targetPhone: hqEmail ? null : hqPhone,
+      targetEmail: hqEmail || null,
       targetRole: "hq",
       branchName: label,
       businessName: businessName || null,
@@ -95,14 +97,16 @@ export const hqBridge = {
     if (res.ok) {
       pendingState = res.state;
       pendingOtpId = res.otpId || null;
-      pendingPhone = hqPhone;
+      pendingPhone = hqEmail ? null : hqPhone;
+      pendingEmail = hqEmail || null;
     }
     return res;
   },
 
   /**
-   * Step two. The code HQ read out. On success the token is handed straight to
-   * the main process and this function returns only what the UI needs to show.
+   * Step two. The code HQ read out, or found in their email. On success the
+   * token is handed straight to the main process and this function returns
+   * only what the UI needs to show.
    */
   async connectVerify({ code, appVersion }) {
     if (!hasHostBridge()) {
@@ -119,6 +123,7 @@ export const hqBridge = {
       otpId: pendingOtpId,
       installId: id.installId,
       targetPhone: pendingPhone,
+      targetEmail: pendingEmail,
       code,
       edition: EDITION,
       appVersion: appVersion || null,
@@ -131,6 +136,7 @@ export const hqBridge = {
       businessId: res.businessId,
       branchId: res.branchId,
       hqPhone: pendingPhone,
+      hqEmail: pendingEmail,
       branchName: res.branchName || null,
     });
     // The handle is spent either way: it cannot be used twice, and keeping it
@@ -138,6 +144,7 @@ export const hqBridge = {
     pendingState = null;
     pendingOtpId = null;
     pendingPhone = null;
+    pendingEmail = null;
 
     if (!saved?.ok) {
       // The device IS linked at HQ but the token did not survive locally.
