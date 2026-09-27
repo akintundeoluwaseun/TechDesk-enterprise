@@ -672,7 +672,7 @@ async function startActivityServer() {
   let vapidPublicKey = "";
   try {
     const vapidKeys = getOrCreateVapidKeys();
-    webpush.setVapidDetails("mailto:seun85148@gmail.com", vapidKeys.publicKey, vapidKeys.privateKey);
+    webpush.setVapidDetails("mailto:techdeskapp@gmail.com", vapidKeys.publicKey, vapidKeys.privateKey);
     vapidPublicKey = vapidKeys.publicKey;
   } catch (err) {
     // Push notifications won't be offered, but the rest of the page still works.

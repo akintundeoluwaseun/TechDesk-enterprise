@@ -68,7 +68,7 @@ export const ALL_TABS = [
     title: "Connect this branch to head office",
     what: "Report this branch up to a head office account, so whoever runs the business sees its sales and repairs from their own phone.",
   },
-  { key: "developer", label: "Developer", Component: DeveloperTab },
+  { key: "developer", label: "Support", Component: DeveloperTab },
 ];
 
 const TABS = ALL_TABS.filter((tab) => !(tab.counterOnly && IS_ANDROID_APP));

@@ -1,5 +1,5 @@
 import React from "react";
-import { Code2, Phone, Mail, MessageCircle } from "lucide-react";
+import { Building2, Phone, Mail, MessageCircle } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 
 export default function DeveloperTab() {
@@ -7,22 +7,22 @@ export default function DeveloperTab() {
 
   const rows = [
     { icon: Phone, label: "+234 807 691 1614", href: "tel:+2348076911614" },
-    { icon: Mail, label: "seun85148@gmail.com", href: "mailto:seun85148@gmail.com" },
+    { icon: Mail, label: "techdeskapp@gmail.com", href: "mailto:techdeskapp@gmail.com" },
     { icon: MessageCircle, label: "Chat on WhatsApp", href: "https://wa.me/2348076911614", accent: true },
   ];
 
   return (
     <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-      <h3 className={`font-semibold mb-1 ${t.textPrimary}`}>Developer</h3>
+      <h3 className={`font-semibold mb-1 ${t.textPrimary}`}>Support</h3>
       <p className={`text-sm mb-4 ${t.textSecondary}`}>Built and maintained by</p>
 
       <div className="flex items-center gap-3 mb-5">
         <div className={`w-9 h-9 rounded-full flex items-center justify-center ${t.dark ? "bg-white/10" : "bg-black/5"}`}>
-          <Code2 className={`w-4 h-4 ${t.textSecondary}`} />
+          <Building2 className={`w-4 h-4 ${t.textSecondary}`} />
         </div>
         <div>
-          <div className={`font-semibold ${t.textPrimary}`}>Akintunde Oluwaseun Joshua</div>
-          <div className={`text-sm ${t.textMuted}`}>Software developer</div>
+          <div className={`font-semibold ${t.textPrimary}`}>TechDesk</div>
+          <div className={`text-sm ${t.textMuted}`}>Software & support team</div>
         </div>
       </div>
 

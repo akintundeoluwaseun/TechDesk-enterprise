@@ -28,7 +28,7 @@ export const DESTINATIONS = [
   { label: "Users", type: "Settings", path: "/settings?tab=users", keywords: "user staff worker pin password role seller repairer permission" },
   { label: "Device", type: "Settings", path: "/settings?tab=device", keywords: "device backup restore data export import printer storage" },
   { label: "Connect to HQ", type: "Settings", path: "/settings?tab=hq", keywords: "hq head office connect branch sync link otp code monitor" },
-  { label: "Developer", type: "Settings", path: "/settings?tab=developer", keywords: "developer support help contact about version licence license activation" },
+  { label: "Support", type: "Settings", path: "/settings?tab=developer", keywords: "developer support help contact about version licence license activation" },
 ];
 
 /**

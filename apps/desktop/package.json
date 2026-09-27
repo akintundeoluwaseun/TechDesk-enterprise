@@ -5,8 +5,8 @@
   "description": "The shop, on the computer at the counter. Free to use; Business and Enterprise unlock in place.",
   "homepage": "https://techdesk-one.vercel.app",
   "author": {
-    "name": "Oluwaseun Joshua",
-    "email": "seun85148@gmail.com"
+    "name": "TechDesk",
+    "email": "techdeskapp@gmail.com"
   },
   "main": "electron/main.js",
   "scripts": {

@@ -80,7 +80,7 @@ describe("search reaches every screen, not just records", () => {
   it("finds the places people actually ask for by name", () => {
     for (const [query, expected] of [
       ["hq", "Connect to HQ"],
-      ["developer", "Developer"],
+      ["developer", "Support"],
       ["reports", "Reports"],
       ["receipts", "Receipts"],
     ]) {

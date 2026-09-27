@@ -8,8 +8,8 @@ import { join } from "node:path";
 // than waiting for someone to spot it in a screenshot again.
 //
 // The shop's own support contact is a different thing and stays: a mailto to
-// the developer is how a shopkeeper reaches a human.
-const SUPPORT_CONTACT = /mailto:seun85148@gmail\.com/;
+// TechDesk support is how a shopkeeper reaches a human.
+const SUPPORT_CONTACT = /mailto:techdeskapp@gmail\.com/;
 
 function sourceFiles(dir, found = []) {
   for (const entry of readdirSync(dir)) {

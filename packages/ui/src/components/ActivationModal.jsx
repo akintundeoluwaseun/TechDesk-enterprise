@@ -237,8 +237,8 @@ export default function ActivationModal({ onClose }) {
           <a href="tel:+2348076911614" className={`flex items-center gap-2 text-sm ${t.textSecondary}`}>
             <Phone className="w-4 h-4" /> +234 807 691 1614
           </a>
-          <a href="mailto:seun85148@gmail.com" className={`flex items-center gap-2 text-sm ${t.textSecondary}`}>
-            <Mail className="w-4 h-4" /> seun85148@gmail.com
+          <a href="mailto:techdeskapp@gmail.com" className={`flex items-center gap-2 text-sm ${t.textSecondary}`}>
+            <Mail className="w-4 h-4" /> techdeskapp@gmail.com
           </a>
         </div>
       </div>
