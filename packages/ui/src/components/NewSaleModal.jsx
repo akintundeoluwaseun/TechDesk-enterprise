@@ -7,6 +7,7 @@ import { currencySymbol, money } from "../lib/currency";
 import { useSettings } from "../lib/SettingsContext";
 import { isSynced } from "@techdesk/core";
 import MoneyInput from "./MoneyInput";
+import SignatureField from "./SignatureField";
 
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "POS", "Transfer + Cash"];
 
@@ -57,6 +58,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
   const [payment, setPayment] = useState(isEdit ? sale.paymentMethod || "Cash" : "Cash");
   const [discount, setDiscount] = useState(isEdit ? String(sale.discount || 0) : "0");
   const [amountPaid, setAmountPaid] = useState(isEdit ? String(sale.amountPaid || 0) : "0");
+  const [signature, setSignature] = useState(isEdit ? sale.signature || null : null);
 
 
   const filteredInventory = useMemo(() => {
@@ -238,6 +240,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
       amountPaid: Number(amountPaid) || 0,
       paymentMethod: payment,
       paymentStatus: (Number(amountPaid) || 0) >= total && total > 0 ? "Paid" : "Pending",
+      signature,
     };
 
     if (isEdit) {
@@ -563,6 +566,10 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
               placeholder="0"
               className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
             />
+          </div>
+
+          <div className="mb-5">
+            <SignatureField value={signature} onChange={setSignature} />
           </div>
 
           <div className={`rounded-xl p-4 mb-5 ${t.cardBg}`}>

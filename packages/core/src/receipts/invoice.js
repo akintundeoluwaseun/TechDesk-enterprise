@@ -216,6 +216,25 @@ export function buildInvoicePdf(sale) {
 
   y = payBoxTop + payBoxH + 22;
 
+  // ---- Customer signature ----
+  const sigBoxW = 220;
+  const sigBoxH = 70;
+  const sigBoxTop = y;
+  doc.setLineWidth(1);
+  doc.roundedRect(marginX, sigBoxTop, sigBoxW, sigBoxH, 4, 4, "S");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8.5);
+  doc.text("CUSTOMER SIGNATURE", marginX + 10, sigBoxTop + 16);
+  if (sale.signature) {
+    // Reuses this file's own drawLogo rather than a second image helper --
+    // scaling to fit and surviving a corrupt data URI without stopping the
+    // receipt printing is the same problem either way.
+    drawLogo(doc, { logo: sale.signature }, marginX + sigBoxW / 2, sigBoxTop + 22, sigBoxW - 20, sigBoxH - 38);
+  } else {
+    doc.line(marginX + 10, sigBoxTop + sigBoxH - 16, marginX + sigBoxW - 10, sigBoxTop + sigBoxH - 16);
+  }
+  y = sigBoxTop + sigBoxH + 22;
+
   // ---- Footer ----
   doc.setLineDashPattern([2, 2], 0);
   doc.setLineWidth(0.5);

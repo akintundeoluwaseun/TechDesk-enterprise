@@ -15,7 +15,11 @@ export function buildThermalReceiptPdf(sale) {
 
   const itemLines = (sale.items || []).length * 2;
   const contactLines = [settings.phone, settings.address, settings.email].filter(Boolean).length;
-  const estimatedLines = 26 + itemLines + contactLines;
+  // +7 for the signature block: a label line, room for the image (or a
+  // blank line to sign on) and a divider -- fixed regardless of whether a
+  // signature was actually captured, so the page is never sized too short
+  // to fit one that gets added later.
+  const estimatedLines = 26 + itemLines + contactLines + 7;
   const heightMM = Math.max(85, estimatedLines * LINE_H + 20);
 
   const doc = new jsPDF({ unit: "mm", format: [WIDTH_MM, heightMM] });
@@ -117,6 +121,19 @@ export function buildThermalReceiptPdf(sale) {
   kv("Amount Paid", `${cur}${Number(sale.amountPaid || 0).toLocaleString()}`);
   const balance = Math.max(0, Number(sale.total) - Number(sale.amountPaid || 0));
   kv("Balance", `${cur}${balance.toLocaleString()}`);
+  divider();
+
+  // ---- Customer signature ----
+  left("CUSTOMER SIGNATURE", 7.5, true);
+  if (sale.signature) {
+    const afterSig = drawLogo(doc, { logo: sale.signature }, WIDTH_MM / 2, y, contentW - 6, 12);
+    y = afterSig > y ? afterSig + 2 : y;
+  } else {
+    y += 6;
+    doc.setLineWidth(0.2);
+    doc.line(MARGIN_MM, y, WIDTH_MM - MARGIN_MM, y);
+    y += 2;
+  }
   divider();
 
   // ---- Footer ----

@@ -60,3 +60,34 @@ describe("a long shop name never runs off the sales receipt's page", () => {
     expect(() => buildInvoicePdf(SALE)).not.toThrow();
   });
 });
+
+// A 2x2 PNG. Small, real, and decodable -- jsPDF reads the header.
+const LOGO =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFUlEQVR42mP8z8BQz0AEYBxVSF+FAP5FDvcfRYWgAAAAAElFTkSuQmCC";
+
+/** jsPDF writes an image as a PDF XObject; no image, no such object. */
+const hasImage = (doc) => /\/Subtype\s*\/Image/.test(doc.output());
+
+describe("a captured customer signature prints on the sales receipt", () => {
+  beforeEach(() => storage.clear());
+
+  it("draws the signature when one was captured", async () => {
+    db.saveSettings({ shopName: "TechDesk" });
+    const { buildInvoicePdf } = await import("./invoice");
+    expect(hasImage(buildInvoicePdf({ ...SALE, signature: LOGO }))).toBe(true);
+  });
+
+  it("still just prints the blank line when there is no signature", async () => {
+    db.saveSettings({ shopName: "TechDesk" });
+    const { buildInvoicePdf } = await import("./invoice");
+    expect(hasImage(buildInvoicePdf(SALE))).toBe(false);
+  });
+
+  it("survives a signature that is not a usable image", async () => {
+    db.saveSettings({ shopName: "TechDesk" });
+    const { buildInvoicePdf } = await import("./invoice");
+    expect(() =>
+      buildInvoicePdf({ ...SALE, signature: "data:image/png;base64,not-really-a-png" })
+    ).not.toThrow();
+  });
+});
