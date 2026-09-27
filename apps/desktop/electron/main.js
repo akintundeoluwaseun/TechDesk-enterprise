@@ -439,8 +439,7 @@ function renderMore(data) {
   var rows = [
     { label: 'Address', value: shopInfo.address },
     { label: 'Phone', value: shopInfo.phone },
-    { label: 'Email', value: shopInfo.email },
-    { label: 'Website', value: shopInfo.website }
+    { label: 'Email', value: shopInfo.email }
   ].filter(function (r) { return r.value; });
   document.getElementById('shopInfoCard').innerHTML = rows.length ? rows.map(function (r) {
     return '<div class="info-row"><div class="label">' + esc(r.label) + '</div><div>' + esc(r.value) + '</div></div>';

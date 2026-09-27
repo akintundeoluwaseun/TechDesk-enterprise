@@ -333,7 +333,7 @@ export const db = {
       .slice(0, 300)
       .map((p) => ({ name: p.name, category: p.category, stock: p.stock, lowStockThreshold: p.lowStockThreshold }));
     const settings = db.getSettings();
-    const shopInfo = { address: settings.address, phone: settings.phone, email: settings.email, website: settings.website };
+    const shopInfo = { address: settings.address, phone: settings.phone, email: settings.email };
     hostBridge()?.syncActivity?.({
       shopName: settings.shopName,
       activity: list,
@@ -363,11 +363,6 @@ export const db = {
       address: "",
       phone: "",
       email: "",
-      website: "",
-      taxId: "",
-      bankName: "",
-      accountNumber: "",
-      accountName: "",
       returnPolicy: "",
       receiptFooter: "",
       whatsappTemplate: "",

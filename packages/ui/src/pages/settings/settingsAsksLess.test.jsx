@@ -47,28 +47,18 @@ describe("the Shop tab opens on the shop", () => {
     expect(screen.getByLabelText(/add a shop logo/i)).toBeInTheDocument();
   });
 
-  it("does not ask for a website, a VAT id or bank details up front", () => {
+  it("does not ask for a website, a VAT id or bank details at all -- nothing ever read them back", () => {
     shopTab();
-    // Still available -- nothing was taken away -- just not in the way of a
-    // shop that came here to type its name.
     expect(screen.queryByLabelText("Website")).toBe(null);
     expect(screen.queryByLabelText("Tax / VAT ID")).toBe(null);
+    expect(screen.queryByLabelText("Bank name")).toBe(null);
     expect(screen.queryByLabelText("Account number")).toBe(null);
+    expect(screen.queryByLabelText("Account name")).toBe(null);
   });
 
-  it("hands them over when somebody asks for them", () => {
+  it("keeps email, since it prints on every receipt", () => {
     shopTab();
-    fireEvent.click(screen.getByRole("button", { name: /email, website, vat/i }));
-    expect(screen.getByLabelText("Website")).toBeInTheDocument();
-    expect(screen.getByLabelText("Tax / VAT ID")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /bank details/i }));
-    expect(screen.getByLabelText("Account number")).toBeInTheDocument();
-  });
-
-  it("says whether there is anything folded away, so shut is not unknown", () => {
-    const { container } = shopTab();
-    expect(container.textContent).toContain("most shops leave these empty");
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
   });
 });
 

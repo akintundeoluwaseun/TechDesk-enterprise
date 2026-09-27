@@ -78,10 +78,10 @@ describe("not signed in yet", () => {
     await screen.findByText("Sign in to sync data");
 
     fireEvent.click(screen.getByText(/Joining a shop that already has an account/));
-    fireEvent.change(screen.getByPlaceholderText("Email"), { target: { value: "shop@example.com" } });
+    fireEvent.change(screen.getByPlaceholderText("Shop's email"), { target: { value: "shop@example.com" } });
     fireEvent.change(screen.getByPlaceholderText("6-digit code"), { target: { value: "123456" } });
     fireEvent.change(screen.getByPlaceholderText("Your name"), { target: { value: "Ade" } });
-    fireEvent.click(screen.getByText("Connect to a business"));
+    fireEvent.click(screen.getByRole("button", { name: "Connect to a business" }));
 
     await waitFor(() => expect(account.workerJoin).toHaveBeenCalledWith("shop@example.com", "123456", "Ade"));
   });

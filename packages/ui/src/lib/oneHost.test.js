@@ -75,10 +75,12 @@ describe("the product has one address", () => {
   });
 
   it("does not put our address on a shop's own receipts", () => {
-    // The shop's website field is theirs to fill in. It shipped defaulted to
-    // ours, so a shop that never opened Settings printed a stranger's domain
-    // on every receipt they handed a customer.
+    // The shop used to have its own "website" field, which shipped defaulted
+    // to ours -- so a shop that never opened Settings printed a stranger's
+    // domain on every receipt they handed a customer. The field was later
+    // removed outright (nothing ever read it back), which closes this class
+    // of bug for good: there is no longer a website default to get wrong.
     const db = readFileSync(join(root, "packages", "core", "src", "db.js"), "utf8");
-    expect(db).toMatch(/website:\s*""/);
+    expect(db).not.toMatch(/website:/);
   });
 });

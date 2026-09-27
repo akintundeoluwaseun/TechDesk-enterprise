@@ -7,7 +7,6 @@ import BusinessTypeSection from "./BusinessTypeSection";
 import ReceiptsTab from "./ReceiptsTab";
 import SignatureField from "../../components/SignatureField";
 import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
-import Fold from "../../components/Fold";
 import { BUSINESS_PRESETS } from "@techdesk/core";
 import { CURRENCIES, DEFAULT_CURRENCY, money } from "../../lib/currency";
 
@@ -18,16 +17,15 @@ import { CURRENCIES, DEFAULT_CURRENCY, money } from "../../lib/currency";
 // and number below it. So the thing every shop comes here to change was under
 // the thing almost nobody does.
 //
-// It opens on the shop now: logo, name, the number customers ring. Everything
-// after that is a decision you make once, in a row you can read without
-// opening.
+// It opens on the shop now: logo, name, the number customers ring, and email
+// -- everything that actually prints on a receipt. Everything after that is
+// a decision you make once, in a row you can read without opening.
 //
-// AND IT ASKS FOR LESS. Six of the old fields were on screen whether the shop
-// had any use for them or not -- a website, a VAT id, three lines of bank
-// details -- and a form that asks eleven questions to print a receipt reads
-// like paperwork. They are all still here, behind two headings that say what
-// they are for, so a shop that wants them opens one and a shop that does not
-// never sees them.
+// AND IT ASKS FOR LESS. A website, a VAT id, and three lines of bank details
+// used to sit here too, unfolding into a form that asked eleven questions to
+// print a receipt -- and nothing anywhere ever read them back. Removed
+// outright rather than folded away, since a field nothing uses is not a
+// convenience kept out of sight, it is paperwork.
 
 const APPEARANCE_OPTIONS = [
   { key: "light", label: "Light", icon: Sun },
@@ -43,9 +41,6 @@ export default function ShopTab() {
   // Which section is open, or null. One at a time: these are separate
   // decisions and stacking them would bury the one being made.
   const [openSection, setOpenSection] = useState(null);
-  // The fields most shops never fill in, folded away rather than removed.
-  const [showMore, setShowMore] = useState(false);
-  const [showBank, setShowBank] = useState(false);
 
   function set(field, value) {
     updateSettings({ [field]: value });
@@ -69,11 +64,6 @@ export default function ShopTab() {
     APPEARANCE_OPTIONS.find((o) => o.key === currentAppearance)?.label || "Light";
 
   const currency = CURRENCIES.find((c) => c.code === (settings.currency || DEFAULT_CURRENCY));
-
-  // Said on the collapsed rows, so nothing has to be opened to find out
-  // whether there is anything in there.
-  const extras = ["email", "website", "taxId"].filter((f) => (settings[f] || "").trim()).length;
-  const bankFilled = Boolean((settings.accountNumber || "").trim());
 
   function handleLogoUpload(e) {
     const file = e.target.files?.[0];
@@ -163,104 +153,40 @@ export default function ShopTab() {
           />
         </div>
 
+        <div className="mt-4">
+          <label htmlFor="shop-email" className={label}>
+            Email
+          </label>
+          <input
+            id="shop-email"
+            value={settings.email}
+            onChange={(e) => set("email", e.target.value)}
+            inputMode="email"
+            placeholder="Not set — most shops leave this empty"
+            className={field}
+          />
+        </div>
+
         <p className={`text-xs mt-4 ${t.textMuted}`}>
           This is what prints on your receipts. Changes save as you type.
         </p>
       </div>
 
-      {/* Everything below is optional, and says so by being shut. */}
-      <Fold
-        open={showMore}
-        onToggle={() => setShowMore((v) => !v)}
-        title="Email, website, VAT"
-        summary={extras === 0 ? "Not set — most shops leave these empty" : `${extras} set`}
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="shop-email" className={label}>
-              Email
-            </label>
-            <input
-              id="shop-email"
-              value={settings.email}
-              onChange={(e) => set("email", e.target.value)}
-              inputMode="email"
-              className={field}
-            />
-          </div>
-          <div>
-            <label htmlFor="shop-website" className={label}>
-              Website
-            </label>
-            <input
-              id="shop-website"
-              value={settings.website}
-              onChange={(e) => set("website", e.target.value)}
-              placeholder="yourshop.com"
-              className={field}
-            />
-          </div>
-        </div>
-        <div className="mt-4 md:w-1/2 md:pr-2">
-          <label htmlFor="shop-tax" className={label}>
-            Tax / VAT ID
-          </label>
-          <input
-            id="shop-tax"
-            value={settings.taxId}
-            onChange={(e) => set("taxId", e.target.value)}
-            className={field}
-          />
-        </div>
-      </Fold>
-
-      <Fold
-        open={showBank}
-        onToggle={() => setShowBank((v) => !v)}
-        title="Bank details"
-        summary={
-          bankFilled
-            ? `${settings.bankName || "Bank"} · ${settings.accountNumber}`
-            : "For customers paying by transfer"
-        }
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="shop-bank" className={label}>
-              Bank name
-            </label>
-            <input
-              id="shop-bank"
-              value={settings.bankName}
-              onChange={(e) => set("bankName", e.target.value)}
-              className={field}
-            />
-          </div>
-          <div>
-            <label htmlFor="shop-account-number" className={label}>
-              Account number
-            </label>
-            <input
-              id="shop-account-number"
-              value={settings.accountNumber}
-              onChange={(e) => set("accountNumber", e.target.value)}
-              inputMode="numeric"
-              className={field}
-            />
-          </div>
-        </div>
-        <div className="mt-4">
-          <label htmlFor="shop-account-name" className={label}>
-            Account name
-          </label>
-          <input
-            id="shop-account-name"
-            value={settings.accountName}
-            onChange={(e) => set("accountName", e.target.value)}
-            className={field}
-          />
-        </div>
-      </Fold>
+      {/* Signed once, here -- not re-drawn by hand on every repair ticket
+          and every sales receipt this shop ever prints. */}
+      <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>
+        Authorized signature
+      </h2>
+      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
+        <p className={`text-sm mb-3 ${t.textSecondary}`}>
+          Printed automatically on every repair ticket and sales receipt from now on.
+        </p>
+        <SignatureField
+          label="Your signature"
+          value={settings.ownerSignature}
+          onChange={(v) => set("ownerSignature", v)}
+        />
+      </div>
 
       {/* Set once, read at a glance. */}
       <SettingsRow
@@ -286,22 +212,6 @@ export default function ShopTab() {
 
       <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Receipts</h2>
       <ReceiptsTab />
-
-      {/* Signed once, here -- not re-drawn by hand on every repair ticket
-          and every sales receipt this shop ever prints. */}
-      <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>
-        Authorized signature
-      </h2>
-      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-        <p className={`text-sm mb-3 ${t.textSecondary}`}>
-          Printed automatically on every repair ticket and sales receipt from now on.
-        </p>
-        <SignatureField
-          label="Your signature"
-          value={settings.ownerSignature}
-          onChange={(v) => set("ownerSignature", v)}
-        />
-      </div>
 
       {openSection === "businessType" && (
         <SettingsModal
