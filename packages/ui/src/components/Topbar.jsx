@@ -79,8 +79,8 @@ export default function Topbar({ title, subtitle, action }) {
   }
 
   const searchResults = useMemo(
-    () => searchEverything(query, (path) => canAccess(user?.role, path)),
-    [query, user?.role]
+    () => searchEverything(query, (path) => canAccess(user, path)),
+    [query, user]
   );
 
   function goTo(path) {

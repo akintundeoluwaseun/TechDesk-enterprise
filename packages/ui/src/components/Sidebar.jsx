@@ -54,7 +54,7 @@ export default function Sidebar({ onOpenActivation }) {
     });
   }
 
-  const visibleItems = NAV_ITEMS_BASE.filter((item) => canAccess(user?.role, item.to)).map((item) =>
+  const visibleItems = NAV_ITEMS_BASE.filter((item) => canAccess(user, item.to)).map((item) =>
     item.to === "/repairs" ? { ...item, label: settings.labels?.navRepairs || "Repairs" } : item
   );
 

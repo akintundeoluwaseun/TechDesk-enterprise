@@ -21,29 +21,51 @@ function Probe() {
     <div>
       <span data-testid="name">{user?.name ?? "none"}</span>
       <span data-testid="role">{user?.role ?? "none"}</span>
+      <span data-testid="pages">{(user?.pages || []).join(",")}</span>
       <span data-testid="isAdmin">{String(isAdmin)}</span>
     </div>
   );
 }
 
 describe("a worker's device signs itself in", () => {
-  it("lands as 'both' -- sales, repairs, inventory, never the dashboard -- once account.status() says it's a worker", async () => {
+  it("lands as 'worker', sales/repairs/inventory by default, never the dashboard -- once account.status() says it's a worker", async () => {
     const { account } = await import("./account");
     account.status.mockResolvedValue({ signedIn: true, role: "worker", workerName: "Ade" });
 
     render(<AuthProvider><Probe /></AuthProvider>);
 
-    await waitFor(() => expect(screen.getByTestId("role").textContent).toBe("both"));
+    await waitFor(() => expect(screen.getByTestId("role").textContent).toBe("worker"));
     expect(screen.getByTestId("name").textContent).toBe("Ade");
     expect(screen.getByTestId("isAdmin").textContent).toBe("false");
-    // The exact restriction the shop asked for: sales, inventory, repairs,
-    // and nothing else -- no dashboard, no settings, no customer list.
-    expect(canAccess("both", "/sales")).toBe(true);
-    expect(canAccess("both", "/repairs")).toBe(true);
-    expect(canAccess("both", "/inventory")).toBe(true);
-    expect(canAccess("both", "/")).toBe(false);
-    expect(canAccess("both", "/settings")).toBe(false);
-    expect(canAccess("both", "/customers")).toBe(false);
+    // No pages came back from the server (an invite that predates per-worker
+    // pages) -- the old fixed behavior, all three, is what this device gets.
+    expect(screen.getByTestId("pages").textContent).toBe("sales,repairs,inventory");
+  });
+
+  it("only opens the pages the admin actually granted this worker", async () => {
+    const { account } = await import("./account");
+    account.status.mockResolvedValue({ signedIn: true, role: "worker", workerName: "Ade", pages: ["sales"] });
+
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await waitFor(() => expect(screen.getByTestId("pages").textContent).toBe("sales"));
+
+    const worker = { id: "worker", role: "worker", pages: ["sales"] };
+    expect(canAccess(worker, "/sales")).toBe(true);
+    expect(canAccess(worker, "/repairs")).toBe(false);
+    expect(canAccess(worker, "/inventory")).toBe(false);
+    expect(canAccess(worker, "/")).toBe(false);
+    expect(canAccess(worker, "/settings")).toBe(false);
+    expect(canAccess(worker, "/customers")).toBe(false);
+  });
+
+  it("a worker granted every page gets exactly what the old fixed role gave everyone", async () => {
+    const worker = { id: "worker", role: "worker", pages: ["sales", "repairs", "inventory"] };
+    expect(canAccess(worker, "/sales")).toBe(true);
+    expect(canAccess(worker, "/repairs")).toBe(true);
+    expect(canAccess(worker, "/inventory")).toBe(true);
+    expect(canAccess(worker, "/")).toBe(false);
+    expect(canAccess(worker, "/settings")).toBe(false);
+    expect(canAccess(worker, "/customers")).toBe(false);
   });
 
   it("never overrides a normal admin/local session when there is no worker account signed in", async () => {
@@ -59,24 +81,25 @@ describe("a worker's device signs itself in", () => {
 });
 
 describe("a returning worker's device, before this launch's own check comes back", () => {
-  // The bug this guards: "both" only ever arrived once account.status()
-  // resolved, which is a real round trip on the desktop build (the token
-  // lives in the main process). Every single app open, a worker's own
-  // device rendered as admin -- dashboard, settings, cost prices and all --
-  // for however long that took. The cache is this device's own last
-  // CONFIRMED answer, so it does not have to wait to know what it already
-  // knows.
+  // The bug this guards: a worker's role only ever arrived once
+  // account.status() resolved, which is a real round trip on the desktop
+  // build (the token lives in the main process). Every single app open, a
+  // worker's own device rendered as admin -- dashboard, settings, cost
+  // prices and all -- for however long that took. The cache is this
+  // device's own last CONFIRMED answer, so it does not have to wait to know
+  // what it already knows.
 
-  it("renders as 'both' on the very first paint, from the cache, with no wait", async () => {
+  it("renders as 'worker', with its cached pages, on the very first paint, from the cache, with no wait", async () => {
     const { account, getCachedAccountStatus } = await import("./account");
-    getCachedAccountStatus.mockReturnValue({ signedIn: true, role: "worker", workerName: "Ade" });
+    getCachedAccountStatus.mockReturnValue({ signedIn: true, role: "worker", workerName: "Ade", pages: ["repairs"] });
     // Deliberately never resolved -- if the first render depended on this,
     // the test would hang or still show admin.
     account.status.mockReturnValue(new Promise(() => {}));
 
     render(<AuthProvider><Probe /></AuthProvider>);
 
-    expect(screen.getByTestId("role").textContent).toBe("both");
+    expect(screen.getByTestId("role").textContent).toBe("worker");
+    expect(screen.getByTestId("pages").textContent).toBe("repairs");
     expect(screen.getByTestId("isAdmin").textContent).toBe("false");
   });
 
@@ -87,7 +110,7 @@ describe("a returning worker's device, before this launch's own check comes back
     account.status.mockResolvedValue({ signedIn: false });
 
     render(<AuthProvider><Probe /></AuthProvider>);
-    expect(screen.getByTestId("role").textContent).toBe("both");
+    expect(screen.getByTestId("role").textContent).toBe("worker");
 
     await waitFor(() => expect(screen.getByTestId("role").textContent).toBe("admin"));
   });

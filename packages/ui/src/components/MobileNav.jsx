@@ -20,7 +20,7 @@ export default function MobileNav() {
   const { settings } = useSettings();
   const { user } = useAuth();
 
-  const primary = PRIMARY.filter((item) => canAccess(user?.role, item.to));
+  const primary = PRIMARY.filter((item) => canAccess(user, item.to));
   const label = (item) =>
     item.to === "/repairs" ? settings.labels?.navRepairs || "Repairs" : item.label;
 

@@ -34,8 +34,8 @@ const SettingsPage = lazy(() => import("./pages/SettingsPage"));
 
 function Guard({ path, children }) {
   const { user } = useAuth();
-  if (!canAccess(user?.role, path)) {
-    return <Navigate to={homeFor(user?.role)} replace />;
+  if (!canAccess(user, path)) {
+    return <Navigate to={homeFor(user)} replace />;
   }
   return children;
 }

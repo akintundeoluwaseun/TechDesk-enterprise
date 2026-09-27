@@ -1420,6 +1420,7 @@ ipcMain.handle("techdesk:account-read", () => {
         role: s.role || null,
         workerName: s.workerName || null,
         businessId: s.businessId || null,
+        pages: s.pages || null,
       },
     };
   } catch (err) {
@@ -1549,12 +1550,16 @@ async function accountFnFetch(url, key, fn, body, { token } = {}) {
   return data;
 }
 
-// Owner only: issues the code a worker's device redeems below.
+// Owner only: issues the code a worker's device redeems below, for exactly
+// the pages the admin picked for this worker in the renderer.
 ipcMain.handle("techdesk:account-invite-start", async (event, payload) => {
-  const { url, key } = payload || {};
+  const { url, key, pages } = payload || {};
   const s = readAccountState();
   if (!s.accessToken) return { ok: false, message: "Sign in first." };
-  return accountFnFetch(url, key, "account-invite-start", {}, { token: s.accessToken });
+  if (!Array.isArray(pages) || !pages.length) {
+    return { ok: false, message: "Pick at least one page for this worker." };
+  }
+  return accountFnFetch(url, key, "account-invite-start", { pages }, { token: s.accessToken });
 });
 
 // A worker's device, joining with the shop's email, that code, and their own
@@ -1577,6 +1582,7 @@ ipcMain.handle("techdesk:account-invite-redeem", async (event, payload) => {
     role: "worker",
     workerName: res.workerName,
     businessId: res.businessId,
+    pages: res.pages,
   });
   return { ok: true, workerName: res.workerName };
 });

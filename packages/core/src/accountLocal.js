@@ -242,15 +242,20 @@ export const accountLocal = {
   },
 
   /**
-   * Owner only: asks for a fresh code to read out to a worker. Requires this
-   * device's own real session -- the Edge Function decides whose business
-   * the code belongs to purely from that token, never from anything in the
-   * request body.
+   * Owner only: asks for a fresh code to read out to a worker, for exactly
+   * the pages (sales/repairs/inventory) this worker is being granted. Requires
+   * this device's own real session -- the Edge Function decides whose
+   * business the code belongs to purely from that token, never from anything
+   * in the request body -- but the pages DO come from the body, since that is
+   * the one thing only the admin, right now, actually knows.
    */
-  async inviteStart() {
+  async inviteStart(pages) {
     const { accessToken } = readState();
     if (!accessToken) return { ok: false, message: "Sign in first." };
-    return fnFetch("account-invite-start", {}, { token: accessToken });
+    if (!Array.isArray(pages) || !pages.length) {
+      return { ok: false, message: "Pick at least one page for this worker." };
+    }
+    return fnFetch("account-invite-start", { pages }, { token: accessToken });
   },
 
   /**
@@ -258,7 +263,8 @@ export const accountLocal = {
    * read out, and the worker's own name. On success this device holds its
    * own session from here on -- a real one, but for a hidden identity that
    * exists only to be this one worker on this one shop, never the shop's own
-   * login.
+   * login. Which pages it may open (res.pages) was decided by the admin back
+   * when the code was generated, not by anything typed here.
    */
   async workerJoin(email, code, name) {
     const trimmed = (email || "").trim();
@@ -276,6 +282,7 @@ export const accountLocal = {
       role: "worker",
       workerName: res.workerName,
       businessId: res.businessId,
+      pages: res.pages,
     });
     return { ok: true, workerName: res.workerName };
   },

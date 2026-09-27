@@ -100,11 +100,15 @@ export const accountBridge = {
   },
 
   /** Owner only: asks the main process for a fresh code to read out to a
-   * worker. The main process holds the real session and calls the Edge
-   * Function with it; nothing here ever sees the token. */
-  async inviteStart() {
+   * worker, for exactly the pages (sales/repairs/inventory) this worker is
+   * being granted. The main process holds the real session and calls the
+   * Edge Function with it; nothing here ever sees the token. */
+  async inviteStart(pages) {
     if (!hasHostBridge()) return { ok: false, message: "This needs the installed desktop app." };
-    return hostBridge().accountInviteStart({ url: SUPABASE_URL, key: PUBLISHABLE_KEY });
+    if (!Array.isArray(pages) || !pages.length) {
+      return { ok: false, message: "Pick at least one page for this worker." };
+    }
+    return hostBridge().accountInviteStart({ url: SUPABASE_URL, key: PUBLISHABLE_KEY, pages });
   },
 
   /** A worker's device, joining with the shop's email, the code the owner

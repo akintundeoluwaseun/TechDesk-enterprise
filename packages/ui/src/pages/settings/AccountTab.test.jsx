@@ -53,6 +53,42 @@ describe("the owner's own device can invite a worker", () => {
 
     await waitFor(() => expect(screen.getByText("Too many attempts. Try again shortly.")).toBeInTheDocument());
   });
+
+  it("defaults to all three pages, and generates a code for exactly what is ticked", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
+    account.inviteStart.mockResolvedValue({ ok: true, code: "482913", expiresInMinutes: 15, pages: ["sales", "repairs"] });
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    await screen.findByText("Invite a worker");
+
+    // All three start ticked -- the same access every worker used to get.
+    expect(screen.getByRole("checkbox", { name: "Sales" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Repairs" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Inventory" })).toBeChecked();
+
+    // The admin narrows it to two before reading the code out.
+    fireEvent.click(screen.getByRole("checkbox", { name: "Inventory" }));
+    fireEvent.click(screen.getByText("Generate a code"));
+
+    await waitFor(() => expect(account.inviteStart).toHaveBeenCalledWith(["sales", "repairs"]));
+    await waitFor(() => expect(screen.getByText(/This code gives access to: Sales, Repairs/)).toBeInTheDocument());
+  });
+
+  it("refuses to generate a code with no page ticked", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    await screen.findByText("Invite a worker");
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Sales" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Repairs" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Inventory" }));
+
+    expect(screen.getByText("Generate a code")).toBeDisabled();
+    expect(account.inviteStart).not.toHaveBeenCalled();
+  });
 });
 
 describe("a worker's own device signed in here", () => {

@@ -66,7 +66,7 @@ export default function MobileAppBar({ onOpenActivation }) {
   const [clearedAt, setClearedAt] = useState(() => db.getNotifClearedAt());
   const navigate = useNavigate();
 
-  const items = MENU_ITEMS.filter((i) => canAccess(user?.role, i.to)).map((i) =>
+  const items = MENU_ITEMS.filter((i) => canAccess(user, i.to)).map((i) =>
     i.to === "/repairs" ? { ...i, label: settings.labels?.navRepairs || "Repairs" } : i
   );
   const initial = (user?.name || "?").charAt(0).toUpperCase();
@@ -80,8 +80,8 @@ export default function MobileAppBar({ onOpenActivation }) {
   const unread = unreadCount(feed, clearedAt);
 
   const results = useMemo(
-    () => searchEverything(query, (path) => canAccess(user?.role, path)),
-    [query, user?.role]
+    () => searchEverything(query, (path) => canAccess(user, path)),
+    [query, user]
   );
 
   function go(to) {
