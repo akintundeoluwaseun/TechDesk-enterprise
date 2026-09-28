@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Cloud, LogOut, RefreshCw, UserPlus, Copy, ChevronRight, Users } from "lucide-react";
+import { Cloud, LogOut, RefreshCw, ChevronRight } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import {
@@ -17,229 +17,6 @@ import SettingsModal from "../../components/SettingsModal";
 
 const MODES = { signin: "signin", signup: "signup", worker: "worker" };
 
-// The only three pages a worker can ever be granted -- kept in step with
-// AuthContext.jsx's WORKER_PAGES, which is what actually enforces this once
-// the worker's device is running.
-const PAGE_OPTIONS = [
-  { key: "sales", label: "Sales" },
-  { key: "repairs", label: "Repairs" },
-  { key: "inventory", label: "Inventory" },
-];
-const PAGE_LABELS = Object.fromEntries(PAGE_OPTIONS.map((o) => [o.key, o.label]));
-
-/**
- * Generates the code an owner reads out to a worker, and counts down until
- * it expires -- a code with no visible clock reads as though it never
- * expires at all, which is not true and not meant to be.
- *
- * Which pages that worker gets is picked here, per worker, before the code
- * even exists -- not automatic, and not the same for everyone the shop
- * invites. A worker without "Inventory" ticked never sees a stock value or
- * an Inventory tab at all; a worker without "Sales" never sees the till.
- */
-function InviteWorkerPanel() {
-  const t = useThemeTokens();
-  // Defaults to all three -- the same access every worker used to get --
-  // so a shop that has no reason to narrow it does not have to think about
-  // it. Narrowing it is the point of this screen, not the default.
-  const [pages, setPages] = useState(["sales", "repairs", "inventory"]);
-  const [state, setState] = useState({ code: null, expiresAt: null, busy: false, error: "" });
-  const [grantedPages, setGrantedPages] = useState(null);
-  const [now, setNow] = useState(() => Date.now());
-
-  useEffect(() => {
-    if (!state.expiresAt) return undefined;
-    const id = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(id);
-  }, [state.expiresAt]);
-
-  function togglePage(key) {
-    setPages((prev) => (prev.includes(key) ? prev.filter((p) => p !== key) : [...prev, key]));
-  }
-
-  async function generate() {
-    if (!pages.length) {
-      setState((s) => ({ ...s, error: "Pick at least one page for this worker." }));
-      return;
-    }
-    setState((s) => ({ ...s, busy: true, error: "" }));
-    const res = await account.inviteStart(pages);
-    if (!res.ok) {
-      setState({ code: null, expiresAt: null, busy: false, error: res.message || "Couldn't generate a code. Try again." });
-      return;
-    }
-    setGrantedPages(res.pages || pages);
-    setState({
-      code: res.code,
-      expiresAt: Date.now() + res.expiresInMinutes * 60 * 1000,
-      busy: false,
-      error: "",
-    });
-  }
-
-  const secondsLeft = state.expiresAt ? Math.max(0, Math.round((state.expiresAt - now) / 1000)) : 0;
-  const expired = state.expiresAt && secondsLeft === 0;
-
-  return (
-    <div className={`mt-4 rounded-xl p-4 ${t.insetBg}`}>
-      <div className="flex items-center gap-2">
-        <UserPlus className={`w-4 h-4 ${t.textSecondary}`} />
-        <div className={`text-xs uppercase tracking-wider ${t.textMuted}`}>Invite a worker</div>
-      </div>
-      <p className={`text-sm mt-1 ${t.textSecondary}`}>
-        A worker's own device can read and write only the pages you pick below -- without ever
-        being given this email's password. Generate a code and read it out to them; they'll enter
-        this shop's email, the code, and their own name.
-      </p>
-
-      <div className={`text-xs font-semibold uppercase tracking-wider mt-4 mb-2 ${t.textMuted}`}>
-        This worker can open
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {PAGE_OPTIONS.map((opt) => {
-          const checked = pages.includes(opt.key);
-          return (
-            <label
-              key={opt.key}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer ${
-                checked ? (t.dark ? "bg-white text-black" : "bg-slate-900 text-white") : t.cardBg
-              }`}
-            >
-              <input
-                type="checkbox"
-                className="sr-only"
-                checked={checked}
-                onChange={() => togglePage(opt.key)}
-              />
-              {opt.label}
-            </label>
-          );
-        })}
-      </div>
-
-      {state.code && !expired ? (
-        <div className="mt-3">
-          <p className={`text-xs mb-2 ${t.textMuted}`}>
-            This code gives access to: {(grantedPages || pages).map((p) => PAGE_LABELS[p]).join(", ")}
-          </p>
-          <div className="flex items-center gap-3">
-            <div className={`font-mono text-2xl font-bold tracking-[0.3em] px-4 py-2 rounded-lg ${t.cardBg}`}>
-              {state.code}
-            </div>
-            <button
-              type="button"
-              onClick={() => navigator.clipboard?.writeText(state.code).catch(() => {})}
-              className={`p-2 rounded-lg ${t.textSecondary}`}
-              aria-label="Copy code"
-              title="Copy code"
-            >
-              <Copy className="w-4 h-4" />
-            </button>
-            <span className={`text-sm ${t.textMuted}`}>
-              Expires in {Math.floor(secondsLeft / 60)}:{String(secondsLeft % 60).padStart(2, "0")}
-            </span>
-          </div>
-        </div>
-      ) : null}
-
-      {expired && <p className={`text-sm mt-2 ${t.textMuted}`}>That code has expired.</p>}
-      {state.error && <p className="text-sm mt-2 text-red-500">{state.error}</p>}
-
-      <button
-        onClick={generate}
-        disabled={state.busy || !pages.length}
-        className={`mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-60 ${t.pillBg}`}
-      >
-        <RefreshCw className={`w-4 h-4 ${state.busy ? "animate-spin" : ""}`} />
-        {state.busy ? "Generating…" : state.code ? "Generate a new code" : "Generate a code"}
-      </button>
-    </div>
-  );
-}
-
-function pagesLabel(pages) {
-  if (!Array.isArray(pages) || !pages.length) return "Sales, Repairs, Inventory";
-  return pages.map((p) => PAGE_LABELS[p] || p).join(", ");
-}
-
-/**
- * Who is actually connected to this shop's account right now, and a way to
- * cut one off. Generating a code says nothing about who redeemed it or
- * whether they still should be able to -- this is the other half: the list
- * an admin actually checks against, and the one button that undoes an
- * invite once it has been used.
- */
-function WorkersModal({ onClose }) {
-  const t = useThemeTokens();
-  const [state, setState] = useState({ loading: true, workers: [], error: "" });
-  const [busyId, setBusyId] = useState(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    account.listWorkers().then((res) => {
-      if (cancelled) return;
-      if (!res.ok) {
-        setState({ loading: false, workers: [], error: res.message || "Couldn't load your workers." });
-        return;
-      }
-      setState({ loading: false, workers: res.workers || [], error: "" });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  async function disconnect(worker) {
-    if (
-      !window.confirm(`Disconnect ${worker.name}? They lose access to this shop's data immediately.`)
-    ) {
-      return;
-    }
-    setBusyId(worker.id);
-    const res = await account.revokeWorker(worker.id);
-    setBusyId(null);
-    if (!res.ok) {
-      window.alert(res.message || "Couldn't disconnect them. Try again.");
-      return;
-    }
-    setState((s) => ({ ...s, workers: s.workers.filter((w) => w.id !== worker.id) }));
-  }
-
-  return (
-    <SettingsModal
-      title="Your workers"
-      description="Everyone currently connected to this shop's account, and what they can open. Disconnecting one takes effect on their very next sync."
-      onClose={onClose}
-    >
-      {state.loading && <p className={`text-sm ${t.textSecondary}`}>Loading…</p>}
-      {state.error && <p className="text-sm text-red-500">{state.error}</p>}
-      {!state.loading && !state.error && state.workers.length === 0 && (
-        <p className={`text-sm ${t.textSecondary}`}>No workers connected yet.</p>
-      )}
-      <div className="flex flex-col gap-3">
-        {state.workers.map((w) => (
-          <div key={w.id} className={`flex items-center justify-between gap-3 rounded-xl p-4 ${t.insetBg}`}>
-            <div className="min-w-0">
-              <div className={`font-semibold truncate ${t.textPrimary}`}>{w.name}</div>
-              <div className={`text-xs mt-0.5 ${t.textMuted}`}>Can open: {pagesLabel(w.pages)}</div>
-              {w.joinedAt && (
-                <div className={`text-xs ${t.textMuted}`}>Joined {new Date(w.joinedAt).toLocaleDateString()}</div>
-              )}
-            </div>
-            <button
-              onClick={() => disconnect(w)}
-              disabled={busyId === w.id}
-              className="shrink-0 px-3 py-2 rounded-lg text-sm font-semibold text-red-500 bg-red-500/10 disabled:opacity-60"
-            >
-              {busyId === w.id ? "Disconnecting…" : "Disconnect"}
-            </button>
-          </div>
-        ))}
-      </div>
-    </SettingsModal>
-  );
-}
-
 export default function AccountTab() {
   const t = useThemeTokens();
   const [status, setStatus] = useState(null);
@@ -248,7 +25,6 @@ export default function AccountTab() {
   // as its own dialog rather than swapping in place on the settings page --
   // nothing half-filled sits around behind a page that looks otherwise done.
   const [openModal, setOpenModal] = useState(null);
-  const [workersOpen, setWorkersOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [workerCode, setWorkerCode] = useState("");
@@ -396,20 +172,6 @@ export default function AccountTab() {
             </button>
             {sync.note && <p className={`text-xs mt-2 ${t.textMuted}`}>{sync.note}</p>}
           </div>
-
-          {/* Only the owner's own device hands out invites -- a worker's
-              device has no password to protect anybody's access with, and
-              letting one invite another would make the restriction pointless. */}
-          {!isWorker && <InviteWorkerPanel />}
-
-          {!isWorker && (
-            <button
-              onClick={() => setWorkersOpen(true)}
-              className={`mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${t.pillBg}`}
-            >
-              <Users className="w-4 h-4" /> See your workers
-            </button>
-          )}
 
           <button
             onClick={signOut}
@@ -567,8 +329,6 @@ export default function AccountTab() {
           </form>
         </SettingsModal>
       )}
-
-      {workersOpen && <WorkersModal onClose={() => setWorkersOpen(false)} />}
 
       <div className="flex flex-col gap-3">
         <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Connect to head office</h2>
