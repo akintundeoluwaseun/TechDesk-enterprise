@@ -140,7 +140,7 @@ describe("finishing a fresh signup with the code from the confirmation email", (
     await screen.findByText("Confirm your email");
     const codeDialog = screen.getByRole("dialog");
     expect(within(codeDialog).queryByPlaceholderText("Email")).not.toBeInTheDocument();
-    fireEvent.change(within(codeDialog).getByPlaceholderText("6-digit code"), { target: { value: "482913" } });
+    fireEvent.change(within(codeDialog).getByPlaceholderText("Code from your email"), { target: { value: "482913" } });
     account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
     fireEvent.click(within(codeDialog).getByRole("button", { name: "Confirm" }));
 
@@ -162,7 +162,7 @@ describe("finishing a fresh signup with the code from the confirmation email", (
     fireEvent.click(screen.getByRole("button", { name: "Set up your business" }));
 
     await screen.findByText("Confirm your email");
-    fireEvent.change(screen.getByPlaceholderText("6-digit code"), { target: { value: "000000" } });
+    fireEvent.change(screen.getByPlaceholderText("Code from your email"), { target: { value: "000000" } });
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     await waitFor(() =>
@@ -206,7 +206,7 @@ describe("forgot password", () => {
     await waitFor(() => expect(account.requestPasswordReset).toHaveBeenCalledWith("shop@example.com"));
     await screen.findByText("Choose a new password");
     const confirmDialog = screen.getByRole("dialog");
-    fireEvent.change(within(confirmDialog).getByPlaceholderText("6-digit code"), { target: { value: "112233" } });
+    fireEvent.change(within(confirmDialog).getByPlaceholderText("Code from your email"), { target: { value: "112233" } });
     fireEvent.change(within(confirmDialog).getByPlaceholderText("New password"), { target: { value: "newhunter3" } });
     account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
     fireEvent.click(within(confirmDialog).getByRole("button", { name: "Set new password" }));

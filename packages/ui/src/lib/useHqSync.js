@@ -3,14 +3,15 @@ import { CHANGED_EVENT } from "./db";
 import { runSync, refreshSyncState } from "./syncEngine";
 
 // How often a connected device reports in even when nothing has happened.
-// It is a heartbeat, not the main mechanism: a sale goes up seconds after it
-// is rung, not up to two minutes later.
-const HEARTBEAT_MS = 2 * 60 * 1000;
+// Short enough that a device sitting idle on the head-office screen still
+// picks up another branch's sale within a few seconds, without anyone
+// touching anything.
+const HEARTBEAT_MS = 5 * 1000;
 
 // Long enough that ringing up a sale -- several writes in a row -- is one
-// push rather than six, short enough that head office sees it while the
-// customer is still at the counter.
-const AFTER_CHANGE_MS = 6 * 1000;
+// push rather than six, short enough that it is already up before the
+// customer has left the counter.
+const AFTER_CHANGE_MS = 800;
 
 /**
  * Keeps head office and the rest of the shop up to date in the background.

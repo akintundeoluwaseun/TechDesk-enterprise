@@ -27,7 +27,6 @@ import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { useLicense } from "../lib/LicenseContext";
 import { tierLabel } from "../lib/tier";
-import SyncStatus from "./SyncStatus";
 import { useHelp } from "../lib/HelpContext";
 import { searchEverything } from "../lib/searchAll";
 import { notificationFeed, notifStyle, timeAgo, isUnread, unreadCount } from "../lib/notifications";
@@ -334,11 +333,6 @@ export default function MobileAppBar({ onOpenActivation }) {
             </div>
 
             <div className={`border-t ${t.divider} p-2`}>
-              {/* Same as the desktop sidebar: whether this shop is up to
-                  date, where it is in sight, on a device that is part of a
-                  shop at all. */}
-              <SyncStatus variant="sheet" />
-
               <button
                 onClick={toggleDark}
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}

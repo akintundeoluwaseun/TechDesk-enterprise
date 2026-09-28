@@ -5,8 +5,8 @@ import { CHANGED_EVENT } from "./db";
 // Same cadence as useHqSync, for the same reason: a heartbeat that is
 // correct but not felt is not enough. A shop that makes a sale and checks
 // another device a few seconds later should find it there.
-const HEARTBEAT_MS = 2 * 60 * 1000;
-const AFTER_CHANGE_MS = 6 * 1000;
+const HEARTBEAT_MS = 5 * 1000;
+const AFTER_CHANGE_MS = 800;
 
 /**
  * Keeps a signed-in account's devices in sync with each other, in the

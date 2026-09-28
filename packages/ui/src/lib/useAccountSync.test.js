@@ -86,7 +86,9 @@ describe("the account sync scheduler", () => {
       .mockResolvedValueOnce({ ok: true, more: false, cursor: "c2" });
 
     renderHook(() => useAccountSync());
-    await vi.advanceTimersByTimeAsync(8000);
+    // Just the heartbeat's first tick, so this one run's own two-batch pull
+    // isn't muddied by the separate first-run timer also firing.
+    await vi.advanceTimersByTimeAsync(5000);
     await flush();
 
     expect(pull).toHaveBeenCalledTimes(2);
@@ -103,7 +105,7 @@ describe("the account sync scheduler", () => {
       .mockResolvedValueOnce({ ok: false, error: "network" });
 
     renderHook(() => useAccountSync());
-    await vi.advanceTimersByTimeAsync(8000);
+    await vi.advanceTimersByTimeAsync(5000);
     await flush();
 
     expect(setPullCursor).toHaveBeenCalledWith("c1");

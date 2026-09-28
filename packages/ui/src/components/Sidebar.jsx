@@ -22,7 +22,6 @@ import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { useLicense } from "../lib/LicenseContext";
 import { tierLabel } from "../lib/tier";
-import SyncStatus from "./SyncStatus";
 
 const NAV_ITEMS_BASE = [
   { to: "/", label: "Dashboard", icon: LayoutGrid, end: true },
@@ -128,11 +127,6 @@ export default function Sidebar({ onOpenActivation }) {
       </div>
 
       <div className="flex flex-col gap-2">
-        {/* Above the upgrade button, because it is about the shop as it is
-            rather than what it could buy. Draws nothing at all on a device
-            that is part of no shop. */}
-        <SyncStatus collapsed={collapsed} />
-
         <button
           onClick={onOpenActivation}
           title={collapsed ? (onFree ? "See what upgrading adds" : tierLabel(tier)) : undefined}
