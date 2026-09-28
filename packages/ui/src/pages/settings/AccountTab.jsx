@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Cloud, LogOut, RefreshCw, ChevronRight } from "lucide-react";
+import { Cloud, CheckCircle2, LogOut, LogIn, RefreshCw, ChevronRight } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import {
@@ -37,6 +37,17 @@ export default function AccountTab() {
   // used to look identical to a broken connection -- this is here so nobody
   // has to guess whether it is working.
   const [sync, setSync] = useState({ waiting: 0, lastPushAt: null, lastPullAt: null, busy: false, note: "" });
+  // A plain "you're in" said out loud, not just a modal quietly closing and a
+  // card somewhere below changing its text. Clears itself after a few
+  // seconds; it is a moment, not a permanent label -- the signed-in card
+  // itself is what answers "am I still signed in" after that.
+  const [justSignedIn, setJustSignedIn] = useState("");
+
+  useEffect(() => {
+    if (!justSignedIn) return undefined;
+    const id = setTimeout(() => setJustSignedIn(""), 4000);
+    return () => clearTimeout(id);
+  }, [justSignedIn]);
 
   useEffect(() => {
     account.status().then((next) => {
@@ -109,6 +120,7 @@ export default function AccountTab() {
       setWorkerName("");
       setOpenModal(null);
       setStatus(await account.status());
+      setJustSignedIn(`You're connected as ${workerName || "a worker"}.`);
       return;
     }
 
@@ -126,11 +138,22 @@ export default function AccountTab() {
     setPassword("");
     setOpenModal(null);
     setStatus(await account.status());
+    setJustSignedIn("You're signed in.");
   }
 
   async function signOut() {
     await account.signOut();
     setStatus(await account.status());
+    setJustSignedIn("");
+  }
+
+  /** Sign out of this device and go straight to Sign in -- no detour through
+   * the teaser card first, since the whole point is to land on a different
+   * business's credentials right away. */
+  async function switchAccount() {
+    await account.signOut();
+    setStatus(await account.status());
+    switchModal(MODES.signin);
   }
 
   const input = `w-full rounded-xl px-3 py-2.5 text-sm outline-none ${t.inputBg}`;
@@ -140,6 +163,14 @@ export default function AccountTab() {
   const isWorker = status.role === "worker";
   const accountSection = status.signedIn ? (
       <div className="flex flex-col gap-5">
+        {justSignedIn && (
+          <div className={`flex items-center gap-2 rounded-xl px-4 py-3 ${t.dark ? "bg-emerald-500/15" : "bg-emerald-50"}`}>
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+            <span className={`text-sm font-medium ${t.dark ? "text-emerald-300" : "text-emerald-700"}`}>
+              {justSignedIn}
+            </span>
+          </div>
+        )}
         <div className={`rounded-2xl p-6 ${t.cardBg}`}>
           <div className="flex items-center gap-3">
             <Cloud className="text-emerald-500" size={20} />
@@ -174,12 +205,20 @@ export default function AccountTab() {
             {sync.note && <p className={`text-xs mt-2 ${t.textMuted}`}>{sync.note}</p>}
           </div>
 
-          <button
-            onClick={signOut}
-            className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-red-500 bg-red-500/10"
-          >
-            <LogOut className="w-4 h-4" /> Sign out of this device
-          </button>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              onClick={signOut}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-red-500 bg-red-500/10"
+            >
+              <LogOut className="w-4 h-4" /> Sign out of this device
+            </button>
+            <button
+              onClick={switchAccount}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${t.pillBg}`}
+            >
+              <LogIn className="w-4 h-4" /> Sign in to a different business
+            </button>
+          </div>
         </div>
       </div>
   ) : (
@@ -293,40 +332,6 @@ export default function AccountTab() {
             >
               {busy ? "Working…" : modalTitle}
             </button>
-            {/* A way to switch to a different dialog without closing this one
-                and reopening from the teaser card. */}
-            <div className="flex flex-col gap-2 mt-1">
-              {openModal !== MODES.signin && (
-                <button
-                  type="button"
-                  onClick={() => switchModal(MODES.signin)}
-                  className={`flex items-center justify-between gap-2 w-full text-left px-4 py-3 rounded-xl text-sm font-medium ${t.insetBg} ${t.textPrimary}`}
-                >
-                  Already have an account? Sign in
-                  <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
-                </button>
-              )}
-              {openModal !== MODES.signup && (
-                <button
-                  type="button"
-                  onClick={() => switchModal(MODES.signup)}
-                  className={`flex items-center justify-between gap-2 w-full text-left px-4 py-3 rounded-xl text-sm font-medium ${t.insetBg} ${t.textPrimary}`}
-                >
-                  Setting up a new shop? Set up your business
-                  <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
-                </button>
-              )}
-              {openModal !== MODES.worker && (
-                <button
-                  type="button"
-                  onClick={() => switchModal(MODES.worker)}
-                  className={`flex items-center justify-between gap-2 w-full text-left px-4 py-3 rounded-xl text-sm font-medium ${t.insetBg} ${t.textPrimary}`}
-                >
-                  Joining a shop that already has an account? Connect to a business
-                  <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
-                </button>
-              )}
-            </div>
           </form>
         </SettingsModal>
       )}
