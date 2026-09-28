@@ -370,8 +370,8 @@ export default function AccountTab() {
             ) : openModal === MODES.confirmSignup ? (
               <input
                 value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                placeholder="6-digit code"
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                placeholder="Code from your email"
                 inputMode="numeric"
                 className={input}
                 autoFocus
@@ -389,8 +389,8 @@ export default function AccountTab() {
               <>
                 <input
                   value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="6-digit code"
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="Code from your email"
                   inputMode="numeric"
                   className={input}
                   autoFocus
