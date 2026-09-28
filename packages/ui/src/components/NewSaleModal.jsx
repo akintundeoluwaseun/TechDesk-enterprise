@@ -5,7 +5,6 @@ import { useAuth } from "../lib/AuthContext";
 import { db } from "../lib/db";
 import { currencySymbol, money } from "../lib/currency";
 import { useSettings } from "../lib/SettingsContext";
-import { isSynced } from "@techdesk/core";
 import MoneyInput from "./MoneyInput";
 import SignatureField from "./SignatureField";
 
@@ -20,12 +19,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
 
   const [productSearch, setProductSearch] = useState("");
   const productSearchRef = useRef(null);
-  // Never a synced-in partner's stock: selling an item draws down whatever
-  // product it names, and a product that arrived over a sync sits on a
-  // DIFFERENT shop's shelf. Seeing it in Inventory is the point of syncing;
-  // selling it here would silently spend a stranger's stock for a sale this
-  // shop rang up and kept the money from.
-  const inventory = db.getInventory().filter((p) => !isSynced(p));
+  const inventory = db.getInventory();
 
   // manual (not-in-inventory) form
   const [manualName, setManualName] = useState("");

@@ -653,8 +653,8 @@ export const db = {
    * storage -- newest write wins, per record, and a tombstone that postdates
    * an incoming write beats it even if the write arrived after.
    *
-   * Unlike sync.js's mergeSynced, nothing here is tagged as "somebody else's":
-   * every device pulling from the same account is the same shop, so a record
+   * Nothing here is tagged as "somebody else's": every device pulling from
+   * the same account is the same shop, so a record
    * from another of the shop's own devices carries no ownership badge -- it
    * is just the current version of that record.
    */

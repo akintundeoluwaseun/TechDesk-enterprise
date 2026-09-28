@@ -1251,68 +1251,6 @@ ipcMain.handle("techdesk:hq-disconnect", async (event, payload) => {
 // Hands back a disconnect that could not be delivered at the time. Called on
 // launch and when a sync succeeds, which is the cheapest proof that the
 // network is back.
-// Syncing with another device goes through here for the same reason the HQ
-// sync does: the token lives in this process, and handing it to the renderer
-// so it could post for itself would undo the point of keeping it here. The
-// renderer says which call and what to say; this adds who is saying it.
-//
-// The function name is checked against a list rather than passed through. It
-// arrives from the renderer, and a renderer that could name any function
-// could post this device's token to any of them.
-const SYNC_FUNCTIONS = new Set(["sync-start", "sync-verify", "sync-links", "sync-pull"]);
-
-ipcMain.handle("techdesk:sync-call", async (event, payload) => {
-  const fn = payload?.fn;
-  if (!SYNC_FUNCTIONS.has(fn)) return { ok: false, error: "bad_request" };
-  if (!payload?.url || !payload?.key) return { ok: false, error: "bad_request" };
-
-  const state = readHqState();
-  const body = { ...(payload.body || {}) };
-
-  // Registering is the one call that may arrive with no token, because it is
-  // what gives this device one. Everything else needs the token it already
-  // has, and says so rather than posting an anonymous request the server
-  // would only refuse.
-  const registering = fn === "sync-verify" && body.mode === "register";
-  const starting = fn === "sync-start" && body.mode === "register";
-  if (!state.token && !registering && !starting) {
-    return { ok: false, error: "not_registered" };
-  }
-
-  // Never from the renderer. The install id identifies this machine to the
-  // server, and letting the page choose it would let it register as another.
-  body.installId = state.installId || null;
-  if (state.token) body.token = state.token;
-
-  let data;
-  try {
-    const res = await fetch(`${payload.url}/functions/v1/${fn}`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${payload.key}`,
-        "apikey": payload.key,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-    data = await res.json();
-  } catch (err) {
-    // Offline is the normal case for a shop, not an exception.
-    return { ok: false, error: "offline", detail: String(err) };
-  }
-
-  // A device with no head office gets its identity here, so the token it is
-  // handed is stored here too -- and stripped before the renderer sees the
-  // answer, exactly as the HQ handshake does it.
-  if (registering && data?.ok && typeof data.token === "string" && data.token.length >= 16) {
-    const { token, ...rest } = data;
-    writeHqState({ ...readHqState(), token, syncPhone: data.phone || null });
-    return { ...rest, ok: true, stored: true };
-  }
-
-  return data;
-});
-
 ipcMain.handle("techdesk:hq-flush-revoke", async (event, payload) => {
   const state = readHqState();
   if (!state.revokeToken) return { ok: true, pending: false };

@@ -10,7 +10,6 @@ import {
   getPullCursor,
   setPullCursor,
 } from "../../lib/account";
-import SyncTab from "./SyncTab";
 import ConnectHqTab from "./ConnectHqTab";
 import DeveloperTab from "./DeveloperTab";
 import UpgradeLock from "../../components/UpgradeLock";
@@ -570,17 +569,6 @@ export default function AccountTab() {
       )}
 
       {workersOpen && <WorkersModal onClose={() => setWorkersOpen(false)} />}
-
-      <div className="flex flex-col gap-3">
-        <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Sync with another device</h2>
-        <UpgradeLock
-          feature="syncData"
-          title="Sync with another device"
-          what="You and one other person work off each other's stock, repairs and customers. You put your email or number in, they type it, and you read them the code. Nothing to do with head office."
-        >
-          <SyncTab />
-        </UpgradeLock>
-      </div>
 
       <div className="flex flex-col gap-3">
         <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Connect to head office</h2>

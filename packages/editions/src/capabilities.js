@@ -44,16 +44,6 @@ export const FEATURES = [
   "roles",
   "pin",
 
-  // Two people working off each other's records.
-  //
-  // Each puts their number in, one types the other's, and they are linked.
-  // Each side then ticks what IT sends over THAT link -- stock, repairs,
-  // customers -- and whoever can see a record can work on it, not just read
-  // it. Link three people in a row and it flows along the row.
-  //
-  // Not head office, and not sharing. Those are "hq" below.
-  "syncData",
-
   // Head office. One shop reporting up to an account that watches several.
   "hq",
 
@@ -69,14 +59,12 @@ const FREE = [
   "receiptPrint", "notifications", "activityLog", "search", "backup",
 ];
 
-// Paid. Staff behind the counter, receipts that leave it, and two people
-// working off each other's records.
+// Paid. Staff behind the counter, and receipts that leave it.
 //
-// NOT head office. A shop on Business syncs sideways -- one device to
-// another, by phone number -- and that is the whole of it. Reporting up to an
-// account that watches several shops is what the tier above is for, and a
-// shop that only ever has one counter should not be paying for it.
-const BUSINESS = [...FREE, "receiptPdf", "receiptShare", "staff", "roles", "pin", "syncData"];
+// NOT head office. Reporting up to an account that watches several shops is
+// what the tier above is for, and a shop that only ever has one counter
+// should not be paying for it.
+const BUSINESS = [...FREE, "receiptPdf", "receiptShare", "staff", "roles", "pin"];
 
 // Paid. More than one shop, and the head office that watches them.
 const ENTERPRISE = [...BUSINESS, "hq", "lan", "multiBranch", "unlimitedStaff"];

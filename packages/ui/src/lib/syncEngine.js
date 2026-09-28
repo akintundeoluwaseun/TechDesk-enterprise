@@ -12,9 +12,7 @@
 // would be worse than useless.
 
 import { hq } from "./hq";
-import { sync, pruneUnreachable } from "./sync";
 import { db } from "./db";
-import { can } from "./tier";
 
 const listeners = new Set();
 
@@ -103,29 +101,6 @@ export async function runSync({ loud = false } = {}) {
     }
     if (res?.ok) result.sent += res.sent || 0;
     else result = { ...result, ok: false, error: res?.error, message: res?.message };
-
-    if (can("syncData")) {
-      let pulls = 0;
-      let got = await sync.pull();
-      while (got?.ok && got.more && pulls < 20) {
-        pulls += 1;
-        result.received += got.received || 0;
-        got = await sync.pull();
-      }
-      if (got?.ok) result.received += got.received || 0;
-      // A pull that fails does not fail the whole run: what this device sent
-      // still went, and saying "sync failed" would be wrong about the half
-      // that worked.
-
-      // Who still reaches this device, and out with anything from anybody
-      // else. A link cut three devices away never reaches this one as an
-      // event -- the only way to find out is to ask, so every finished run
-      // asks once.
-      if (got?.ok) {
-        const state = await sync.refresh();
-        if (state?.ok) pruneUnreachable(state.reachable);
-      }
-    }
   } catch {
     result = { ok: false, error: "failed" };
   } finally {

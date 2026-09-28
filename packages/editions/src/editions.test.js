@@ -45,25 +45,20 @@ describe("what a shop gets without paying", () => {
   it("is one person, sharing with nobody", () => {
     expect(tierCan("free", "staff")).toBe(false);
     expect(tierCan("free", "pin")).toBe(false);
-    expect(tierCan("free", "syncData")).toBe(false);
     expect(tierCan("free", "hq")).toBe(false);
     expect(staffLimit("free")).toBe(1);
   });
 });
 
 describe("what each paid tier is for", () => {
-  it("business is staff, receipts that leave the counter, and one shop sharing", () => {
-    for (const f of ["staff", "roles", "pin", "receiptPdf", "receiptShare", "syncData"]) {
+  it("business is staff and receipts that leave the counter", () => {
+    for (const f of ["staff", "roles", "pin", "receiptPdf", "receiptShare"]) {
       expect(tierCan("business", f)).toBe(true);
     }
     expect(staffLimit("business")).toBe(3);
   });
 
-  // Sideways and upwards are different products. Business shares between the
-  // people in one shop; reporting up to an account that watches several shops
-  // is the tier above, and a one-counter shop should not be paying for it.
-  it("business shares sideways but does not report upwards", () => {
-    expect(tierCan("business", "syncData")).toBe(true);
+  it("business does not report upwards", () => {
     expect(tierCan("business", "hq")).toBe(false);
   });
 
@@ -82,7 +77,6 @@ describe("what each paid tier is for", () => {
 describe("a locked control can say what opens it", () => {
   it("names the cheapest tier that includes the feature", () => {
     expect(tierFor("receiptPdf")).toBe("business");
-    expect(tierFor("syncData")).toBe("business");
     expect(tierFor("hq")).toBe("enterprise");
     expect(tierFor("lan")).toBe("enterprise");
     expect(tierFor("sales")).toBe("free");
