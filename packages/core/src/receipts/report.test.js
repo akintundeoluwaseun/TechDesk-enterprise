@@ -61,3 +61,13 @@ describe("a long shop name never runs off the report's page", () => {
     expect(() => buildReportPdf(REPORT, "today")).not.toThrow();
   });
 });
+
+describe("the report cannot be edited once it's generated", () => {
+  beforeEach(() => storage.clear());
+
+  it("is locked with encryption, not left a plain editable PDF", async () => {
+    db.saveSettings({ shopName: "TechDesk" });
+    const { buildReportPdf } = await import("./report");
+    expect(buildReportPdf(REPORT, "today").output()).toMatch(/\/Encrypt \d+ 0 R/);
+  });
+});

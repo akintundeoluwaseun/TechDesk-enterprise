@@ -3,12 +3,12 @@ import autoTable from "jspdf-autotable";
 import { db } from "../db";
 import { pdfSafe } from "../pdfSafe";
 import { currencyPdfSymbol } from "../currency";
-import { fitFontSize } from "./layout";
+import { fitFontSize, pdfLock, printedOnLine } from "./layout";
 
 export function buildInvoicePdf(sale) {
   const settings = db.getSettings();
   const cur = currencyPdfSymbol(settings);
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const doc = new jsPDF({ unit: "pt", format: "a4", encryption: pdfLock() });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 40;
   const contentW = pageW - marginX * 2;
@@ -105,23 +105,43 @@ export function buildInvoicePdf(sale) {
   y += 20;
 
   const boxTop = y;
-  const boxH = 56;
+  const col2X = marginX + contentW / 2 + 10;
+  // Wrapped onto a second line rather than shrunk without limit -- a name
+  // long enough that even the smallest legible size would not fit its own
+  // column used to keep shrinking anyway, and print straight over whatever
+  // sat in the column beside it. Measured before the box is drawn, so the
+  // box itself can be tall enough for whatever wrapped.
+  const col1MaxW = col2X - (marginX + 75) - 10;
+  const col2MaxW = marginX + contentW - 10 - (col2X + 55);
+  const VALUE_LINE_H = 12;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(10);
+  const nameLines = doc.splitTextToSize(`: ${pdfSafe(sale.customerName) || "Walk-in"}`, col1MaxW);
+  const emailLines = doc.splitTextToSize(`: ${pdfSafe(sale.customerEmail) || "-"}`, col2MaxW);
+  const phoneLines = doc.splitTextToSize(`: ${pdfSafe(sale.customerPhone) || "-"}`, col1MaxW);
+  const addressLines = doc.splitTextToSize(`: ${pdfSafe(sale.customerAddress) || "-"}`, col2MaxW);
+  const row1Lines = Math.max(nameLines.length, emailLines.length);
+  const row2Lines = Math.max(phoneLines.length, addressLines.length);
+  const boxH = 56 + (row1Lines - 1) * VALUE_LINE_H + (row2Lines - 1) * VALUE_LINE_H;
+
   doc.setLineWidth(1);
   doc.roundedRect(marginX, boxTop, contentW, boxH, 4, 4, "S");
 
+  const row1Y = boxTop + 22;
+  const row2Y = row1Y + (row1Lines - 1) * VALUE_LINE_H + 20;
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10);
-  const col2X = marginX + contentW / 2 + 10;
-  doc.text("Name", marginX + 20, boxTop + 22);
-  doc.text("Phone", marginX + 20, boxTop + 42);
-  doc.text("Email", col2X, boxTop + 22);
-  doc.text("Address", col2X, boxTop + 42);
+  doc.text("Name", marginX + 20, row1Y);
+  doc.text("Phone", marginX + 20, row2Y);
+  doc.text("Email", col2X, row1Y);
+  doc.text("Address", col2X, row2Y);
 
   doc.setFont("helvetica", "normal");
-  doc.text(`: ${pdfSafe(sale.customerName) || "Walk-in"}`, marginX + 75, boxTop + 22);
-  doc.text(`: ${pdfSafe(sale.customerPhone) || "-"}`, marginX + 75, boxTop + 42);
-  doc.text(`: ${pdfSafe(sale.customerEmail) || "-"}`, col2X + 55, boxTop + 22);
-  doc.text(`: ${pdfSafe(sale.customerAddress) || "-"}`, col2X + 55, boxTop + 42);
+  doc.text(nameLines, marginX + 75, row1Y);
+  doc.text(phoneLines, marginX + 75, row2Y);
+  doc.text(emailLines, col2X + 55, row1Y);
+  doc.text(addressLines, col2X + 55, row2Y);
 
   y = boxTop + boxH + 26;
 
@@ -208,11 +228,17 @@ export function buildInvoicePdf(sale) {
   doc.text("Amount Paid", marginX + 20, payBoxTop + 40);
   doc.text("Balance", col2X, payBoxTop + 22);
 
-  doc.setFont("helvetica", "normal");
-  doc.text(`: ${pdfSafe(sale.paymentMethod) || "-"}`, marginX + 115, payBoxTop + 22);
-  doc.text(`: ${cur}${Number(sale.amountPaid || 0).toLocaleString()}`, marginX + 115, payBoxTop + 40);
+  const payCol1MaxW = col2X - (marginX + 115) - 10;
   const balance = Math.max(0, Number(sale.total) - Number(sale.amountPaid || 0));
-  doc.text(`: ${cur}${balance.toLocaleString()}`, col2X + 55, payBoxTop + 22);
+  drawFittedValue(doc, `: ${pdfSafe(sale.paymentMethod) || "-"}`, marginX + 115, payBoxTop + 22, payCol1MaxW);
+  drawFittedValue(
+    doc,
+    `: ${cur}${Number(sale.amountPaid || 0).toLocaleString()}`,
+    marginX + 115,
+    payBoxTop + 40,
+    payCol1MaxW
+  );
+  drawFittedValue(doc, `: ${cur}${balance.toLocaleString()}`, col2X + 55, payBoxTop + 22, col2MaxW);
 
   y = payBoxTop + payBoxH + 22;
 
@@ -275,8 +301,28 @@ export function buildInvoicePdf(sale) {
 
   doc.setFontSize(9);
   doc.text(`Powered by ${pdfSafe(settings.shopName || "TechDesk")}`, pageW / 2, y, { align: "center" });
+  y += 14;
+
+  // When THIS COPY was produced -- distinct from the sale's own Date/Time up
+  // top, which is when the transaction happened and can be long past by the
+  // time a receipt is reprinted.
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(120, 120, 120);
+  doc.text(printedOnLine(), pageW / 2, y, { align: "center" });
+  doc.setTextColor(0, 0, 0);
 
   return doc;
+}
+
+/**
+ * A detail-box value, shrunk to fit the column it was given rather than left
+ * to print over whatever sits beside it -- the same class of bug fitFontSize
+ * exists to fix for a shop's own name, applied here to a customer's.
+ */
+function drawFittedValue(doc, text, x, y, maxWidth) {
+  fitFontSize(doc, text, maxWidth, { max: 10, min: 7, style: "normal" });
+  doc.text(text, x, y);
 }
 
 /**

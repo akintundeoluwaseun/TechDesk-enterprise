@@ -3,14 +3,14 @@ import autoTable from "jspdf-autotable";
 import { db } from "../db";
 import { pdfSafe } from "../pdfSafe";
 import { currencyPdfSymbol } from "../currency";
-import { fitFontSize } from "./layout";
+import { fitFontSize, pdfLock } from "./layout";
 
 const FILTER_LABELS = { today: "Today", "7d": "Last 7 days", "30d": "Last 30 days", month: "This month" };
 
 export function buildReportPdf(report, filter) {
   const settings = db.getSettings();
   const cur = currencyPdfSymbol(settings);
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const doc = new jsPDF({ unit: "pt", format: "a4", encryption: pdfLock() });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 40;
   const contentW = pageW - marginX * 2;

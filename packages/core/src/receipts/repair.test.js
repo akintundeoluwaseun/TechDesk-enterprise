@@ -96,3 +96,17 @@ describe("the shop's own authorized signature, saved once in Settings", () => {
     expect(() => buildRepairTicketPdf(REPAIR)).not.toThrow();
   });
 });
+
+describe("neither the repair ticket nor the blank form can be edited once generated", () => {
+  beforeEach(() => storage.clear());
+
+  it("locks the repair ticket with encryption, not a plain editable PDF", () => {
+    db.saveSettings({ shopName: "TechDesk" });
+    expect(buildRepairTicketPdf(REPAIR).output()).toMatch(/\/Encrypt \d+ 0 R/);
+  });
+
+  it("locks the blank intake form the same way", () => {
+    db.saveSettings({ shopName: "TechDesk" });
+    expect(buildBlankRepairFormPdf().output()).toMatch(/\/Encrypt \d+ 0 R/);
+  });
+});

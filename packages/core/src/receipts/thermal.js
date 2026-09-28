@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import { db } from "../db";
 import { pdfSafe } from "../pdfSafe";
 import { currencyPdfSymbol } from "../currency";
-import { fitFontSize } from "./layout";
+import { fitFontSize, pdfLock, printedOnLine } from "./layout";
 
 const WIDTH_MM = 58;
 const MARGIN_MM = 3;
@@ -15,14 +15,30 @@ export function buildThermalReceiptPdf(sale) {
 
   const itemLines = (sale.items || []).length * 2;
   const contactLines = [settings.phone, settings.address, settings.email].filter(Boolean).length;
+
+  // How many lines the customer's own name/email/address will actually wrap
+  // to, measured before the roll's physical length is fixed -- a rough count
+  // (itemLines above is exactly this kind of guess) would either waste paper
+  // or, worse, cut real content off the bottom, and a wrapped name is exactly
+  // the case a fixed one-line-per-field guess gets wrong.
+  const scratch = new jsPDF({ unit: "mm", format: [WIDTH_MM, 100] });
+  scratch.setFont("helvetica", "normal");
+  scratch.setFontSize(7.5);
+  const wrappedLineCount = (text) => scratch.splitTextToSize(String(text || ""), contentW).length;
+  const customerExtraLines =
+    Math.max(0, wrappedLineCount(pdfSafe(sale.customerName) || "Walk-in") - 1) +
+    (sale.customerEmail ? Math.max(0, wrappedLineCount(pdfSafe(sale.customerEmail)) - 1) : 0) +
+    (sale.customerAddress ? Math.max(0, wrappedLineCount(pdfSafe(sale.customerAddress)) - 1) : 0);
+
   // +14 for the two signature blocks (authorized, then customer): a label
   // line, room for the image (or a blank line to sign on) and a divider
   // each -- fixed regardless of whether either signature was actually
   // captured, so the page is never sized too short to fit one added later.
-  const estimatedLines = 26 + itemLines + contactLines + 14;
+  // +1 for the printed-on line at the very bottom.
+  const estimatedLines = 26 + itemLines + contactLines + 14 + 1 + customerExtraLines;
   const heightMM = Math.max(85, estimatedLines * LINE_H + 20);
 
-  const doc = new jsPDF({ unit: "mm", format: [WIDTH_MM, heightMM] });
+  const doc = new jsPDF({ unit: "mm", format: [WIDTH_MM, heightMM], encryption: pdfLock() });
   let y = 5;
 
   const center = (text, size = 10, bold = false) => {
@@ -42,8 +58,30 @@ export function buildThermalReceiptPdf(sale) {
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setFontSize(8);
     doc.text(label, MARGIN_MM, y);
-    doc.text(value, WIDTH_MM - MARGIN_MM, y, { align: "right" });
+    // Shrunk to fit whatever room is left after the label, not left to run
+    // past the roll's own edge -- a long customer name or address at a fixed
+    // 8pt used to print straight off a 58mm roll instead of stopping.
+    const availW = WIDTH_MM - MARGIN_MM * 2 - doc.getTextWidth(label) - 2;
+    fitFontSize(doc, String(value), availW, { max: 8, min: 5, style: bold ? "bold" : "normal" });
+    doc.text(String(value), WIDTH_MM - MARGIN_MM, y, { align: "right" });
     y += LINE_H;
+  };
+  // Label on its own line, value wrapped beneath it -- for a field that can
+  // genuinely run long (a customer's own name, email, address), a fixed
+  // one-line layout either shrinks toward unreadable or, past that floor,
+  // overlaps whatever it was measured against. Reserved for those fields;
+  // kv() above stays the fast path for everything short.
+  const kvWrap = (label, value) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.text(label, MARGIN_MM, y);
+    y += LINE_H;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.splitTextToSize(String(value), contentW).forEach((line) => {
+      doc.text(line, MARGIN_MM, y);
+      y += LINE_H;
+    });
   };
   const divider = (dashed = true) => {
     if (dashed) doc.setLineDashPattern([1, 1], 0);
@@ -94,10 +132,10 @@ export function buildThermalReceiptPdf(sale) {
 
   // ---- Customer ----
   left("CUSTOMER", 7.5, true);
-  kv("Name", pdfSafe(sale.customerName) || "Walk-in");
+  kvWrap("Name", pdfSafe(sale.customerName) || "Walk-in");
   if (sale.customerPhone) kv("Phone", pdfSafe(sale.customerPhone));
-  if (sale.customerEmail) kv("Email", pdfSafe(sale.customerEmail));
-  if (sale.customerAddress) kv("Address", pdfSafe(sale.customerAddress));
+  if (sale.customerEmail) kvWrap("Email", pdfSafe(sale.customerEmail));
+  if (sale.customerAddress) kvWrap("Address", pdfSafe(sale.customerAddress));
   divider();
 
   // ---- Items ----
@@ -162,6 +200,12 @@ export function buildThermalReceiptPdf(sale) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6);
   doc.splitTextToSize(`Powered by ${pdfSafe(settings.shopName || "TechDesk")}`, contentW).forEach((l) => center(l, 6));
+
+  // When THIS COPY was produced -- distinct from the Date/Time up top, which
+  // is when the sale happened and can be long past by the time this is
+  // reprinted.
+  y += 1;
+  center(printedOnLine(), 6);
 
   return doc;
 }

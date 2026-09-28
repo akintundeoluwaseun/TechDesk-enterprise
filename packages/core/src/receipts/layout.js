@@ -56,3 +56,39 @@ export function drawLogo(doc, settings, x, y, maxW, maxH, { align = "left" } = {
     return 0;
   }
 }
+
+/** A one-off password nobody ever needs to type or remember -- it exists
+ * purely to seed the owner permissions below, never to unlock them again. */
+function randomOwnerPassword() {
+  if (globalThis.crypto?.getRandomValues) {
+    const bytes = new Uint8Array(16);
+    globalThis.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/**
+ * Locks a generated document against being edited, before it ever reaches a
+ * customer's hands. Pass as `new jsPDF({ ..., encryption: pdfLock() })`.
+ *
+ * No password is needed to open or print it -- userPassword stays empty, so
+ * every PDF viewer opens it exactly as it always did. What is refused is
+ * changing the document itself or adding form fields/annotations to it;
+ * printing and copying the text stay allowed, since neither is editing.
+ */
+export function pdfLock() {
+  return {
+    userPassword: "",
+    ownerPassword: randomOwnerPassword(),
+    userPermissions: ["print", "copy"],
+  };
+}
+
+/** "Printed" reads right whether the shop tapped Print or Save -- both hand
+ * the customer the same piece of paper, and what matters is when THIS COPY
+ * left the till, not when the underlying sale or repair happened (that is
+ * its own, separate date, already on every document that needs one). */
+export function printedOnLine() {
+  return `Printed ${new Date().toLocaleString("en-GB")}`;
+}

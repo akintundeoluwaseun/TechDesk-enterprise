@@ -3,7 +3,7 @@ import autoTable from "jspdf-autotable";
 import { db } from "../db";
 import { pdfSafe } from "../pdfSafe";
 import { currencyPdfSymbol } from "../currency";
-import { fitFontSize, drawLogo } from "./layout";
+import { fitFontSize, drawLogo, pdfLock } from "./layout";
 
 function contactLine(settings) {
   return [settings.phone, settings.address, settings.email]
@@ -78,7 +78,7 @@ function header(doc, marginX, settings, big = 22, maxNameWidth = Infinity) {
 export function buildRepairTicketPdf(repair) {
   const settings = db.getSettings();
   const cur = currencyPdfSymbol(settings);
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const doc = new jsPDF({ unit: "pt", format: "a4", encryption: pdfLock() });
   const pageW = doc.internal.pageSize.getWidth();
   const marginX = 40;
   const contentW = pageW - marginX * 2;
@@ -266,7 +266,7 @@ export function buildRepairTicketPdf(repair) {
 
 export function buildBlankRepairFormPdf() {
   const settings = db.getSettings();
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
+  const doc = new jsPDF({ unit: "pt", format: "a4", encryption: pdfLock() });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const marginX = 34;

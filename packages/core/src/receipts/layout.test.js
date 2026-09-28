@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import jsPDF from "jspdf";
-import { fitFontSize, drawLogo } from "./layout";
+import { fitFontSize, drawLogo, pdfLock, printedOnLine } from "./layout";
 
 // A 2x2 PNG. Small, real, and decodable -- jsPDF reads the header.
 const LOGO =
@@ -52,5 +52,44 @@ describe("drawLogo scales to fit without stretching", () => {
   it("survives a logo that is not a usable image", () => {
     const doc = new jsPDF({ unit: "pt", format: "a4" });
     expect(() => drawLogo(doc, { logo: "data:image/png;base64,not-a-png" }, 40, 20, 36, 28)).not.toThrow();
+  });
+});
+
+describe("pdfLock refuses editing, without ever asking anyone for a password", () => {
+  it("leaves the user password empty, so any PDF viewer opens it straight away", () => {
+    expect(pdfLock().userPassword).toBe("");
+  });
+
+  it("does not grant permission to modify the document or add form fields/annotations", () => {
+    const { userPermissions } = pdfLock();
+    expect(userPermissions).not.toContain("modify");
+    expect(userPermissions).not.toContain("annot-forms");
+  });
+
+  it("still allows printing and copying the text -- neither is editing", () => {
+    const { userPermissions } = pdfLock();
+    expect(userPermissions).toContain("print");
+    expect(userPermissions).toContain("copy");
+  });
+
+  it("gives every document its own owner password, not one fixed value shared by all", () => {
+    const a = pdfLock().ownerPassword;
+    const b = pdfLock().ownerPassword;
+    expect(a).not.toBe("");
+    expect(a).not.toBe(b);
+  });
+
+  it("actually locks the PDF it is passed to, not just the options object", () => {
+    const doc = new jsPDF({ unit: "pt", format: "a4", encryption: pdfLock() });
+    doc.text("Hello", 40, 40);
+    // The one thing every encrypted PDF must reference from its trailer,
+    // regardless of what jsPDF names the object holding it.
+    expect(doc.output()).toMatch(/\/Encrypt \d+ 0 R/);
+  });
+});
+
+describe("printedOnLine says when this copy left the till", () => {
+  it("starts with the word 'Printed', not the sale or repair's own date", () => {
+    expect(printedOnLine()).toMatch(/^Printed /);
   });
 });
