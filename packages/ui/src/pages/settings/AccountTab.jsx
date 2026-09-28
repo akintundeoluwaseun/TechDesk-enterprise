@@ -14,6 +14,7 @@ import ConnectHqTab from "./ConnectHqTab";
 import DeveloperTab from "./DeveloperTab";
 import UpgradeLock from "../../components/UpgradeLock";
 import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
+import { useAuth } from "../../lib/AuthContext";
 
 const MODES = {
   signin: "signin",
@@ -30,6 +31,7 @@ const MODES = {
 
 export default function AccountTab() {
   const t = useThemeTokens();
+  const { syncUserFromAccount } = useAuth();
   const [status, setStatus] = useState(null);
   // null means the teaser card is showing, not a form. Each of the three
   // ways in (sign in, set up a business, join with a worker code) pops up
@@ -129,6 +131,12 @@ export default function AccountTab() {
     setNewPassword("");
     setOpenModal(null);
     setStatus(await account.status());
+    // This tab keeps its own copy of status() for its own display, but the
+    // role that actually gates which pages this device can open lives in
+    // AuthContext -- without this, joining as a worker (or switching to a
+    // different business) from here leaves the rest of the app still
+    // running as whatever this device was before.
+    await syncUserFromAccount();
     setJustSignedIn(message);
   }
 

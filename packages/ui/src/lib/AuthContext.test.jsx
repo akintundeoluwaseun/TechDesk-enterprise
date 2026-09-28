@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { AuthProvider, useAuth, canAccess } from "./AuthContext";
 
 vi.mock("./account", () => ({
@@ -16,13 +16,14 @@ beforeEach(async () => {
 });
 
 function Probe() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, syncUserFromAccount } = useAuth();
   return (
     <div>
       <span data-testid="name">{user?.name ?? "none"}</span>
       <span data-testid="role">{user?.role ?? "none"}</span>
       <span data-testid="pages">{(user?.pages || []).join(",")}</span>
       <span data-testid="isAdmin">{String(isAdmin)}</span>
+      <button onClick={() => syncUserFromAccount()}>resync</button>
     </div>
   );
 }
@@ -77,6 +78,35 @@ describe("a worker's device signs itself in", () => {
     // Give the status check a tick to resolve, then confirm it changed nothing.
     await waitFor(() => expect(account.status).toHaveBeenCalled());
     expect(screen.getByTestId("role").textContent).toBe("admin");
+  });
+});
+
+describe("a role change mid-session, without the provider remounting", () => {
+  // The bug this guards: AuthProvider mounts once, at the top of the app,
+  // and its own status check runs once, on that mount -- before a worker
+  // ever gets the chance to redeem an invite code on the screen underneath
+  // it. Joining as a worker (from AccountGateScreen, or from Settings) does
+  // not remount AuthProvider, so nothing ever told it the role had changed
+  // -- the device kept showing the full admin view, dashboard and all,
+  // until the next full restart happened to re-run the mount check.
+  // syncUserFromAccount is what AccountGateScreen/AccountTab now call the
+  // moment a join or sign-in actually succeeds, instead of waiting on that.
+  it("picks up a fresh worker role when asked to, without remounting", async () => {
+    const { account } = await import("./account");
+    account.status.mockResolvedValue({ signedIn: false });
+
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await waitFor(() => expect(account.status).toHaveBeenCalled());
+    expect(screen.getByTestId("role").textContent).toBe("admin");
+
+    // This device just redeemed a worker invite code -- the real answer
+    // changed, but nothing about this component tree did.
+    account.status.mockResolvedValue({ signedIn: true, role: "worker", workerName: "Ade", pages: ["sales"] });
+    fireEvent.click(screen.getByText("resync"));
+
+    await waitFor(() => expect(screen.getByTestId("role").textContent).toBe("worker"));
+    expect(screen.getByTestId("name").textContent).toBe("Ade");
+    expect(screen.getByTestId("pages").textContent).toBe("sales");
   });
 });
 

@@ -2,6 +2,7 @@ import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { ThemeProvider } from "../../lib/ThemeContext";
+import { AuthProvider } from "../../lib/AuthContext";
 import AccountTab from "./AccountTab";
 
 vi.mock("../../lib/account", () => ({
@@ -22,10 +23,11 @@ vi.mock("../../lib/account", () => ({
   setPushCursor: vi.fn(),
   getPullCursor: vi.fn(() => null),
   setPullCursor: vi.fn(),
+  getCachedAccountStatus: vi.fn(() => null),
 }));
 
 vi.mock("../../lib/db", () => ({
-  db: { countUnsynced: vi.fn(() => 0) },
+  db: { countUnsynced: vi.fn(() => 0), getSettings: vi.fn(() => ({})) },
 }));
 
 beforeEach(() => vi.clearAllMocks());
@@ -35,7 +37,7 @@ describe("a signed-in device", () => {
     const { account } = await import("../../lib/account");
     account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
 
     await screen.findByText("Signed in");
     expect(screen.getByText("shop@example.com")).toBeInTheDocument();
@@ -46,7 +48,7 @@ describe("a signed-in device", () => {
     const { account } = await import("../../lib/account");
     account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
     await screen.findByText("Signed in");
 
     fireEvent.click(screen.getByText("Sign in to a different business"));
@@ -67,7 +69,7 @@ describe("signing in says so, plainly", () => {
     account.status.mockResolvedValue({ signedIn: false });
     account.signIn.mockResolvedValue({ ok: true });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
     await screen.findByText("Sign in to sync data");
 
     fireEvent.click(screen.getByText("Sign in"));
@@ -85,7 +87,7 @@ describe("signing in says so, plainly", () => {
     account.status.mockResolvedValue({ signedIn: false });
     account.workerJoin.mockResolvedValue({ ok: true, workerName: "Ade" });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
     await screen.findByText("Sign in to sync data");
 
     fireEvent.click(screen.getByText(/Joining a shop that already has an account/));
@@ -104,7 +106,7 @@ describe("each door shows only its own form", () => {
     const { account } = await import("../../lib/account");
     account.status.mockResolvedValue({ signedIn: false });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
     await screen.findByText("Sign in to sync data");
 
     fireEvent.click(screen.getByText("Sign in"));
@@ -128,7 +130,7 @@ describe("finishing a fresh signup with the code from the confirmation email", (
     account.signUp.mockResolvedValue({ ok: true, needsConfirmation: true });
     account.confirmSignUp.mockResolvedValue({ ok: true });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
     await screen.findByText("Sign in to sync data");
 
     fireEvent.click(screen.getByText(/Set up your business/));
@@ -154,7 +156,7 @@ describe("finishing a fresh signup with the code from the confirmation email", (
     account.signUp.mockResolvedValue({ ok: true, needsConfirmation: true });
     account.confirmSignUp.mockResolvedValue({ ok: false, message: "That code isn't right, or it has expired. Ask for a new one." });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
     await screen.findByText("Sign in to sync data");
     fireEvent.click(screen.getByText(/Set up your business/));
     fireEvent.change(screen.getByPlaceholderText("Email"), { target: { value: "shop@example.com" } });
@@ -176,7 +178,7 @@ describe("forgot password", () => {
     const { account } = await import("../../lib/account");
     account.status.mockResolvedValue({ signedIn: false });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
     await screen.findByText("Sign in to sync data");
 
     fireEvent.click(screen.getByText("Sign in"));
@@ -193,7 +195,7 @@ describe("forgot password", () => {
     account.requestPasswordReset.mockResolvedValue({ ok: true });
     account.confirmPasswordReset.mockResolvedValue({ ok: true });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
     await screen.findByText("Sign in to sync data");
     fireEvent.click(screen.getByText("Sign in"));
     fireEvent.click(screen.getByText("Forgot password?"));
@@ -222,7 +224,7 @@ describe("forgot password", () => {
     account.status.mockResolvedValue({ signedIn: false });
     account.requestPasswordReset.mockResolvedValue({ ok: true });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
     await screen.findByText("Sign in to sync data");
     fireEvent.click(screen.getByText("Sign in"));
     fireEvent.click(screen.getByText("Forgot password?"));
@@ -240,7 +242,7 @@ describe("a worker's own device signed in here", () => {
     const { account } = await import("../../lib/account");
     account.status.mockResolvedValue({ signedIn: true, role: "worker", workerName: "Ade" });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
 
     await screen.findByText("Connected as Ade");
     expect(screen.getByText("Working on this shop's sales, repairs and inventory.")).toBeInTheDocument();
@@ -253,7 +255,7 @@ describe("not signed in yet", () => {
     account.status.mockResolvedValue({ signedIn: false });
     account.workerJoin.mockResolvedValue({ ok: true, workerName: "Ade" });
 
-    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
     await screen.findByText("Sign in to sync data");
 
     fireEvent.click(screen.getByText(/Joining a shop that already has an account/));

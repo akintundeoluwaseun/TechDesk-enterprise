@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import { Cloud, HardDrive } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { account, setAccountGateDecision } from "../lib/account";
+import { useAuth } from "../lib/AuthContext";
 
-const MODES = { choose: "choose", signup: "signup", signin: "signin", worker: "worker" };
+const MODES = { choose: "choose", signup: "signup", signin: "signin", worker: "worker", confirmSignup: "confirmSignup" };
 
 /**
  * Shown once, on a device's very first run: sign in to sync data across
@@ -14,17 +15,28 @@ const MODES = { choose: "choose", signup: "signup", signin: "signin", worker: "w
  */
 export default function AccountGateScreen({ onDone }) {
   const t = useThemeTokens();
+  const { syncUserFromAccount } = useAuth();
   const [mode, setMode] = useState(MODES.choose);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
   const [workerCode, setWorkerCode] = useState("");
   const [workerName, setWorkerName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
 
   function continueLocally() {
     setAccountGateDecision("local");
+    onDone();
+  }
+
+  async function finish() {
+    setAccountGateDecision("signed-in");
+    // This device just proved itself as a worker (or an owner) -- without
+    // this, the app moves on to Shell still carrying whatever role it
+    // guessed before this screen ever ran, and a worker's device shows the
+    // full admin view until its next full restart.
+    await syncUserFromAccount();
     onDone();
   }
 
@@ -37,21 +49,26 @@ export default function AccountGateScreen({ onDone }) {
       const res = await account.workerJoin(email, workerCode, workerName);
       setBusy(false);
       if (!res.ok) return setError(res.message || "That didn't work. Try again.");
-      setAccountGateDecision("signed-in");
-      onDone();
-      return;
+      return finish();
+    }
+
+    if (mode === MODES.confirmSignup) {
+      const res = await account.confirmSignUp(email, code);
+      setBusy(false);
+      if (!res.ok) return setError(res.message || "That didn't work. Try again.");
+      return finish();
     }
 
     const res = mode === MODES.signup ? await account.signUp(email, password) : await account.signIn(email, password);
     setBusy(false);
     if (!res.ok) return setError(res.message || "That didn't work. Try again.");
     if (res.needsConfirmation) {
-      setNotice("Check your email to confirm the account, then come back and sign in.");
-      setMode(MODES.signin);
+      setError("");
+      setCode("");
+      setMode(MODES.confirmSignup);
       return;
     }
-    setAccountGateDecision("signed-in");
-    onDone();
+    return finish();
   }
 
   const input = `w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`;
@@ -113,6 +130,8 @@ export default function AccountGateScreen({ onDone }) {
                   ? "Set up your business"
                   : mode === MODES.worker
                   ? "Joining as a worker"
+                  : mode === MODES.confirmSignup
+                  ? "Confirm your email"
                   : "Connect to a business"}
               </h1>
               {mode === MODES.worker && (
@@ -120,16 +139,23 @@ export default function AccountGateScreen({ onDone }) {
                   Ask the shop's owner for its email and the code they generated for you.
                 </p>
               )}
+              {mode === MODES.confirmSignup && (
+                <p className={`text-sm mt-2 ${t.textSecondary}`}>
+                  We sent a code to {email || "your email"}. Enter it to finish setting up your account.
+                </p>
+              )}
             </div>
             <form onSubmit={submit} className="flex flex-col gap-3">
-              <input
-                type="email"
-                autoFocus
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={input}
-              />
+              {mode !== MODES.confirmSignup && (
+                <input
+                  type="email"
+                  autoFocus
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={input}
+                />
+              )}
               {mode === MODES.worker ? (
                 <>
                   <input
@@ -146,6 +172,15 @@ export default function AccountGateScreen({ onDone }) {
                     className={input}
                   />
                 </>
+              ) : mode === MODES.confirmSignup ? (
+                <input
+                  autoFocus
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+                  placeholder="Code from your email"
+                  inputMode="numeric"
+                  className={input}
+                />
               ) : (
                 <input
                   type="password"
@@ -156,7 +191,6 @@ export default function AccountGateScreen({ onDone }) {
                 />
               )}
               {error && <p className="text-sm text-red-500">{error}</p>}
-              {notice && <p className="text-sm text-emerald-500">{notice}</p>}
               <button
                 type="submit"
                 disabled={busy}
@@ -170,15 +204,16 @@ export default function AccountGateScreen({ onDone }) {
                   ? "Set up your business"
                   : mode === MODES.worker
                   ? "Join"
+                  : mode === MODES.confirmSignup
+                  ? "Confirm"
                   : "Connect to a business"}
               </button>
-              {mode !== MODES.worker && (
+              {mode !== MODES.worker && mode !== MODES.confirmSignup && (
                 <button
                   type="button"
                   onClick={() => {
                     setMode(mode === MODES.signup ? MODES.signin : MODES.signup);
                     setError("");
-                    setNotice("");
                   }}
                   className={`text-sm ${t.textSecondary}`}
                 >

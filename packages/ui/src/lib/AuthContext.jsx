@@ -87,6 +87,26 @@ export function AuthProvider({ children }) {
     return workerFromCache() || ADMIN_USER;
   });
 
+  // The one place that turns a real account.status() answer into `user`.
+  // Used both by the mount check below and by anything that just changed
+  // which account/role this device holds -- AccountGateScreen's worker join
+  // and AccountTab's are the two callers, and neither one is this provider's
+  // own child re-mounting, so nothing else would ever notice the change:
+  // this same AuthProvider stays mounted underneath both of them, and its
+  // `user` only ever gets set from a status() call, never recomputed just
+  // because a screen further down finished.
+  async function syncUserFromAccount() {
+    const s = await account.status();
+    if (s?.signedIn && s?.role === "worker") {
+      setUser({ id: "worker", name: s.workerName || "Worker", role: "worker", pages: grantedPages(s.pages) });
+    } else if (!db.getSettings().requirePin) {
+      // The cache (or a previous session) said worker and the real answer
+      // disagrees -- back to admin, the same as any other device that was
+      // never a worker's.
+      setUser((current) => (current?.id === "worker" ? ADMIN_USER : current));
+    }
+  }
+
   // A worker's device already proved itself, once, by redeeming an invite
   // code -- it does not also need a local PIN on top of that, and it must
   // never land on the PIN picker as if it were a fresh, unclaimed device.
@@ -108,8 +128,6 @@ export function AuthProvider({ children }) {
       if (s?.signedIn && s?.role === "worker") {
         setUser({ id: "worker", name: s.workerName || "Worker", role: "worker", pages: grantedPages(s.pages) });
       } else if (!db.getSettings().requirePin) {
-        // The cache said worker and the real answer disagrees -- back to
-        // admin, the same as any other device that was never a worker's.
         setUser((current) => (current?.id === "worker" ? ADMIN_USER : current));
       }
     });
@@ -141,7 +159,9 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, signIn, signOut, isAdmin: user?.role === "admin" }}>
+    <AuthContext.Provider
+      value={{ user, signIn, signOut, isAdmin: user?.role === "admin", syncUserFromAccount }}
+    >
       {children}
     </AuthContext.Provider>
   );

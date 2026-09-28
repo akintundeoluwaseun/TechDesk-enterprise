@@ -2,6 +2,7 @@ import React from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ThemeProvider } from "../lib/ThemeContext";
+import { AuthProvider } from "../lib/AuthContext";
 import AccountGateScreen from "./AccountGateScreen";
 
 // "Single business" vs "connected to a larger business" is answered by which
@@ -13,26 +14,26 @@ import AccountGateScreen from "./AccountGateScreen";
 // asking about a login for the app itself rather than about the shop.
 describe("the choice a new device is actually asked", () => {
   it("offers set up vs connect, not a generic sign in / sign up", () => {
-    render(<ThemeProvider><AccountGateScreen onDone={vi.fn()} /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountGateScreen onDone={vi.fn()} /></AuthProvider></ThemeProvider>);
     expect(screen.getByText("Set up your business")).toBeInTheDocument();
     expect(screen.getByText("Connect to a business -- sign in")).toBeInTheDocument();
     expect(screen.getByText("Continue locally, no account")).toBeInTheDocument();
   });
 
   it("Set up your business opens the sign-up form", () => {
-    render(<ThemeProvider><AccountGateScreen onDone={vi.fn()} /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountGateScreen onDone={vi.fn()} /></AuthProvider></ThemeProvider>);
     fireEvent.click(screen.getByText("Set up your business"));
     expect(screen.getByRole("heading", { name: "Set up your business" })).toBeInTheDocument();
   });
 
   it("Connect to a business opens the sign-in form", () => {
-    render(<ThemeProvider><AccountGateScreen onDone={vi.fn()} /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountGateScreen onDone={vi.fn()} /></AuthProvider></ThemeProvider>);
     fireEvent.click(screen.getByText("Connect to a business -- sign in"));
     expect(screen.getByRole("heading", { name: "Connect to a business" })).toBeInTheDocument();
   });
 
   it("offers a third door for a worker joining with a code, distinct from the owner's sign-in", () => {
-    render(<ThemeProvider><AccountGateScreen onDone={vi.fn()} /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountGateScreen onDone={vi.fn()} /></AuthProvider></ThemeProvider>);
     fireEvent.click(screen.getByText("Joining as a worker, with a code"));
     expect(screen.getByRole("heading", { name: "Joining as a worker" })).toBeInTheDocument();
     // A code and a name, never a password -- that is the entire point of
@@ -51,7 +52,7 @@ describe("a worker joining with a code", () => {
       .mockResolvedValue({ ok: true, workerName: "Ade" });
     const onDone = vi.fn();
 
-    render(<ThemeProvider><AccountGateScreen onDone={onDone} /></ThemeProvider>);
+    render(<ThemeProvider><AuthProvider><AccountGateScreen onDone={onDone} /></AuthProvider></ThemeProvider>);
     fireEvent.click(screen.getByText("Joining as a worker, with a code"));
 
     fireEvent.change(screen.getByPlaceholderText("Email"), { target: { value: "shop@example.com" } });
