@@ -101,6 +101,19 @@ describe("the Users tab", () => {
     db.getUsers().forEach((u) => db.deleteUser(u.id));
   });
 
+  it("keeps PIN recovery behind its own popup", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: false });
+
+    usersTab();
+    expect(screen.getByText("If you forget your PIN")).toBeInTheDocument();
+    expect(screen.getByText("Nothing set yet")).toBeInTheDocument();
+    expect(screen.queryByText("Save questions")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("Manage"));
+    expect(screen.getByText("Save questions")).toBeInTheDocument();
+  });
+
   it("keeps local users behind their own popup, off the tab itself", async () => {
     const { account } = await import("../../lib/account");
     account.status.mockResolvedValue({ signedIn: false });
@@ -113,22 +126,32 @@ describe("the Users tab", () => {
     expect(screen.getByText("Add user")).toBeInTheDocument();
   });
 
-  it("never offers online workers to a device that isn't signed into a cloud account", async () => {
+  it("still shows the online workers row to a device that isn't signed in, with a hint why it's not usable yet", async () => {
     const { account } = await import("../../lib/account");
     account.status.mockResolvedValue({ signedIn: false });
 
     usersTab();
-    await waitFor(() => expect(account.status).toHaveBeenCalled());
-    expect(screen.queryByText("Manage online workers")).not.toBeInTheDocument();
+    const manage = await screen.findByText("Manage online workers");
+    expect(screen.getByText("Sign in from Account first")).toBeInTheDocument();
+
+    fireEvent.click(manage);
+    expect(
+      screen.getByText(/isn't signed into the shop's cloud account yet/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Invite a worker")).not.toBeInTheDocument();
   });
 
-  it("never offers a worker's own device a way to manage other workers", async () => {
+  it("tells a worker's own device it can't manage other workers, rather than hiding the option", async () => {
     const { account } = await import("../../lib/account");
     account.status.mockResolvedValue({ signedIn: true, role: "worker", workerName: "Ade" });
 
     usersTab();
-    await waitFor(() => expect(account.status).toHaveBeenCalled());
-    expect(screen.queryByText("Manage online workers")).not.toBeInTheDocument();
+    const manage = await screen.findByText("Manage online workers");
+    expect(screen.getByText("Not on a worker's own device")).toBeInTheDocument();
+
+    fireEvent.click(manage);
+    expect(screen.getByText(/can't invite or manage another worker/)).toBeInTheDocument();
+    expect(screen.queryByText("Invite a worker")).not.toBeInTheDocument();
   });
 
   it("lets the signed-in owner invite and see online workers, in their own popup", async () => {

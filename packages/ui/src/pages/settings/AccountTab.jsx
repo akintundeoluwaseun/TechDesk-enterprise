@@ -13,7 +13,7 @@ import {
 import ConnectHqTab from "./ConnectHqTab";
 import DeveloperTab from "./DeveloperTab";
 import UpgradeLock from "../../components/UpgradeLock";
-import SettingsModal from "../../components/SettingsModal";
+import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
 
 const MODES = { signin: "signin", signup: "signup", worker: "worker" };
 
@@ -25,6 +25,7 @@ export default function AccountTab() {
   // as its own dialog rather than swapping in place on the settings page --
   // nothing half-filled sits around behind a page that looks otherwise done.
   const [openModal, setOpenModal] = useState(null);
+  const [hqOpen, setHqOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [workerCode, setWorkerCode] = useState("");
@@ -330,16 +331,24 @@ export default function AccountTab() {
         </SettingsModal>
       )}
 
-      <div className="flex flex-col gap-3">
-        <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Connect to head office</h2>
-        <UpgradeLock
-          feature="hq"
-          title="Connect this branch to head office"
-          what="Report this branch up to a head office account, so whoever runs the business sees its sales and repairs from their own phone."
-        >
-          <ConnectHqTab />
-        </UpgradeLock>
-      </div>
+      <SettingsRow
+        title="Connect to head office"
+        description="Report this branch up to a head office account, so whoever runs the business sees its sales and repairs from their own phone."
+        onOpen={() => setHqOpen(true)}
+        actionLabel="Manage head office"
+      />
+
+      {hqOpen && (
+        <SettingsModal title="Connect to head office" onClose={() => setHqOpen(false)}>
+          <UpgradeLock
+            feature="hq"
+            title="Connect this branch to head office"
+            what="Report this branch up to a head office account, so whoever runs the business sees its sales and repairs from their own phone."
+          >
+            <ConnectHqTab />
+          </UpgradeLock>
+        </SettingsModal>
+      )}
 
       <DeveloperTab />
     </div>

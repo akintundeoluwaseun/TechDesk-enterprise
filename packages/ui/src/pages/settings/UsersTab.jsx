@@ -6,6 +6,7 @@ import { db } from "../../lib/db";
 import { account } from "../../lib/account";
 import PinRecoverySetup from "../../components/PinRecoverySetup";
 import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
+import { isConfigured as pinRecoveryConfigured } from "../../lib/pinRecovery";
 import { currentStaffLimit, tierLabel, nextTier } from "../../lib/tier";
 import { TIER_META } from "@techdesk/editions";
 
@@ -175,12 +176,17 @@ function InviteWorkerPanel() {
  * reach this shop's records from somewhere else, not who can sign in at
  * this counter.
  */
-function OnlineWorkersModal({ onClose }) {
+function OnlineWorkersModal({ onClose, accountStatus }) {
   const t = useThemeTokens();
   const [state, setState] = useState({ loading: true, workers: [], error: "" });
   const [busyId, setBusyId] = useState(null);
 
+  const signedIn = Boolean(accountStatus?.signedIn);
+  const isWorkerDevice = signedIn && accountStatus.role === "worker";
+  const canManage = signedIn && !isWorkerDevice;
+
   useEffect(() => {
+    if (!canManage) return undefined;
     let cancelled = false;
     account.listWorkers().then((res) => {
       if (cancelled) return;
@@ -193,7 +199,7 @@ function OnlineWorkersModal({ onClose }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [canManage]);
 
   async function disconnect(worker) {
     if (
@@ -217,38 +223,57 @@ function OnlineWorkersModal({ onClose }) {
       description="Anyone connected to this shop's cloud account from their own device -- invite one, see what each can open, and disconnect one immediately if you need to."
       onClose={onClose}
     >
-      <div className="flex flex-col gap-6">
-        <InviteWorkerPanel />
+      {!signedIn && (
+        <div className={`rounded-xl p-4 ${t.insetBg}`}>
+          <p className={`text-sm ${t.textSecondary}`}>
+            This device isn't signed into the shop's cloud account yet. Sign in (or set one up) from the
+            Account tab, then come back here to invite a worker.
+          </p>
+        </div>
+      )}
 
-        <div>
-          <div className={`text-xs uppercase tracking-wider mb-2 ${t.textMuted}`}>Connected now</div>
-          {state.loading && <p className={`text-sm ${t.textSecondary}`}>Loading…</p>}
-          {state.error && <p className="text-sm text-red-500">{state.error}</p>}
-          {!state.loading && !state.error && state.workers.length === 0 && (
-            <p className={`text-sm ${t.textSecondary}`}>No workers connected yet.</p>
-          )}
-          <div className="flex flex-col gap-3">
-            {state.workers.map((w) => (
-              <div key={w.id} className={`flex items-center justify-between gap-3 rounded-xl p-4 ${t.insetBg}`}>
-                <div className="min-w-0">
-                  <div className={`font-semibold truncate ${t.textPrimary}`}>{w.name}</div>
-                  <div className={`text-xs mt-0.5 ${t.textMuted}`}>Can open: {pagesLabel(w.pages)}</div>
-                  {w.joinedAt && (
-                    <div className={`text-xs ${t.textMuted}`}>Joined {new Date(w.joinedAt).toLocaleDateString()}</div>
-                  )}
+      {isWorkerDevice && (
+        <div className={`rounded-xl p-4 ${t.insetBg}`}>
+          <p className={`text-sm ${t.textSecondary}`}>
+            A worker's own device can't invite or manage another worker -- only the owner's device can.
+          </p>
+        </div>
+      )}
+
+      {canManage && (
+        <div className="flex flex-col gap-6">
+          <InviteWorkerPanel />
+
+          <div>
+            <div className={`text-xs uppercase tracking-wider mb-2 ${t.textMuted}`}>Connected now</div>
+            {state.loading && <p className={`text-sm ${t.textSecondary}`}>Loading…</p>}
+            {state.error && <p className="text-sm text-red-500">{state.error}</p>}
+            {!state.loading && !state.error && state.workers.length === 0 && (
+              <p className={`text-sm ${t.textSecondary}`}>No workers connected yet.</p>
+            )}
+            <div className="flex flex-col gap-3">
+              {state.workers.map((w) => (
+                <div key={w.id} className={`flex items-center justify-between gap-3 rounded-xl p-4 ${t.insetBg}`}>
+                  <div className="min-w-0">
+                    <div className={`font-semibold truncate ${t.textPrimary}`}>{w.name}</div>
+                    <div className={`text-xs mt-0.5 ${t.textMuted}`}>Can open: {pagesLabel(w.pages)}</div>
+                    {w.joinedAt && (
+                      <div className={`text-xs ${t.textMuted}`}>Joined {new Date(w.joinedAt).toLocaleDateString()}</div>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => disconnect(w)}
+                    disabled={busyId === w.id}
+                    className="shrink-0 px-3 py-2 rounded-lg text-sm font-semibold text-red-500 bg-red-500/10 disabled:opacity-60"
+                  >
+                    {busyId === w.id ? "Disconnecting…" : "Disconnect"}
+                  </button>
                 </div>
-                <button
-                  onClick={() => disconnect(w)}
-                  disabled={busyId === w.id}
-                  className="shrink-0 px-3 py-2 rounded-lg text-sm font-semibold text-red-500 bg-red-500/10 disabled:opacity-60"
-                >
-                  {busyId === w.id ? "Disconnecting…" : "Disconnect"}
-                </button>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </SettingsModal>
   );
 }
@@ -266,6 +291,7 @@ export default function UsersTab() {
   const [editDraft, setEditDraft] = useState({});
   const [localOpen, setLocalOpen] = useState(false);
   const [onlineOpen, setOnlineOpen] = useState(false);
+  const [pinRecoveryOpen, setPinRecoveryOpen] = useState(false);
   // Whether this device is signed into the shop's cloud account at all, and
   // whether it is the owner's device or a worker's -- a worker's device has
   // no password to protect anybody's access with, so it never gets to invite
@@ -331,9 +357,13 @@ export default function UsersTab() {
     refresh();
   }
 
-  // A worker's own device never gets to invite or manage another worker --
-  // the same rule the cloud-invite screen has always followed.
-  const canManageOnlineWorkers = accountStatus?.signedIn && accountStatus.role !== "worker";
+  // A hint on the row itself, so "why can't I see a way to add one" is
+  // answered before the popup is even opened, not just inside it.
+  const onlineWorkersHint = !accountStatus?.signedIn
+    ? "Sign in from Account first"
+    : accountStatus.role === "worker"
+    ? "Not on a worker's own device"
+    : undefined;
 
   return (
     <div className="flex flex-col gap-5">
@@ -356,7 +386,13 @@ export default function UsersTab() {
         </div>
       </div>
 
-      <PinRecoverySetup />
+      <SettingsRow
+        title="If you forget your PIN"
+        description="Answer a few questions at the lock screen to set a new PIN -- the only way back in, since TechDesk has no email and may have no internet."
+        value={pinRecoveryConfigured() ? "Questions set" : "Nothing set yet"}
+        onOpen={() => setPinRecoveryOpen(true)}
+        actionLabel="Manage"
+      />
 
       <SettingsRow
         title="Local users"
@@ -370,13 +406,18 @@ export default function UsersTab() {
         actionLabel="Manage local users"
       />
 
-      {canManageOnlineWorkers && (
-        <SettingsRow
-          title="Online workers"
-          description="Invited by code, working from their own device on this shop's cloud account."
-          onOpen={() => setOnlineOpen(true)}
-          actionLabel="Manage online workers"
-        />
+      <SettingsRow
+        title="Online workers"
+        description="Invited by code, working from their own device on this shop's cloud account."
+        value={onlineWorkersHint}
+        onOpen={() => setOnlineOpen(true)}
+        actionLabel="Manage online workers"
+      />
+
+      {pinRecoveryOpen && (
+        <SettingsModal title="PIN recovery" onClose={() => setPinRecoveryOpen(false)}>
+          <PinRecoverySetup />
+        </SettingsModal>
       )}
 
       {localOpen && (
@@ -557,7 +598,9 @@ export default function UsersTab() {
         </SettingsModal>
       )}
 
-      {onlineOpen && <OnlineWorkersModal onClose={() => setOnlineOpen(false)} />}
+      {onlineOpen && (
+        <OnlineWorkersModal onClose={() => setOnlineOpen(false)} accountStatus={accountStatus} />
+      )}
     </div>
   );
 }
