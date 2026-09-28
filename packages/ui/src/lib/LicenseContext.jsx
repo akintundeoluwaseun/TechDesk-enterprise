@@ -131,10 +131,45 @@ function bestOf(unlocks) {
   return best;
 }
 
-/** Newest last, one per tier -- re-entering a code does not add a line. */
-function withUnlock(unlocks, tier) {
+/** Newest last, one per tier -- re-entering a code does not add a line.
+ * The code itself rides along, not just the tier it bought -- see
+ * verifyUnlocks below for why. */
+function withUnlock(unlocks, tier, code) {
   const kept = (unlocks || []).filter((u) => u?.tier !== tier);
-  return [...kept, { tier, at: new Date().toISOString() }];
+  return [...kept, { tier, at: new Date().toISOString(), code }];
+}
+
+/**
+ * Which entries in a history are actually backed by a real code for this
+ * PIN, checked the same way verifyCode checks one being typed in.
+ *
+ * This exists because tier and unlocks are both plain values in
+ * localStorage and in license.json -- readable and writable by anything
+ * with access to either, which on a desktop app is anyone with the
+ * developer console open or a text editor pointed at the right file. Before
+ * this, "activated": true and "tier": "enterprise" were simply believed:
+ * typing that directly into localStorage and reloading was the entire
+ * attack, no code, no guessing, nothing the 60-bit code space was supposed
+ * to make hard. verifyCode is the only place that ever legitimately adds an
+ * entry, and it always has the real code in hand when it does -- so an
+ * entry with no code, or one whose code does not hash to this PIN's row for
+ * that tier, was never produced by this app. Something else wrote it.
+ */
+async function verifyUnlocks(unlocks, licenseIndex) {
+  if (!unlocks?.length) return [];
+  const pin = await pinAt(licenseIndex);
+  if (!pin) return [];
+  const rows = await hashesAt(licenseIndex);
+  const expected = new Map(rows.map((r) => [r.tier, r.hash]));
+
+  const verified = [];
+  for (const entry of unlocks) {
+    const target = expected.get(entry?.tier);
+    if (!target || !entry?.code) continue;
+    const digest = await sha256Prefix(hashPreimage(pin, entry.tier, entry.code));
+    if (digest === target) verified.push(entry);
+  }
+  return verified;
 }
 
 export function LicenseProvider({ children }) {
@@ -394,6 +429,44 @@ export function LicenseProvider({ children }) {
   }
 
   /**
+   * Puts a VERIFIED history into effect, which is not the same claim as
+   * applyTier's: applyTier is "this device just bought this", always true
+   * and always activated, because the only caller is a real match in
+   * verifyCode. This is "this is what the history actually proves", which
+   * can be less than what tier/unlocks currently say, and can be free --
+   * so, unlike applyTier, whether the device ends up activated at all
+   * follows from the result rather than being assumed.
+   */
+  function correctTier(next, history) {
+    const isActivated = next !== FREE_TIER;
+    setActivated(isActivated);
+    activatedRef.current = isActivated;
+    setTier(next);
+    tierRef.current = next;
+    setUnlocks(history);
+    unlocksRef.current = history;
+    setCurrentTier(next);
+
+    try {
+      if (isActivated) localStorage.setItem(KEY_ACTIVATED, "1");
+      else localStorage.removeItem(KEY_ACTIVATED);
+      localStorage.setItem(KEY_TIER, next);
+      localStorage.setItem(KEY_UNLOCKS, JSON.stringify(history));
+    } catch {
+      // Quota or blocked storage -- the file below is what actually counts.
+    }
+
+    return Promise.resolve(
+      window.techdesk?.writeLicense?.({
+        activated: isActivated,
+        licenseIndex,
+        tier: next,
+        unlocks: history,
+      })
+    ).catch(() => {});
+  }
+
+  /**
    * A shop typed a code. Work out what, if anything, it buys them.
    *
    * Every code on this PIN is tried, not just one, because a PIN is sold
@@ -438,9 +511,39 @@ export function LicenseProvider({ children }) {
       return { ok: true, applied: false, tier: matched };
     }
 
-    await applyTier(matched, withUnlock(unlocksRef.current, matched));
+    await applyTier(matched, withUnlock(unlocksRef.current, matched, clean));
     return { ok: true, applied: true, tier: matched };
   }
+
+  // Whatever is in the unlock history -- from localStorage on this tick, or
+  // from license.json a moment later once the effect above reconciles it --
+  // gets checked against this PIN's real table the moment the table is
+  // available. tier and unlocks are both plain, writable values; this is
+  // what stops writing them directly from being activation. An entry that
+  // fails is dropped, never left half-trusted, and the tier this device
+  // actually shows is recomputed from what is left -- which can mean a
+  // downgrade, including all the way to free, if none of it was real.
+  useEffect(() => {
+    let cancelled = false;
+    const before = unlocks;
+    (async () => {
+      const verified = await verifyUnlocks(before, licenseIndex);
+      if (cancelled) return;
+      if (verified.length === before.length) return;
+
+      console.error(
+        "[license] an entry in the unlock history did not verify against this PIN's table -- correcting.",
+      );
+      const legacyFloor =
+        localStorage.getItem(KEY_ACTIVATED) === "1" && verified.length === 0 ? LEGACY_TIER : FREE_TIER;
+      const proven = bestOf(verified);
+      correctTier(isUpgrade(legacyFloor, proven) ? proven : legacyFloor, verified);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [licenseIndex, unlocks]);
 
   return (
     <LicenseContext.Provider

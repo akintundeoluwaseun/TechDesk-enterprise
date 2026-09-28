@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { createHash } from "node:crypto";
 import { hashPreimage, HASH_HEX, formatCode } from "./activationCode";
 
@@ -231,6 +231,90 @@ describe("what survives", () => {
 
     const { result } = await opened();
     expect(result.current.tier).toBe("enterprise");
+  });
+});
+
+describe("a tier claimed with no real code behind it", () => {
+  // tier and unlocks are both plain localStorage values -- writable by
+  // anything with the developer console open, not just this app. This is
+  // the attack that used to work with zero guessing: write "enterprise"
+  // directly and reload.
+  it("is corrected back to free once the table confirms nothing was ever bought", async () => {
+    // Deliberately no "techdesk_activated" flag here -- that is the separate,
+    // already-accepted legacy gap, covered on its own below. This is the
+    // plain case: nothing at all backs the claim.
+    localStorage.setItem("techdesk_tier", "enterprise");
+    localStorage.setItem(
+      "techdesk_unlocks",
+      JSON.stringify([{ tier: "enterprise", at: new Date().toISOString() }]), // no code
+    );
+
+    const { result } = await opened();
+    // The optimistic first render trusts what's on disk -- same as the PIN
+    // arriving a tick late elsewhere in this file -- but settles here, once
+    // the table has confirmed nothing in the history actually matches it.
+    await waitFor(() => expect(result.current.tier).toBe("free"));
+    expect(result.current.unlocks).toEqual([]);
+    // The public `activated` flag is free-riding on freeEdition by design
+    // (a free shop is never nagged to activate), so what actually proves
+    // the correction took is the stored flag underneath it, not that one.
+    expect(localStorage.getItem("techdesk_activated")).toBe(null);
+  });
+
+  it("is corrected the same way when the code is present but wrong", async () => {
+    localStorage.setItem("techdesk_tier", "enterprise");
+    localStorage.setItem(
+      "techdesk_unlocks",
+      JSON.stringify([{ tier: "enterprise", at: new Date().toISOString(), code: "ZZZZ-ZZZZ-ZZZZ" }]),
+    );
+
+    const { result } = await opened();
+    await waitFor(() => expect(result.current.tier).toBe("free"));
+  });
+
+  it("keeps a real entry and drops only the forged one, from the same history", async () => {
+    const { result } = await opened();
+    await type(result, CODES.business); // real
+    // A forged Enterprise line spliced into an otherwise real history --
+    // exactly what editing the localStorage array by hand would produce.
+    localStorage.setItem(
+      "techdesk_unlocks",
+      JSON.stringify([
+        ...result.current.unlocks,
+        { tier: "enterprise", at: new Date().toISOString(), code: "made-up" },
+      ]),
+    );
+
+    // A second mount, the way a reload actually exercises stored state.
+    const second = await opened();
+    await waitFor(() => expect(second.result.current.tier).toBe("business"));
+    expect(second.result.current.unlocks.map((u) => u.tier)).toEqual(["business"]);
+  });
+
+  it("falls back to the legacy Business floor, never all the way to the forged tier, when only the bare flag is also set", async () => {
+    localStorage.setItem("techdesk_activated", "1");
+    localStorage.setItem("techdesk_tier", "enterprise");
+    localStorage.setItem(
+      "techdesk_unlocks",
+      JSON.stringify([{ tier: "enterprise", at: new Date().toISOString() }]),
+    );
+
+    const { result } = await opened();
+    // The legacy flag alone is a separate, already-accepted gap (a pre-code
+    // install genuinely has no code to check) -- it still floors at
+    // Business, same as a real legacy device. What it must never do is let
+    // a forged unlocks entry ride along to Enterprise on its coattails.
+    await waitFor(() => expect(result.current.tier).toBe("business"));
+  });
+
+  it("a genuinely verified history is left completely alone", async () => {
+    const { result } = await opened();
+    await type(result, CODES.enterprise);
+    // Give the verification effect a chance to run too, then confirm it
+    // agreed rather than merely that nothing has happened yet.
+    await act(async () => {});
+    expect(result.current.tier).toBe("enterprise");
+    expect(result.current.unlocks).toHaveLength(1);
   });
 });
 
