@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { db } from "./db";
 import { account, getCachedAccountStatus } from "./account";
+import { IS_ANDROID_APP } from "./platform";
 
 const AuthContext = createContext(null);
 
@@ -75,6 +76,20 @@ export function homeFor(userOrRole) {
   return "/sales";
 }
 
+// The local multi-user PIN system -- several staff sharing one till, each
+// locked to their own role -- is a desktop-counter idea. A phone is one
+// person's own device, not a shared counter, so it never asks for a PIN and
+// never offers the switch-user picker, regardless of what this shop set
+// Settings -> "Require PIN sign-in" to on its desktop. That setting is
+// shared storage (db.getSettings()), same as everything else local, so
+// without this the phone would inherit a PIN screen the shop turned on for
+// a completely different device. None of this touches the cloud account --
+// connecting this phone to a business, or joining one as a worker with a
+// code, is a different system and stays exactly as it was.
+function pinRequired() {
+  return Boolean(db.getSettings().requirePin) && !IS_ANDROID_APP;
+}
+
 export function AuthProvider({ children }) {
   // if PIN sign-in isn't required, auto-sign-in as Admin on first load only —
   // an explicit "switch user" afterwards should still show the picker. Except
@@ -83,7 +98,7 @@ export function AuthProvider({ children }) {
   // from the cache below, rather than flashing admin for a render or two
   // while this launch's own status() check is still in flight.
   const [user, setUser] = useState(() => {
-    if (db.getSettings().requirePin) return null;
+    if (pinRequired()) return null;
     return workerFromCache() || ADMIN_USER;
   });
 
@@ -99,7 +114,7 @@ export function AuthProvider({ children }) {
     const s = await account.status();
     if (s?.signedIn && s?.role === "worker") {
       setUser({ id: "worker", name: s.workerName || "Worker", role: "worker", pages: grantedPages(s.pages) });
-    } else if (!db.getSettings().requirePin) {
+    } else if (!pinRequired()) {
       // The cache (or a previous session) said worker and the real answer
       // disagrees -- back to admin, the same as any other device that was
       // never a worker's.
@@ -127,7 +142,7 @@ export function AuthProvider({ children }) {
       if (cancelled) return;
       if (s?.signedIn && s?.role === "worker") {
         setUser({ id: "worker", name: s.workerName || "Worker", role: "worker", pages: grantedPages(s.pages) });
-      } else if (!db.getSettings().requirePin) {
+      } else if (!pinRequired()) {
         setUser((current) => (current?.id === "worker" ? ADMIN_USER : current));
       }
     });

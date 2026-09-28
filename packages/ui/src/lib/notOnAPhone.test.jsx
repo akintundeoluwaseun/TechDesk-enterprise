@@ -55,3 +55,29 @@ describe("the Settings tabs", () => {
     expect(src).toMatch(/IS_ANDROID_APP/);
   });
 });
+
+describe("the local multi-user PIN system, on the Users tab", () => {
+  // A phone is one person's own device, not a shared counter -- there is no
+  // one else to switch to a PIN for. AuthContext's pinRequired() already
+  // never asks for one on Android regardless of this setting, so a toggle
+  // and a local-user list that could not do anything on this shell would
+  // just be confusing controls for a screen that can't appear. Online
+  // workers -- a different, cloud system this phone connects to -- must
+  // stay reachable regardless.
+  const src = readFileSync(join(process.cwd(), "src/pages/settings/UsersTab.jsx"), "utf8");
+
+  it("gates Require PIN sign-in and Local users behind IS_ANDROID_APP", () => {
+    const guard = src.indexOf("!IS_ANDROID_APP");
+    expect(guard).toBeGreaterThan(-1);
+    expect(src.indexOf("Require PIN sign-in")).toBeGreaterThan(guard);
+    expect(src.indexOf("Local users")).toBeGreaterThan(guard);
+  });
+
+  it("never gates Online workers -- that's the cloud account, not the local PIN system", () => {
+    // The exact fragment this guard wraps closes right before the Online
+    // workers row is declared -- if that row ever moved inside the guard,
+    // this literal boundary would move with it and this would stop finding it.
+    const closesRightBeforeOnlineWorkers = src.indexOf("</>\n      )}\n\n      <SettingsRow\n        title=\"Online workers\"");
+    expect(closesRightBeforeOnlineWorkers).toBeGreaterThan(-1);
+  });
+});

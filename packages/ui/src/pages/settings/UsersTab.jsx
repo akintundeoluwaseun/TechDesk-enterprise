@@ -9,6 +9,7 @@ import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
 import { isConfigured as pinRecoveryConfigured } from "../../lib/pinRecovery";
 import { currentStaffLimit, tierLabel, nextTier } from "../../lib/tier";
 import { TIER_META } from "@techdesk/editions";
+import { IS_ANDROID_APP } from "../../lib/platform";
 
 function toggleRole0(draft, setDraft, r) {
   setDraft((d) => {
@@ -369,44 +370,56 @@ export default function UsersTab() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className={`font-semibold ${t.textPrimary}`}>Require PIN sign-in</h3>
-            <p className={`text-sm ${t.textSecondary}`}>
-              When off, the app opens straight to the Dashboard as Admin — no lock screen.
-            </p>
+      {/* A phone is one person's own device, not a shared counter -- the
+          whole local PIN system (several staff switching who's signed in on
+          the same machine) is a desktop-counter idea with nothing to gate
+          on a phone. AuthContext's pinRequired() already never asks for one
+          here regardless of this setting; showing the toggle and the local
+          user list anyway would just be controls for a screen that can't
+          appear. Online workers (below) is a different system -- a cloud
+          account this phone connects to -- and stays exactly as it was. */}
+      {!IS_ANDROID_APP && (
+        <>
+          <div className={`rounded-2xl p-6 ${t.cardBg}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className={`font-semibold ${t.textPrimary}`}>Require PIN sign-in</h3>
+                <p className={`text-sm ${t.textSecondary}`}>
+                  When off, the app opens straight to the Dashboard as Admin — no lock screen.
+                </p>
+              </div>
+              <button
+                onClick={() => updateSettings({ requirePin: !settings.requirePin })}
+                className={`w-12 h-7 rounded-full flex items-center px-0.5 transition-colors shrink-0 ${
+                  settings.requirePin ? "bg-emerald-500 justify-end" : t.dark ? "bg-white/15 justify-start" : "bg-slate-300 justify-start"
+                }`}
+              >
+                <span className="w-6 h-6 rounded-full bg-white block" />
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => updateSettings({ requirePin: !settings.requirePin })}
-            className={`w-12 h-7 rounded-full flex items-center px-0.5 transition-colors shrink-0 ${
-              settings.requirePin ? "bg-emerald-500 justify-end" : t.dark ? "bg-white/15 justify-start" : "bg-slate-300 justify-start"
-            }`}
-          >
-            <span className="w-6 h-6 rounded-full bg-white block" />
-          </button>
-        </div>
-      </div>
 
-      <SettingsRow
-        title="If you forget your PIN"
-        description="Answer a few questions at the lock screen to set a new PIN -- the only way back in, since TechDesk has no email and may have no internet."
-        value={pinRecoveryConfigured() ? "Questions set" : "Nothing set yet"}
-        onOpen={() => setPinRecoveryOpen(true)}
-        actionLabel="Manage"
-      />
+          <SettingsRow
+            title="If you forget your PIN"
+            description="Answer a few questions at the lock screen to set a new PIN -- the only way back in, since TechDesk has no email and may have no internet."
+            value={pinRecoveryConfigured() ? "Questions set" : "Nothing set yet"}
+            onOpen={() => setPinRecoveryOpen(true)}
+            actionLabel="Manage"
+          />
 
-      <SettingsRow
-        title="Local users"
-        description="Sellers, repairers, or both, each with their own PIN from the user switch screen on this device."
-        value={
-          staffLimit === Infinity
-            ? "Unlimited staff accounts"
-            : `${users.length + 1} of ${staffLimit} staff accounts`
-        }
-        onOpen={() => setLocalOpen(true)}
-        actionLabel="Manage local users"
-      />
+          <SettingsRow
+            title="Local users"
+            description="Sellers, repairers, or both, each with their own PIN from the user switch screen on this device."
+            value={
+              staffLimit === Infinity
+                ? "Unlimited staff accounts"
+                : `${users.length + 1} of ${staffLimit} staff accounts`
+            }
+            onOpen={() => setLocalOpen(true)}
+            actionLabel="Manage local users"
+          />
+        </>
+      )}
 
       <SettingsRow
         title="Online workers"
