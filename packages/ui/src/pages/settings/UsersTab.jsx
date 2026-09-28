@@ -109,7 +109,7 @@ function InviteWorkerPanel() {
             <label key={opt.key} className="flex items-center gap-2 cursor-pointer">
               <span
                 className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
-                  checked ? "bg-emerald-500" : t.dark ? "border border-white/20" : "border border-slate-300"
+                  checked ? "bg-emerald-500" : t.dark ? "border border-white/20" : "border border-neutral-300"
                 }`}
               >
                 {checked && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
@@ -391,7 +391,7 @@ export default function UsersTab() {
               <button
                 onClick={() => updateSettings({ requirePin: !settings.requirePin })}
                 className={`w-12 h-7 rounded-full flex items-center px-0.5 transition-colors shrink-0 ${
-                  settings.requirePin ? "bg-emerald-500 justify-end" : t.dark ? "bg-white/15 justify-start" : "bg-slate-300 justify-start"
+                  settings.requirePin ? "bg-emerald-500 justify-end" : t.dark ? "bg-white/15 justify-start" : "bg-neutral-300 justify-start"
                 }`}
               >
                 <span className="w-6 h-6 rounded-full bg-white block" />
@@ -476,7 +476,7 @@ export default function UsersTab() {
             <button onClick={() => toggleRole("seller")} className="flex items-center gap-2">
               <span
                 className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                  role === "seller" || role === "both" ? "bg-emerald-500" : t.dark ? "border border-white/20" : "border border-slate-300"
+                  role === "seller" || role === "both" ? "bg-emerald-500" : t.dark ? "border border-white/20" : "border border-neutral-300"
                 }`}
               >
                 {(role === "seller" || role === "both") && <span className="w-2 h-2 rounded-full bg-white" />}
@@ -486,7 +486,7 @@ export default function UsersTab() {
             <button onClick={() => toggleRole("repairer")} className="flex items-center gap-2">
               <span
                 className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                  role === "repairer" || role === "both" ? "bg-emerald-500" : t.dark ? "border border-white/20" : "border border-slate-300"
+                  role === "repairer" || role === "both" ? "bg-emerald-500" : t.dark ? "border border-white/20" : "border border-neutral-300"
                 }`}
               >
                 {(role === "repairer" || role === "both") && <span className="w-2 h-2 rounded-full bg-white" />}
@@ -564,7 +564,7 @@ export default function UsersTab() {
                                 ? "bg-emerald-500"
                                 : t.dark
                                 ? "border border-white/20"
-                                : "border border-slate-300"
+                                : "border border-neutral-300"
                             }`}
                           />
                           <span className={`text-xs ${t.textPrimary}`}>Seller</span>
@@ -576,7 +576,7 @@ export default function UsersTab() {
                                 ? "bg-emerald-500"
                                 : t.dark
                                 ? "border border-white/20"
-                                : "border border-slate-300"
+                                : "border border-neutral-300"
                             }`}
                           />
                           <span className={`text-xs ${t.textPrimary}`}>Repairer</span>

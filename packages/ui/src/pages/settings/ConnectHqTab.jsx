@@ -323,7 +323,7 @@ export default function ConnectHqTab() {
               type="submit"
               disabled={step === "working"}
               className={`flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold disabled:opacity-60 ${
-                t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
               }`}
             >
               <Link2 className="w-4 h-4" />{" "}

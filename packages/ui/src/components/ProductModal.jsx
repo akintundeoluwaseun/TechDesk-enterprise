@@ -171,7 +171,7 @@ export default function ProductModal({ product, onClose, onSaved }) {
           <button
             onClick={handleSave}
             className={`flex-1 py-3 rounded-xl font-semibold text-sm ${
-              t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+              t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
             }`}
           >
             {isEdit ? "Save Changes" : "Add Product"}

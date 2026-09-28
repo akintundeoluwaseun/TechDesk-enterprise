@@ -273,7 +273,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                 tab === "inventory"
                   ? t.dark
                     ? "bg-white text-black"
-                    : "bg-white text-slate-900 shadow-sm"
+                    : "bg-white text-neutral-900 shadow-sm"
                   : t.textSecondary
               }`}
             >
@@ -285,7 +285,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                 tab === "manual"
                   ? t.dark
                     ? "bg-white text-black"
-                    : "bg-white text-slate-900 shadow-sm"
+                    : "bg-white text-neutral-900 shadow-sm"
                   : t.textSecondary
               }`}
             >
@@ -386,7 +386,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
               <button
                 onClick={addManualItem}
                 className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold ${
-                  t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                  t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
                 }`}
               >
                 <Plus className="w-4 h-4" /> Add to cart
@@ -586,7 +586,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
             disabled={cart.length === 0}
             title="Ctrl/Cmd + Enter"
             className={`w-full py-3 rounded-xl font-semibold mb-2 disabled:opacity-50 ${
-              t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+              t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
             }`}
           >
             {isEdit ? "Save Changes" : "Complete Sale"}

@@ -312,7 +312,7 @@ export default function NewRepairModal({ onClose, onCompleted }) {
 
         <button
           onClick={handleSave}
-          className={`w-full py-3 rounded-xl font-semibold ${t.dark ? "bg-white text-black" : "bg-slate-900 text-white"}`}
+          className={`w-full py-3 rounded-xl font-semibold ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}
         >
           Save
         </button>

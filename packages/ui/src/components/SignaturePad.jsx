@@ -128,7 +128,7 @@ export default function SignaturePad({ onSave, onCancel }) {
             onClick={save}
             disabled={!hasDrawn}
             className={`flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 ${
-              t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+              t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
             }`}
           >
             Save signature

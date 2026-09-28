@@ -40,9 +40,9 @@ export default function Splash({ onDone, duration = 1800 }) {
         <h1 className={`text-2xl font-bold tracking-tight mb-1 ${t.textPrimary}`}>{settings.shopName}</h1>
         <p className={`text-xs mb-8 ${t.textMuted}`}>{settings.tagline}</p>
 
-        <div className={`w-40 h-1 rounded-full overflow-hidden ${t.dark ? "bg-white/10" : "bg-slate-200"}`}>
+        <div className={`w-40 h-1 rounded-full overflow-hidden ${t.dark ? "bg-white/10" : "bg-neutral-200"}`}>
           <div
-            className={`h-full rounded-full ${t.dark ? "bg-white" : "bg-slate-900"}`}
+            className={`h-full rounded-full ${t.dark ? "bg-white" : "bg-neutral-900"}`}
             style={{ width: `${progress}%`, transition: "width 60ms linear" }}
           />
         </div>

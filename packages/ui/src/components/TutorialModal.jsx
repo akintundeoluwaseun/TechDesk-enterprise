@@ -83,7 +83,7 @@ export default function TutorialModal({ onClose }) {
                       <kbd
                         key={k}
                         className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${
-                          t.dark ? "bg-white/10 text-slate-200" : "bg-slate-100 text-slate-600"
+                          t.dark ? "bg-white/10 text-neutral-200" : "bg-neutral-100 text-neutral-600"
                         }`}
                       >
                         {k}
@@ -108,7 +108,7 @@ export default function TutorialModal({ onClose }) {
 
         <button
           onClick={() => onClose(dontShowAgain)}
-          className={`w-full py-3 rounded-xl font-semibold shrink-0 ${t.dark ? "bg-white text-black" : "bg-slate-900 text-white"}`}
+          className={`w-full py-3 rounded-xl font-semibold shrink-0 ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}
         >
           Got it
         </button>

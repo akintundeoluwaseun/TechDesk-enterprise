@@ -67,7 +67,7 @@ export default function SettingsModal({ title, description, onClose, children })
           <button
             onClick={onClose}
             className={`px-5 py-2.5 rounded-full text-sm font-semibold ${
-              t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+              t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
             }`}
           >
             Done

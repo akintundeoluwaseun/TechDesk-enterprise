@@ -90,7 +90,7 @@ export default function DataMergeModal({ editions, onClose }) {
               if (total > 0) window.location.reload();
               else onClose();
             }}
-            className={`w-full py-3 rounded-xl font-semibold ${t.dark ? "bg-white text-black" : "bg-slate-900 text-white"}`}
+            className={`w-full py-3 rounded-xl font-semibold ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}
           >
             Done
           </button>
@@ -173,7 +173,7 @@ export default function DataMergeModal({ editions, onClose }) {
             onClick={handleMerge}
             disabled={busy || !chosen}
             className={`w-full py-3 rounded-xl font-semibold disabled:opacity-50 ${
-              t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+              t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
             }`}
           >
             {busy ? "Merging…" : `Merge ${chosen ? chosen.edition + "'s" : ""} data into this app`}

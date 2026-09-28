@@ -114,7 +114,7 @@ export default function ForgotPinModal({ onClose, onReset }) {
               onClick={handleCheck}
               disabled={busy}
               className={`w-full mt-5 py-3 rounded-xl font-semibold disabled:opacity-50 ${
-                t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
               }`}
             >
               {busy ? "Checking…" : "Continue"}
@@ -149,7 +149,7 @@ export default function ForgotPinModal({ onClose, onReset }) {
             <button
               onClick={handleSetPin}
               className={`w-full mt-5 py-3 rounded-xl font-semibold ${
-                t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
               }`}
             >
               Set new PIN

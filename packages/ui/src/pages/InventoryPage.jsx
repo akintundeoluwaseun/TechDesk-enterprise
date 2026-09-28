@@ -155,7 +155,7 @@ export default function InventoryPage() {
                 setShowModal(true);
               }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${
-                t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
               }`}
             >
               <Plus className="w-4 h-4" /> Add Product
@@ -188,7 +188,7 @@ export default function InventoryPage() {
             <option value="sold-out">Sold out ({soldOutCount})</option>
             <option value="low-stock">Low stock ({lowStockCount})</option>
           </select>
-          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
+          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -tranneutral-y-1/2 pointer-events-none ${t.textMuted}`} />
         </div>
 
         <div className="relative">
@@ -203,7 +203,7 @@ export default function InventoryPage() {
               </option>
             ))}
           </select>
-          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
+          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -tranneutral-y-1/2 pointer-events-none ${t.textMuted}`} />
         </div>
 
         <div className="relative">
@@ -220,7 +220,7 @@ export default function InventoryPage() {
             <option value="stock-asc">Stock (low to high)</option>
             <option value="stock-desc">Stock (high to low)</option>
           </select>
-          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
+          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -tranneutral-y-1/2 pointer-events-none ${t.textMuted}`} />
         </div>
       </div>
 

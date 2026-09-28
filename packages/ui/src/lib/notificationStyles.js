@@ -15,15 +15,15 @@ export const NOTIF_STYLES = {
   inventory: { Icon: Box, label: "Stock Update", light: "bg-amber-100 text-amber-600", dark: "bg-amber-500/20 text-amber-400" },
   lowstock: { Icon: Box, label: "Low Stock Alert", light: "bg-amber-100 text-amber-600", dark: "bg-amber-500/20 text-amber-400" },
   customer: { Icon: User, label: "New Customer", light: "bg-violet-100 text-violet-600", dark: "bg-violet-500/20 text-violet-400" },
-  settings: { Icon: SettingsIcon, label: "Account Update", light: "bg-slate-200 text-slate-600", dark: "bg-slate-500/20 text-slate-400" },
+  settings: { Icon: SettingsIcon, label: "Account Update", light: "bg-neutral-200 text-neutral-600", dark: "bg-neutral-500/20 text-neutral-400" },
   owed: { Icon: CircleDollarSign, label: "Payment Pending", light: "bg-red-100 text-red-600", dark: "bg-red-500/20 text-red-400" },
 };
 
 export const DEFAULT_NOTIF_STYLE = {
   Icon: Bell,
   label: "Activity",
-  light: "bg-slate-200 text-slate-600",
-  dark: "bg-slate-500/20 text-slate-400",
+  light: "bg-neutral-200 text-neutral-600",
+  dark: "bg-neutral-500/20 text-neutral-400",
 };
 
 export function notifStyle(type) {

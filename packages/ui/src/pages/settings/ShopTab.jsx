@@ -236,7 +236,7 @@ export default function ShopTab() {
             className={`w-full rounded-xl px-3 py-2.5 text-sm outline-none ${
               t.dark
                 ? "bg-white/5 border border-white/10 text-white"
-                : "bg-slate-50 border border-slate-200 text-slate-900"
+                : "bg-neutral-50 border border-neutral-200 text-neutral-900"
             }`}
           >
             {CURRENCIES.map((c) => (
@@ -267,7 +267,7 @@ export default function ShopTab() {
                   key={opt.key}
                   onClick={() => selectAppearance(opt.key)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
-                    active ? (t.dark ? "bg-white text-black" : "bg-slate-900 text-white") : t.pillBg
+                    active ? (t.dark ? "bg-white text-black" : "bg-neutral-900 text-white") : t.pillBg
                   }`}
                 >
                   <Icon className="w-4 h-4" /> {opt.label}

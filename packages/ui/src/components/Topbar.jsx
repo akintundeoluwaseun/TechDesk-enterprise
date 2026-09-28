@@ -132,7 +132,7 @@ export default function Topbar({ title, subtitle, action }) {
               <span
                 title={`Press ${MOD_KEY_LABEL}+K to search`}
                 className={`text-[10px] font-semibold px-1.5 py-0.5 rounded whitespace-nowrap ${
-                  t.dark ? "bg-black/20 text-slate-300" : "bg-black/5 text-slate-500"
+                  t.dark ? "bg-black/20 text-neutral-300" : "bg-black/5 text-neutral-500"
                 }`}
               >
                 {MOD_KEY_LABEL}+K

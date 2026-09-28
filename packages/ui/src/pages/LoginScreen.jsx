@@ -157,7 +157,7 @@ export default function LoginScreen() {
                 <span
                   key={i}
                   className={`w-3 h-3 rounded-full ${
-                    i < pin.length ? (t.dark ? "bg-white" : "bg-slate-900") : t.dark ? "bg-white/20" : "bg-slate-200"
+                    i < pin.length ? (t.dark ? "bg-white" : "bg-neutral-900") : t.dark ? "bg-white/20" : "bg-neutral-200"
                   }`}
                 />
               ))}

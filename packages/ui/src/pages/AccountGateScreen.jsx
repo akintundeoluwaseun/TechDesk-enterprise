@@ -90,7 +90,7 @@ export default function AccountGateScreen({ onDone }) {
               <button
                 onClick={() => setMode(MODES.signup)}
                 className={`flex items-center justify-center gap-2 py-3 rounded-xl font-semibold ${
-                  t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                  t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
                 }`}
               >
                 <Cloud className="w-4 h-4" /> Set up your business
@@ -195,7 +195,7 @@ export default function AccountGateScreen({ onDone }) {
                 type="submit"
                 disabled={busy}
                 className={`py-3 rounded-xl font-semibold disabled:opacity-60 ${
-                  t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                  t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
                 }`}
               >
                 {busy

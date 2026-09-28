@@ -121,7 +121,7 @@ export default function DashboardPage() {
           </div>
           {recentRepairs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${t.dark ? "bg-white/5" : "bg-slate-100"}`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${t.dark ? "bg-white/5" : "bg-neutral-100"}`}>
                 <Wrench className={`w-6 h-6 ${t.textMuted}`} />
               </div>
               <div className={`font-semibold ${t.textPrimary} mb-1`}>No {labels.ticketPlural.toLowerCase()} yet</div>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
           </div>
           {recentSales.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${t.dark ? "bg-white/5" : "bg-slate-100"}`}>
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${t.dark ? "bg-white/5" : "bg-neutral-100"}`}>
                 <ShoppingCart className={`w-6 h-6 ${t.textMuted}`} />
               </div>
               <div className={`font-semibold ${t.textPrimary} mb-1`}>No sales yet</div>

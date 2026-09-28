@@ -252,7 +252,7 @@ export default function ActivationModal({ onClose }) {
               <button
                 onClick={() => setPayStep("email")}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold mb-4 ${
-                  t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                  t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
                 }`}
               >
                 <CreditCard className="w-4 h-4" /> Pay with card, bank transfer or USSD
@@ -278,7 +278,7 @@ export default function ActivationModal({ onClose }) {
                   <button
                     onClick={startPayment}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-semibold ${
-                      t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                      t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
                     }`}
                   >
                     Continue to payment
@@ -309,7 +309,7 @@ export default function ActivationModal({ onClose }) {
                   <button
                     onClick={() => (payStep === "waiting" ? claim(payTxRef) : setPayStep("email"))}
                     className={`flex-1 py-2.5 rounded-xl text-sm font-semibold ${
-                      t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
+                      t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
                     }`}
                   >
                     {payStep === "waiting" ? "Check again" : "Try again"}

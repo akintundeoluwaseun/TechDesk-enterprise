@@ -110,11 +110,11 @@ export default function Sidebar({ onOpenActivation }) {
                   } ${
                     isActive
                       ? t.dark
-                        ? "bg-slate-800 text-white"
+                        ? "bg-neutral-800 text-white"
                         : "bg-blue-50 text-blue-600"
                       : t.dark
-                      ? "text-slate-300 hover:bg-white/5"
-                      : "text-slate-600 hover:bg-black/5"
+                      ? "text-neutral-300 hover:bg-white/5"
+                      : "text-neutral-600 hover:bg-black/5"
                   }`
                 }
               >
@@ -132,7 +132,7 @@ export default function Sidebar({ onOpenActivation }) {
           title={collapsed ? (onFree ? "See what upgrading adds" : tierLabel(tier)) : undefined}
           className={`flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold ${
             onFree
-              ? t.dark ? "bg-white text-slate-900" : "bg-slate-900 text-white"
+              ? t.dark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white"
               : t.pillBg
           }`}
         >

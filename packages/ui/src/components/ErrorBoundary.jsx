@@ -27,19 +27,19 @@ export default class ErrorBoundary extends React.Component {
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-slate-100 p-6">
-        <div className="w-full max-w-sm rounded-2xl bg-white border border-slate-200 p-6 text-center shadow-lg">
+      <div className="fixed inset-0 flex items-center justify-center bg-neutral-100 p-6">
+        <div className="w-full max-w-sm rounded-2xl bg-white border border-neutral-200 p-6 text-center shadow-lg">
           <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
             <AlertTriangle className="w-6 h-6 text-red-500" />
           </div>
-          <h1 className="text-lg font-bold text-slate-900 mb-1">Something went wrong</h1>
-          <p className="text-sm text-slate-500 mb-5">
+          <h1 className="text-lg font-bold text-neutral-900 mb-1">Something went wrong</h1>
+          <p className="text-sm text-neutral-500 mb-5">
             TechDesk hit an unexpected error. Your saved data is safe on this device -- restarting the app should
             fix it.
           </p>
           <button
             onClick={this.handleRestart}
-            className="w-full py-3 rounded-xl font-semibold bg-slate-900 text-white"
+            className="w-full py-3 rounded-xl font-semibold bg-neutral-900 text-white"
           >
             Restart
           </button>

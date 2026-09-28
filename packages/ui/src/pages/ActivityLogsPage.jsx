@@ -11,7 +11,7 @@ const CATEGORIES = [
   { key: "customer", label: "Customer", icon: Users, color: "text-violet-500", bg: "bg-violet-500/10" },
   { key: "transfer", label: "Transfer", icon: ArrowLeftRight, color: "text-teal-500", bg: "bg-teal-500/10" },
   { key: "auth", label: "Auth", icon: Shield, color: "text-red-500", bg: "bg-red-500/10" },
-  { key: "settings", label: "Settings", icon: Settings, color: "text-slate-400", bg: "bg-slate-500/10" },
+  { key: "settings", label: "Settings", icon: Settings, color: "text-neutral-400", bg: "bg-neutral-500/10" },
 ];
 
 function timeAgo(iso) {
@@ -131,7 +131,7 @@ export default function ActivityLogsPage() {
               </option>
             ))}
           </select>
-          <ChevronDown className={`w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
+          <ChevronDown className={`w-4 h-4 absolute right-3 top-1/2 -tranneutral-y-1/2 pointer-events-none ${t.textMuted}`} />
         </div>
       </div>
 

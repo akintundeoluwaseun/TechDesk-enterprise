@@ -38,19 +38,19 @@ export function useThemeTokens() {
   const { dark } = useTheme();
   return {
     dark,
-    bg: dark ? "bg-slate-900" : "bg-slate-50",
-    sidebarBg: dark ? "bg-slate-950 border-r border-slate-800" : "bg-white border-r border-slate-200",
-    cardBg: dark ? "bg-slate-800 border border-slate-700 shadow-sm" : "bg-white border border-slate-200 shadow-sm",
-    insetBg: dark ? "bg-slate-900 border border-slate-700" : "bg-slate-50 border border-slate-200",
+    bg: dark ? "bg-neutral-900" : "bg-neutral-50",
+    sidebarBg: dark ? "bg-neutral-950 border-r border-neutral-800" : "bg-white border-r border-neutral-200",
+    cardBg: dark ? "bg-neutral-800 border border-neutral-700 shadow-sm" : "bg-white border border-neutral-200 shadow-sm",
+    insetBg: dark ? "bg-neutral-900 border border-neutral-700" : "bg-neutral-50 border border-neutral-200",
     inputBg: dark
-      ? "bg-slate-800 border border-slate-600 text-white placeholder:text-slate-500"
-      : "bg-white border border-slate-300 text-slate-900 placeholder:text-slate-400",
-    pillBg: dark ? "bg-slate-700 border border-slate-600 text-slate-200" : "bg-slate-100 border border-slate-200 text-slate-700",
+      ? "bg-neutral-800 border border-neutral-600 text-white placeholder:text-neutral-500"
+      : "bg-white border border-neutral-300 text-neutral-900 placeholder:text-neutral-400",
+    pillBg: dark ? "bg-neutral-700 border border-neutral-600 text-neutral-200" : "bg-neutral-100 border border-neutral-200 text-neutral-700",
     // faint hairline, for rows and section dividers
-    divider: dark ? "border-slate-700" : "border-slate-200",
-    textPrimary: dark ? "text-white" : "text-slate-900",
-    textSecondary: dark ? "text-slate-300" : "text-slate-700",
-    textMuted: dark ? "text-slate-400" : "text-slate-500",
+    divider: dark ? "border-neutral-700" : "border-neutral-200",
+    textPrimary: dark ? "text-white" : "text-neutral-900",
+    textSecondary: dark ? "text-neutral-300" : "text-neutral-700",
+    textMuted: dark ? "text-neutral-400" : "text-neutral-500",
   };
 }
 

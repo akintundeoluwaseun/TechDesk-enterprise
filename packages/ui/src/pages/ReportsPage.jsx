@@ -83,7 +83,7 @@ export default function ReportsPage() {
               filter === f.key
                 ? t.dark
                   ? "bg-white text-black"
-                  : "bg-slate-900 text-white"
+                  : "bg-neutral-900 text-white"
                 : t.pillBg
             }`}
           >
@@ -135,10 +135,10 @@ export default function ReportsPage() {
           <span className={`text-xs ${t.textMuted}`}>{report.dailyRevenue[0]?.date}</span>
           <div className="flex items-center gap-4">
             <span className={`flex items-center gap-1.5 text-xs ${t.textSecondary}`}>
-              <span className={`w-2 h-2 rounded-full ${t.dark ? "bg-white" : "bg-slate-900"}`} /> Sales
+              <span className={`w-2 h-2 rounded-full ${t.dark ? "bg-white" : "bg-neutral-900"}`} /> Sales
             </span>
             <span className={`flex items-center gap-1.5 text-xs ${t.textSecondary}`}>
-              <span className="w-2 h-2 rounded-full bg-slate-400" /> Repairs
+              <span className="w-2 h-2 rounded-full bg-neutral-400" /> Repairs
             </span>
           </div>
           <span className={`text-xs ${t.textMuted}`}>{report.dailyRevenue[report.dailyRevenue.length - 1]?.date}</span>
