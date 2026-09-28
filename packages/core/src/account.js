@@ -43,6 +43,11 @@ export const account = {
    * own name -- never the shop's password. */
   workerJoin: (...args) => impl().workerJoin(...args),
 
+  /** Owner only: every worker currently connected to this account. */
+  listWorkers: (...args) => impl().listWorkers(...args),
+  /** Owner only: revokes one worker's membership. */
+  revokeWorker: (...args) => impl().revokeWorker(...args),
+
   /** Forgets the session on this device. A different account signing in
    * later must not inherit these cursors -- it would silently skip
    * everything before whatever point the previous account's sync reached. */

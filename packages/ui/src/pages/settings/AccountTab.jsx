@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Cloud, LogOut, RefreshCw, UserPlus, Copy, ChevronRight } from "lucide-react";
+import { Cloud, LogOut, RefreshCw, UserPlus, Copy, ChevronRight, Users } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import {
@@ -158,6 +158,89 @@ function InviteWorkerPanel() {
   );
 }
 
+function pagesLabel(pages) {
+  if (!Array.isArray(pages) || !pages.length) return "Sales, Repairs, Inventory";
+  return pages.map((p) => PAGE_LABELS[p] || p).join(", ");
+}
+
+/**
+ * Who is actually connected to this shop's account right now, and a way to
+ * cut one off. Generating a code says nothing about who redeemed it or
+ * whether they still should be able to -- this is the other half: the list
+ * an admin actually checks against, and the one button that undoes an
+ * invite once it has been used.
+ */
+function WorkersModal({ onClose }) {
+  const t = useThemeTokens();
+  const [state, setState] = useState({ loading: true, workers: [], error: "" });
+  const [busyId, setBusyId] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    account.listWorkers().then((res) => {
+      if (cancelled) return;
+      if (!res.ok) {
+        setState({ loading: false, workers: [], error: res.message || "Couldn't load your workers." });
+        return;
+      }
+      setState({ loading: false, workers: res.workers || [], error: "" });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function disconnect(worker) {
+    if (
+      !window.confirm(`Disconnect ${worker.name}? They lose access to this shop's data immediately.`)
+    ) {
+      return;
+    }
+    setBusyId(worker.id);
+    const res = await account.revokeWorker(worker.id);
+    setBusyId(null);
+    if (!res.ok) {
+      window.alert(res.message || "Couldn't disconnect them. Try again.");
+      return;
+    }
+    setState((s) => ({ ...s, workers: s.workers.filter((w) => w.id !== worker.id) }));
+  }
+
+  return (
+    <SettingsModal
+      title="Your workers"
+      description="Everyone currently connected to this shop's account, and what they can open. Disconnecting one takes effect on their very next sync."
+      onClose={onClose}
+    >
+      {state.loading && <p className={`text-sm ${t.textSecondary}`}>Loading…</p>}
+      {state.error && <p className="text-sm text-red-500">{state.error}</p>}
+      {!state.loading && !state.error && state.workers.length === 0 && (
+        <p className={`text-sm ${t.textSecondary}`}>No workers connected yet.</p>
+      )}
+      <div className="flex flex-col gap-3">
+        {state.workers.map((w) => (
+          <div key={w.id} className={`flex items-center justify-between gap-3 rounded-xl p-4 ${t.insetBg}`}>
+            <div className="min-w-0">
+              <div className={`font-semibold truncate ${t.textPrimary}`}>{w.name}</div>
+              <div className={`text-xs mt-0.5 ${t.textMuted}`}>Can open: {pagesLabel(w.pages)}</div>
+              {w.joinedAt && (
+                <div className={`text-xs ${t.textMuted}`}>Joined {new Date(w.joinedAt).toLocaleDateString()}</div>
+              )}
+            </div>
+            <button
+              onClick={() => disconnect(w)}
+              disabled={busyId === w.id}
+              className="shrink-0 px-3 py-2 rounded-lg text-sm font-semibold text-red-500 bg-red-500/10 disabled:opacity-60"
+            >
+              {busyId === w.id ? "Disconnecting…" : "Disconnect"}
+            </button>
+          </div>
+        ))}
+      </div>
+    </SettingsModal>
+  );
+}
+
 export default function AccountTab() {
   const t = useThemeTokens();
   const [status, setStatus] = useState(null);
@@ -166,6 +249,7 @@ export default function AccountTab() {
   // as its own dialog rather than swapping in place on the settings page --
   // nothing half-filled sits around behind a page that looks otherwise done.
   const [openModal, setOpenModal] = useState(null);
+  const [workersOpen, setWorkersOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [workerCode, setWorkerCode] = useState("");
@@ -318,6 +402,15 @@ export default function AccountTab() {
               device has no password to protect anybody's access with, and
               letting one invite another would make the restriction pointless. */}
           {!isWorker && <InviteWorkerPanel />}
+
+          {!isWorker && (
+            <button
+              onClick={() => setWorkersOpen(true)}
+              className={`mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${t.pillBg}`}
+            >
+              <Users className="w-4 h-4" /> See your workers
+            </button>
+          )}
 
           <button
             onClick={signOut}
@@ -475,6 +568,8 @@ export default function AccountTab() {
           </form>
         </SettingsModal>
       )}
+
+      {workersOpen && <WorkersModal onClose={() => setWorkersOpen(false)} />}
 
       <div className="flex flex-col gap-3">
         <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Sync with another device</h2>

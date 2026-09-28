@@ -286,4 +286,38 @@ export const accountLocal = {
     });
     return { ok: true, workerName: res.workerName };
   },
+
+  /**
+   * Owner only: every worker currently connected to this account, newest
+   * first, with the pages the admin granted each of them. Reads straight
+   * from account_workers via PostgREST -- row-level security already scopes
+   * this to the caller's own business, so there is nothing to filter here.
+   */
+  async listWorkers() {
+    const res = await restFetch(
+      "/account_workers?select=worker_user_id,name,pages,created_at&order=created_at.desc"
+    );
+    if (!res.ok) return res;
+    return {
+      ok: true,
+      workers: (res.data || []).map((w) => ({
+        id: w.worker_user_id,
+        name: w.name,
+        pages: w.pages,
+        joinedAt: w.created_at,
+      })),
+    };
+  },
+
+  /**
+   * Owner only: revokes one worker's membership. Their device loses read and
+   * write on this business's records on its very next request -- every
+   * policy on account_records/account_devices checks account_workers, not
+   * just something decided once at sign-in -- even though the session token
+   * itself, being a real Supabase Auth session, is not revoked by this and
+   * keeps working as a login for nothing in particular.
+   */
+  async revokeWorker(workerId) {
+    return restFetch(`/account_workers?worker_user_id=eq.${encodeURIComponent(workerId)}`, { method: "DELETE" });
+  },
 };

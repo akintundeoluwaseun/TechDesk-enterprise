@@ -9,6 +9,8 @@ vi.mock("../../lib/account", () => ({
     status: vi.fn(),
     inviteStart: vi.fn(),
     workerJoin: vi.fn(),
+    listWorkers: vi.fn(async () => ({ ok: true, workers: [] })),
+    revokeWorker: vi.fn(),
     signIn: vi.fn(),
     signUp: vi.fn(),
     signOut: vi.fn(),
@@ -101,6 +103,101 @@ describe("a worker's own device signed in here", () => {
     await screen.findByText("Connected as Ade");
     expect(screen.queryByText("Invite a worker")).not.toBeInTheDocument();
     expect(screen.queryByText("Generate a code")).not.toBeInTheDocument();
+  });
+
+  it("never sees a way to see or disconnect workers either", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: true, role: "worker", workerName: "Ade" });
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+
+    await screen.findByText("Connected as Ade");
+    expect(screen.queryByText("See your workers")).not.toBeInTheDocument();
+  });
+});
+
+describe("the owner can see and disconnect the workers connected to this shop", () => {
+  it("lists every worker, with what they can open and when they joined", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
+    account.listWorkers.mockResolvedValue({
+      ok: true,
+      workers: [
+        { id: "w1", name: "Ade", pages: ["sales"], joinedAt: "2026-01-05T10:00:00Z" },
+        { id: "w2", name: "Bola", pages: ["repairs", "inventory"], joinedAt: "2026-02-01T10:00:00Z" },
+      ],
+    });
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    fireEvent.click(await screen.findByText("See your workers"));
+
+    await waitFor(() => expect(screen.getByText("Ade")).toBeInTheDocument());
+    expect(screen.getByText("Bola")).toBeInTheDocument();
+    expect(screen.getByText("Can open: Sales")).toBeInTheDocument();
+    expect(screen.getByText("Can open: Repairs, Inventory")).toBeInTheDocument();
+  });
+
+  it("says plainly when nobody has joined yet", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
+    account.listWorkers.mockResolvedValue({ ok: true, workers: [] });
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    fireEvent.click(await screen.findByText("See your workers"));
+
+    await waitFor(() => expect(screen.getByText("No workers connected yet.")).toBeInTheDocument());
+  });
+
+  it("shows the owner's real message when the list can't be loaded", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
+    account.listWorkers.mockResolvedValue({ ok: false, message: "Couldn't reach TechDesk. Check your internet." });
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    fireEvent.click(await screen.findByText("See your workers"));
+
+    await waitFor(() =>
+      expect(screen.getByText("Couldn't reach TechDesk. Check your internet.")).toBeInTheDocument()
+    );
+  });
+
+  it("disconnects a worker after confirming, and drops them from the list", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
+    account.listWorkers.mockResolvedValue({
+      ok: true,
+      workers: [{ id: "w1", name: "Ade", pages: ["sales"], joinedAt: "2026-01-05T10:00:00Z" }],
+    });
+    account.revokeWorker.mockResolvedValue({ ok: true });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    fireEvent.click(await screen.findByText("See your workers"));
+    await screen.findByText("Ade");
+
+    fireEvent.click(screen.getByText("Disconnect"));
+
+    await waitFor(() => expect(account.revokeWorker).toHaveBeenCalledWith("w1"));
+    await waitFor(() => expect(screen.queryByText("Ade")).not.toBeInTheDocument());
+  });
+
+  it("never calls revokeWorker when the admin backs out of the confirm", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
+    account.listWorkers.mockResolvedValue({
+      ok: true,
+      workers: [{ id: "w1", name: "Ade", pages: ["sales"], joinedAt: "2026-01-05T10:00:00Z" }],
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    fireEvent.click(await screen.findByText("See your workers"));
+    await screen.findByText("Ade");
+
+    fireEvent.click(screen.getByText("Disconnect"));
+
+    expect(account.revokeWorker).not.toHaveBeenCalled();
+    expect(screen.getByText("Ade")).toBeInTheDocument();
   });
 });
 

@@ -1587,6 +1587,37 @@ ipcMain.handle("techdesk:account-invite-redeem", async (event, payload) => {
   return { ok: true, workerName: res.workerName };
 });
 
+// Owner only: every worker currently connected to this account, newest
+// first, with the pages the admin granted each of them. Row-level security
+// on account_workers already scopes this to the caller's own business.
+ipcMain.handle("techdesk:account-workers-list", async (event, payload) => {
+  const { url, key } = payload || {};
+  const res = await accountRestFetch(
+    url,
+    key,
+    "/account_workers?select=worker_user_id,name,pages,created_at&order=created_at.desc"
+  );
+  if (!res.ok) return res;
+  return {
+    ok: true,
+    workers: (res.data || []).map((w) => ({
+      id: w.worker_user_id,
+      name: w.name,
+      pages: w.pages,
+      joinedAt: w.created_at,
+    })),
+  };
+});
+
+// Owner only: revokes one worker's membership. Their device loses read and
+// write on this business's records on its very next request.
+ipcMain.handle("techdesk:account-workers-revoke", async (event, payload) => {
+  const { url, key, workerId } = payload || {};
+  return accountRestFetch(url, key, `/account_workers?worker_user_id=eq.${encodeURIComponent(workerId)}`, {
+    method: "DELETE",
+  });
+});
+
 // ---- Automatic local backups ----
 // Renderer calls this roughly once a day; we keep the most recent 14 files.
 ipcMain.handle("techdesk:save-backup", (event, jsonString) => {

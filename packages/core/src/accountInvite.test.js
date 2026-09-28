@@ -83,3 +83,20 @@ describe("workerJoin", () => {
     expect(res.message).toMatch(/internet/i);
   });
 });
+
+describe("listWorkers and revokeWorker", () => {
+  it("refuse with no session, rather than calling out", async () => {
+    // Same reasoning as inviteStart above: no accessToken exists in this
+    // environment, so both always take the "not signed in" path here.
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    const listRes = await accountLocal.listWorkers();
+    expect(listRes.ok).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    const revokeRes = await accountLocal.revokeWorker("worker-1");
+    expect(revokeRes.ok).toBe(false);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});

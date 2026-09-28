@@ -118,4 +118,17 @@ export const accountBridge = {
     if (!hasHostBridge()) return { ok: false, message: "This needs the installed desktop app." };
     return hostBridge().accountInviteRedeem({ url: SUPABASE_URL, key: PUBLISHABLE_KEY, email, code, name });
   },
+
+  /** Owner only: every worker currently connected to this account, from the
+   * main process, which holds the real session. */
+  async listWorkers() {
+    if (!hasHostBridge()) return { ok: false, message: "This needs the installed desktop app." };
+    return hostBridge().accountWorkersList({ url: SUPABASE_URL, key: PUBLISHABLE_KEY });
+  },
+
+  /** Owner only: revokes one worker's membership. */
+  async revokeWorker(workerId) {
+    if (!hasHostBridge()) return { ok: false, message: "This needs the installed desktop app." };
+    return hostBridge().accountWorkersRevoke({ url: SUPABASE_URL, key: PUBLISHABLE_KEY, workerId });
+  },
 };
