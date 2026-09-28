@@ -147,12 +147,13 @@ export default function AccountTab() {
     setJustSignedIn("");
   }
 
-  /** Sign out of this device and go straight to Sign in -- no detour through
-   * the teaser card first, since the whole point is to land on a different
-   * business's credentials right away. */
-  async function switchAccount() {
-    await account.signOut();
-    setStatus(await account.status());
+  /** Straight to Sign in -- no detour through the teaser card first, since
+   * the whole point is to land on a different business's credentials right
+   * away. Does NOT sign out first: signIn() below replaces whatever session
+   * is stored the moment it succeeds, so backing out of this popup without
+   * finishing leaves the device signed in exactly as it was, rather than
+   * stuck signed out for having only started to switch. */
+  function switchAccount() {
     switchModal(MODES.signin);
   }
 

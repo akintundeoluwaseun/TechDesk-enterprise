@@ -42,17 +42,19 @@ describe("a signed-in device", () => {
   it("offers a way to sign in to a different business without a detour through the teaser card", async () => {
     const { account } = await import("../../lib/account");
     account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
-    account.signOut.mockResolvedValue({ ok: true });
 
     render(<ThemeProvider><AccountTab /></ThemeProvider>);
     await screen.findByText("Signed in");
 
-    account.status.mockResolvedValue({ signedIn: false });
     fireEvent.click(screen.getByText("Sign in to a different business"));
 
-    await waitFor(() => expect(account.signOut).toHaveBeenCalled());
     // Straight to the Sign in form, not back to the teaser card first.
     expect(screen.getByPlaceholderText("Email")).toBeInTheDocument();
+    // And NOT signed out first: backing out of this popup unfinished must
+    // leave the device signed in exactly as it was, not stuck signed out.
+    expect(account.signOut).not.toHaveBeenCalled();
+    expect(screen.getByText("Signed in")).toBeInTheDocument();
+    expect(screen.getByText("shop@example.com")).toBeInTheDocument();
   });
 });
 
