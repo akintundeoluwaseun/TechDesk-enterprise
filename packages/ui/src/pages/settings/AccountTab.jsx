@@ -15,7 +15,18 @@ import DeveloperTab from "./DeveloperTab";
 import UpgradeLock from "../../components/UpgradeLock";
 import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
 
-const MODES = { signin: "signin", signup: "signup", worker: "worker" };
+const MODES = {
+  signin: "signin",
+  signup: "signup",
+  worker: "worker",
+  // Finishing signUp() with the code from a confirmation email, and
+  // resetting a forgotten password with a code of its own -- both typed
+  // in, never a link clicked, for the same reason worker codes are: this
+  // device has nowhere reliable for a link to send it back to.
+  confirmSignup: "confirmSignup",
+  resetRequest: "resetRequest",
+  resetConfirm: "resetConfirm",
+};
 
 export default function AccountTab() {
   const t = useThemeTokens();
@@ -30,9 +41,12 @@ export default function AccountTab() {
   const [password, setPassword] = useState("");
   const [workerCode, setWorkerCode] = useState("");
   const [workerName, setWorkerName] = useState("");
+  // Shared by confirmSignup and resetConfirm -- only one of those is ever
+  // open at once, so one field is enough.
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   // What has and has not gone up. Signing in and then seeing nothing move
   // used to look identical to a broken connection -- this is here so nobody
   // has to guess whether it is working.
@@ -102,7 +116,20 @@ export default function AccountTab() {
   function switchModal(next) {
     setOpenModal(next);
     setError("");
-    setNotice("");
+    setCode("");
+    setNewPassword("");
+  }
+
+  /** The end of every path that lands this device signed in. */
+  async function finishSignedIn(message = "You're signed in.") {
+    setAccountGateDecision("signed-in");
+    setEmail("");
+    setPassword("");
+    setCode("");
+    setNewPassword("");
+    setOpenModal(null);
+    setStatus(await account.status());
+    setJustSignedIn(message);
   }
 
   async function submit(e) {
@@ -114,14 +141,33 @@ export default function AccountTab() {
       const res = await account.workerJoin(email, workerCode, workerName);
       setBusy(false);
       if (!res.ok) return setError(res.message || "That didn't work. Try again.");
-      setAccountGateDecision("signed-in");
       setEmail("");
       setWorkerCode("");
       setWorkerName("");
-      setOpenModal(null);
-      setStatus(await account.status());
-      setJustSignedIn(`You're connected as ${workerName || "a worker"}.`);
+      return finishSignedIn(`You're connected as ${workerName || "a worker"}.`);
+    }
+
+    if (openModal === MODES.confirmSignup) {
+      const res = await account.confirmSignUp(email, code);
+      setBusy(false);
+      if (!res.ok) return setError(res.message || "That didn't work. Try again.");
+      return finishSignedIn();
+    }
+
+    if (openModal === MODES.resetRequest) {
+      const res = await account.requestPasswordReset(email);
+      setBusy(false);
+      if (!res.ok) return setError(res.message || "That didn't work. Try again.");
+      setError("");
+      setOpenModal(MODES.resetConfirm);
       return;
+    }
+
+    if (openModal === MODES.resetConfirm) {
+      const res = await account.confirmPasswordReset(email, code, newPassword);
+      setBusy(false);
+      if (!res.ok) return setError(res.message || "That didn't work. Try again.");
+      return finishSignedIn("Password changed. You're signed in.");
     }
 
     const res =
@@ -129,16 +175,11 @@ export default function AccountTab() {
     setBusy(false);
     if (!res.ok) return setError(res.message || "That didn't work. Try again.");
     if (res.needsConfirmation) {
-      setNotice("Check your email to confirm the account, then sign in here.");
-      setOpenModal(MODES.signin);
+      setError("");
+      setOpenModal(MODES.confirmSignup);
       return;
     }
-    setAccountGateDecision("signed-in");
-    setEmail("");
-    setPassword("");
-    setOpenModal(null);
-    setStatus(await account.status());
-    setJustSignedIn("You're signed in.");
+    return finishSignedIn();
   }
 
   async function signOut() {
@@ -262,6 +303,12 @@ export default function AccountTab() {
       ? "Set up your business"
       : openModal === MODES.worker
       ? "Connect to a business"
+      : openModal === MODES.confirmSignup
+      ? "Confirm your email"
+      : openModal === MODES.resetRequest
+      ? "Reset your password"
+      : openModal === MODES.resetConfirm
+      ? "Choose a new password"
       : "Sign in";
 
   const modalDescription =
@@ -269,7 +316,22 @@ export default function AccountTab() {
       ? "Create this business's account once. Every device after this one connects to it instead of making its own."
       : openModal === MODES.worker
       ? "Enter the shop's email, the code its owner read out to you, and your own name."
+      : openModal === MODES.confirmSignup
+      ? `We sent a code to ${email || "your email"}. Enter it to finish setting up your account.`
+      : openModal === MODES.resetRequest
+      ? "Enter the email your account uses. If it has an account, a code to reset the password is on its way."
+      : openModal === MODES.resetConfirm
+      ? `Enter the code sent to ${email || "your email"}, and the password you want instead.`
       : "Sign in with this business's email and password to get this device ready to sync.";
+
+  const submitLabel =
+    openModal === MODES.resetRequest
+      ? "Send code"
+      : openModal === MODES.confirmSignup
+      ? "Confirm"
+      : openModal === MODES.resetConfirm
+      ? "Set new password"
+      : modalTitle;
 
   return (
     <div className="flex flex-col gap-8">
@@ -305,6 +367,42 @@ export default function AccountTab() {
                   className={input}
                 />
               </>
+            ) : openModal === MODES.confirmSignup ? (
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                placeholder="6-digit code"
+                inputMode="numeric"
+                className={input}
+                autoFocus
+              />
+            ) : openModal === MODES.resetRequest ? (
+              <input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className={input}
+                autoFocus
+              />
+            ) : openModal === MODES.resetConfirm ? (
+              <>
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="6-digit code"
+                  inputMode="numeric"
+                  className={input}
+                  autoFocus
+                />
+                <input
+                  type="password"
+                  placeholder="New password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className={input}
+                />
+              </>
             ) : (
               <>
                 <input
@@ -322,16 +420,24 @@ export default function AccountTab() {
                   onChange={(e) => setPassword(e.target.value)}
                   className={input}
                 />
+                {openModal === MODES.signin && (
+                  <button
+                    type="button"
+                    onClick={() => switchModal(MODES.resetRequest)}
+                    className={`self-start text-sm font-medium ${t.textSecondary}`}
+                  >
+                    Forgot password?
+                  </button>
+                )}
               </>
             )}
             {error && <p className="text-sm text-red-500">{error}</p>}
-            {notice && <p className="text-sm text-emerald-500">{notice}</p>}
             <button
               type="submit"
               disabled={busy}
               className={`px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-60 ${t.pillBg}`}
             >
-              {busy ? "Working…" : modalTitle}
+              {busy ? "Working…" : submitLabel}
             </button>
           </form>
         </SettingsModal>

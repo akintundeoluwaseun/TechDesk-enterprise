@@ -1327,6 +1327,12 @@ function friendlyAccountAuthError(data) {
   if (code === "weak_password") {
     return "Choose a longer password -- at least 6 characters.";
   }
+  // Supabase reports a wrong code and an expired one the same way, on
+  // purpose -- telling them apart would tell an attacker which codes are
+  // still live.
+  if (code === "otp_expired" || code === "invalid_otp") {
+    return "That code isn't right, or it has expired. Ask for a new one.";
+  }
   return data?.msg || data?.error_description || data?.message ||
     "Couldn't reach TechDesk. Check your details and try again.";
 }
@@ -1380,6 +1386,48 @@ ipcMain.handle("techdesk:account-sign-in", async (event, payload) => {
   const res = await accountAuthFetch(url, key, "/token?grant_type=password", { email, password });
   if (!res.ok) return res;
   writeAccountState({ email, accessToken: res.data.access_token, refreshToken: res.data.refresh_token });
+  return { ok: true };
+});
+
+ipcMain.handle("techdesk:account-confirm-sign-up", async (event, payload) => {
+  const { url, key, email, code } = payload || {};
+  const res = await accountAuthFetch(url, key, "/verify", { type: "signup", email, token: code });
+  if (!res.ok) return res;
+  writeAccountState({ email, accessToken: res.data.access_token, refreshToken: res.data.refresh_token });
+  return { ok: true };
+});
+
+ipcMain.handle("techdesk:account-request-password-reset", async (event, payload) => {
+  const { url, key, email } = payload || {};
+  const res = await accountAuthFetch(url, key, "/recover", { email });
+  if (!res.ok) return res;
+  return { ok: true };
+});
+
+ipcMain.handle("techdesk:account-confirm-password-reset", async (event, payload) => {
+  const { url, key, email, code, newPassword } = payload || {};
+  const verified = await accountAuthFetch(url, key, "/verify", { type: "recovery", email, token: code });
+  if (!verified.ok) return verified;
+
+  const recoveryToken = verified.data.access_token;
+  let res;
+  try {
+    res = await fetch(`${url}/auth/v1/user`, {
+      method: "PUT",
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${recoveryToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password: newPassword }),
+    });
+  } catch {
+    return { ok: false, error: "offline", message: "Couldn't reach TechDesk. Check your internet and try again." };
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return { ok: false, error: data?.error_code || "auth_failed", message: friendlyAccountAuthError(data) };
+
+  writeAccountState({ email, accessToken: recoveryToken, refreshToken: verified.data.refresh_token });
   return { ok: true };
 });
 

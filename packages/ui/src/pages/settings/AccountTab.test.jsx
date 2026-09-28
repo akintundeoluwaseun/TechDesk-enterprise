@@ -11,6 +11,9 @@ vi.mock("../../lib/account", () => ({
     signIn: vi.fn(),
     signUp: vi.fn(),
     signOut: vi.fn(),
+    confirmSignUp: vi.fn(),
+    requestPasswordReset: vi.fn(),
+    confirmPasswordReset: vi.fn(),
     pull: vi.fn(async () => ({ ok: true, more: false })),
     push: vi.fn(async () => ({ ok: true, more: false })),
   },
@@ -115,6 +118,120 @@ describe("each door shows only its own form", () => {
     // is that the popup does not repeat them.)
     expect(within(dialog).queryByText(/Set up your business/)).not.toBeInTheDocument();
     expect(within(dialog).queryByText(/Connect to a business/)).not.toBeInTheDocument();
+  });
+});
+
+describe("finishing a fresh signup with the code from the confirmation email", () => {
+  it("moves from Set up your business straight to a code, not back to Sign in with a dead link to click", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: false });
+    account.signUp.mockResolvedValue({ ok: true, needsConfirmation: true });
+    account.confirmSignUp.mockResolvedValue({ ok: true });
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    await screen.findByText("Sign in to sync data");
+
+    fireEvent.click(screen.getByText(/Set up your business/));
+    const signupDialog = screen.getByRole("dialog");
+    fireEvent.change(within(signupDialog).getByPlaceholderText("Email"), { target: { value: "shop@example.com" } });
+    fireEvent.change(within(signupDialog).getByPlaceholderText("Password"), { target: { value: "hunter2" } });
+    fireEvent.click(within(signupDialog).getByRole("button", { name: "Set up your business" }));
+
+    await screen.findByText("Confirm your email");
+    const codeDialog = screen.getByRole("dialog");
+    expect(within(codeDialog).queryByPlaceholderText("Email")).not.toBeInTheDocument();
+    fireEvent.change(within(codeDialog).getByPlaceholderText("6-digit code"), { target: { value: "482913" } });
+    account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
+    fireEvent.click(within(codeDialog).getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() => expect(account.confirmSignUp).toHaveBeenCalledWith("shop@example.com", "482913"));
+    await waitFor(() => expect(screen.getByText("You're signed in.")).toBeInTheDocument());
+  });
+
+  it("shows the owner's real message for a wrong or expired code", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: false });
+    account.signUp.mockResolvedValue({ ok: true, needsConfirmation: true });
+    account.confirmSignUp.mockResolvedValue({ ok: false, message: "That code isn't right, or it has expired. Ask for a new one." });
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    await screen.findByText("Sign in to sync data");
+    fireEvent.click(screen.getByText(/Set up your business/));
+    fireEvent.change(screen.getByPlaceholderText("Email"), { target: { value: "shop@example.com" } });
+    fireEvent.change(screen.getByPlaceholderText("Password"), { target: { value: "hunter2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Set up your business" }));
+
+    await screen.findByText("Confirm your email");
+    fireEvent.change(screen.getByPlaceholderText("6-digit code"), { target: { value: "000000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+
+    await waitFor(() =>
+      expect(screen.getByText("That code isn't right, or it has expired. Ask for a new one.")).toBeInTheDocument(),
+    );
+  });
+});
+
+describe("forgot password", () => {
+  it("offers it only on the Sign in form, not Set up your business or Connect to a business", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: false });
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    await screen.findByText("Sign in to sync data");
+
+    fireEvent.click(screen.getByText("Sign in"));
+    expect(within(screen.getByRole("dialog")).getByText("Forgot password?")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close Sign in" }));
+
+    fireEvent.click(screen.getByText(/Set up your business/));
+    expect(within(screen.getByRole("dialog")).queryByText("Forgot password?")).not.toBeInTheDocument();
+  });
+
+  it("goes from a code request to setting a new password, and lands signed in", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: false });
+    account.requestPasswordReset.mockResolvedValue({ ok: true });
+    account.confirmPasswordReset.mockResolvedValue({ ok: true });
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    await screen.findByText("Sign in to sync data");
+    fireEvent.click(screen.getByText("Sign in"));
+    fireEvent.click(screen.getByText("Forgot password?"));
+
+    await screen.findByText("Reset your password");
+    const requestDialog = screen.getByRole("dialog");
+    fireEvent.change(within(requestDialog).getByPlaceholderText("Email"), { target: { value: "shop@example.com" } });
+    fireEvent.click(within(requestDialog).getByRole("button", { name: "Send code" }));
+
+    await waitFor(() => expect(account.requestPasswordReset).toHaveBeenCalledWith("shop@example.com"));
+    await screen.findByText("Choose a new password");
+    const confirmDialog = screen.getByRole("dialog");
+    fireEvent.change(within(confirmDialog).getByPlaceholderText("6-digit code"), { target: { value: "112233" } });
+    fireEvent.change(within(confirmDialog).getByPlaceholderText("New password"), { target: { value: "newhunter3" } });
+    account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
+    fireEvent.click(within(confirmDialog).getByRole("button", { name: "Set new password" }));
+
+    await waitFor(() =>
+      expect(account.confirmPasswordReset).toHaveBeenCalledWith("shop@example.com", "112233", "newhunter3"),
+    );
+    await waitFor(() => expect(screen.getByText("Password changed. You're signed in.")).toBeInTheDocument());
+  });
+
+  it("never says whether the email has an account -- the same message either way", async () => {
+    const { account } = await import("../../lib/account");
+    account.status.mockResolvedValue({ signedIn: false });
+    account.requestPasswordReset.mockResolvedValue({ ok: true });
+
+    render(<ThemeProvider><AccountTab /></ThemeProvider>);
+    await screen.findByText("Sign in to sync data");
+    fireEvent.click(screen.getByText("Sign in"));
+    fireEvent.click(screen.getByText("Forgot password?"));
+    fireEvent.change(screen.getByPlaceholderText("Email"), { target: { value: "anyone@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send code" }));
+
+    await screen.findByText("Choose a new password");
+    // No "no account found" branch exists to accidentally reach -- the same
+    // next screen follows every request, whatever the email turns out to be.
   });
 });
 

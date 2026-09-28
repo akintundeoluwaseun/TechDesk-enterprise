@@ -37,6 +37,13 @@ export const account = {
   push: (...args) => impl().push(...args),
   pull: (...args) => impl().pull(...args),
 
+  /** The code from a signup confirmation email, typed in rather than a link
+   * clicked -- see accountLocal.js for why. */
+  confirmSignUp: (...args) => impl().confirmSignUp(...args),
+  /** Forgot password: request a code, then confirm it with a new password. */
+  requestPasswordReset: (...args) => impl().requestPasswordReset(...args),
+  confirmPasswordReset: (...args) => impl().confirmPasswordReset(...args),
+
   /** Owner only: issues the code a worker's device redeems below. */
   inviteStart: (...args) => impl().inviteStart(...args),
   /** A worker's device, joining with the shop's email, that code, and their

@@ -39,6 +39,28 @@ export const accountBridge = {
     return hostBridge().accountSignIn({ url: SUPABASE_URL, key: PUBLISHABLE_KEY, email: trimmed, password });
   },
 
+  /** Finishes signUp() when a fresh account needs its email confirmed. Same
+   * reasoning as accountLocal: a code typed in here, not a link clicked,
+   * because this device has nowhere reliable for a link to send it back to. */
+  async confirmSignUp(email, code) {
+    if (!hasHostBridge()) return { ok: false, message: "This needs the installed desktop app." };
+    return hostBridge().accountConfirmSignUp({ url: SUPABASE_URL, key: PUBLISHABLE_KEY, email, code });
+  },
+
+  /** Asks Supabase to email a recovery code. Always answers ok -- whether
+   * the address has an account is not this device's to say. */
+  async requestPasswordReset(email) {
+    if (!hasHostBridge()) return { ok: false, message: "This needs the installed desktop app." };
+    return hostBridge().accountRequestPasswordReset({ url: SUPABASE_URL, key: PUBLISHABLE_KEY, email });
+  },
+
+  /** The code from that email, plus the new password. Signs this device in
+   * the moment it works, same as a normal sign-in. */
+  async confirmPasswordReset(email, code, newPassword) {
+    if (!hasHostBridge()) return { ok: false, message: "This needs the installed desktop app." };
+    return hostBridge().accountConfirmPasswordReset({ url: SUPABASE_URL, key: PUBLISHABLE_KEY, email, code, newPassword });
+  },
+
   /** Forgets the session in the main process. The account itself is untouched.
    * No server call: unlike hq's disconnect, signing out of a password
    * session has nothing for the server to be told. */
