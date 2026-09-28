@@ -70,33 +70,70 @@ async function authFetch(path, body) {
   return { ok: true, data };
 }
 
+/**
+ * A signed-in session's access token expires (Supabase's default is an
+ * hour) long before anyone signs out on purpose. Without this, every
+ * authenticated request -- push, pull, inviting a worker -- starts failing
+ * with "Invalid JWT" partway through the day, and the only way out looked
+ * like signing out and back in. The refresh token is good for much longer,
+ * so this trades it for a new pair and keeps everything else already
+ * stored (role, workerName, businessId, pages) exactly as it was.
+ */
+async function refreshAccessToken() {
+  const { signedIn, ...rest } = readState();
+  void signedIn;
+  if (!rest.refreshToken) return null;
+  const res = await authFetch("/token?grant_type=refresh_token", { refresh_token: rest.refreshToken });
+  if (!res.ok) return null;
+  saveState({ ...rest, accessToken: res.data.access_token, refreshToken: res.data.refresh_token });
+  return res.data.access_token;
+}
+
+/** A stale token reads as an HTTP 401, or an edge function's own "Invalid
+ * JWT"/"JWT expired" message -- either way, worth one retry with a fresh
+ * one before telling the shop something actually went wrong. */
+function looksLikeExpiredJwt(res) {
+  if (res?.error === "http_401") return true;
+  return /jwt/i.test(res?.message || "");
+}
+
 /** PostgREST, called with the signed-in user's own token -- never a service
  * key. Only ever used from a browser build: on desktop this same request
  * happens in main.js, where the token lives. */
 async function restFetch(path, { method = "GET", body, headers = {} } = {}) {
   const s = readState();
   if (!s.accessToken) return { ok: false, error: "not_signed_in" };
-  let res;
-  try {
-    res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
-      method,
-      headers: {
-        apikey: PUBLISHABLE_KEY,
-        Authorization: `Bearer ${s.accessToken}`,
-        "Content-Type": "application/json",
-        ...headers,
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-  } catch {
-    return { ok: false, error: "offline" };
+
+  async function attempt(token) {
+    let res;
+    try {
+      res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, {
+        method,
+        headers: {
+          apikey: PUBLISHABLE_KEY,
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          ...headers,
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+    } catch {
+      return { ok: false, error: "offline" };
+    }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: `http_${res.status}`, message: data?.message };
+    }
+    const data = res.status === 204 ? null : await res.json().catch(() => null);
+    return { ok: true, data };
   }
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    return { ok: false, error: `http_${res.status}`, message: data?.message };
+
+  let result = await attempt(s.accessToken);
+  if (!result.ok && looksLikeExpiredJwt(result)) {
+    const fresh = await refreshAccessToken();
+    if (fresh) result = await attempt(fresh);
   }
-  const data = res.status === 204 ? null : await res.json().catch(() => null);
-  return { ok: true, data };
+  return result;
 }
 
 async function pushRows(rows) {
@@ -133,23 +170,32 @@ function friendlyInviteError(data) {
 }
 
 async function fnFetch(fn, body, { token } = {}) {
-  let res;
-  try {
-    res = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
-      method: "POST",
-      headers: {
-        apikey: PUBLISHABLE_KEY,
-        Authorization: `Bearer ${token || PUBLISHABLE_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-  } catch {
-    return { ok: false, message: "Couldn't reach TechDesk. Check your internet and try again." };
+  async function attempt(tok) {
+    let res;
+    try {
+      res = await fetch(`${SUPABASE_URL}/functions/v1/${fn}`, {
+        method: "POST",
+        headers: {
+          apikey: PUBLISHABLE_KEY,
+          Authorization: `Bearer ${tok || PUBLISHABLE_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      return { ok: false, message: "Couldn't reach TechDesk. Check your internet and try again." };
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.ok) return { ok: false, message: friendlyInviteError(data) };
+    return data;
   }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || !data?.ok) return { ok: false, message: friendlyInviteError(data) };
-  return data;
+
+  let result = await attempt(token);
+  if (!result.ok && token && looksLikeExpiredJwt(result)) {
+    const fresh = await refreshAccessToken();
+    if (fresh) result = await attempt(fresh);
+  }
+  return result;
 }
 
 export const accountLocal = {

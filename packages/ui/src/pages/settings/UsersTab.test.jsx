@@ -170,6 +170,9 @@ describe("the Users tab", () => {
     expect(await screen.findByText("Ade")).toBeInTheDocument();
     expect(screen.getByText("Can open: Sales")).toBeInTheDocument();
 
+    // Nothing is picked until the shop checks it -- ticking Sales before
+    // generating is the point of this screen, not something assumed.
+    fireEvent.click(screen.getByText("Sales"));
     fireEvent.click(screen.getByText("Generate a code"));
     await waitFor(() => expect(screen.getByText("482913")).toBeInTheDocument());
   });

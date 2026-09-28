@@ -45,10 +45,10 @@ function pagesLabel(pages) {
  */
 function InviteWorkerPanel() {
   const t = useThemeTokens();
-  // Defaults to all three -- the same access every worker used to get --
-  // so a shop that has no reason to narrow it does not have to think about
-  // it. Narrowing it is the point of this screen, not the default.
-  const [pages, setPages] = useState(["sales", "repairs", "inventory"]);
+  // Nothing is picked until the shop actually checks it -- narrowing access
+  // is the point of this screen, and a box that starts ticked reads as
+  // decided for you rather than something you chose.
+  const [pages, setPages] = useState([]);
   const [state, setState] = useState({ code: null, expiresAt: null, busy: false, error: "" });
   const [grantedPages, setGrantedPages] = useState(null);
   const [now, setNow] = useState(() => Date.now());
@@ -101,23 +101,25 @@ function InviteWorkerPanel() {
       <div className={`text-xs font-semibold uppercase tracking-wider mt-4 mb-2 ${t.textMuted}`}>
         This worker can open
       </div>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-4">
         {PAGE_OPTIONS.map((opt) => {
           const checked = pages.includes(opt.key);
           return (
-            <label
-              key={opt.key}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium cursor-pointer ${
-                checked ? (t.dark ? "bg-white text-black" : "bg-slate-900 text-white") : t.cardBg
-              }`}
-            >
+            <label key={opt.key} className="flex items-center gap-2 cursor-pointer">
+              <span
+                className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+                  checked ? "bg-emerald-500" : t.dark ? "border border-white/20" : "border border-slate-300"
+                }`}
+              >
+                {checked && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+              </span>
               <input
                 type="checkbox"
                 className="sr-only"
                 checked={checked}
                 onChange={() => togglePage(opt.key)}
               />
-              {opt.label}
+              <span className={`text-sm font-medium ${t.textPrimary}`}>{opt.label}</span>
             </label>
           );
         })}
