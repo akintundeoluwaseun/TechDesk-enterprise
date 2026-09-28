@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Building2, CheckCircle2, Link2, Phone, RefreshCw, Unlink } from "lucide-react";
+import { Building2, CheckCircle2, ChevronDown, Link2, Phone, RefreshCw, Unlink } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import { hq } from "../../lib/hq";
@@ -23,6 +23,12 @@ export default function ConnectHqTab() {
   const [code, setCode] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [error, setError] = useState("");
+  // The web address is only useful to a branch that is about to REGISTER a
+  // new head office, which is not most branches on this screen -- most
+  // already have one and are just connecting to it. Showing it every time
+  // buried the one thing this screen is actually for under a URL nobody here
+  // needed yet.
+  const [showNoHq, setShowNoHq] = useState(false);
   // What has and has not reached HQ. Connecting and then seeing nothing at
   // head office used to look identical to a broken connection, because this
   // screen said "Connected" and then never mentioned sending again.
@@ -316,8 +322,8 @@ export default function ConnectHqTab() {
             <button
               type="submit"
               disabled={step === "working"}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${t.pillBg} ${
-                step === "working" ? "opacity-60" : ""
+              className={`flex items-center gap-2 px-5 py-3 rounded-xl text-base font-bold disabled:opacity-60 ${
+                t.dark ? "bg-white text-black" : "bg-slate-900 text-white"
               }`}
             >
               <Link2 className="w-4 h-4" />{" "}
@@ -328,11 +334,21 @@ export default function ConnectHqTab() {
       </div>
 
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
-        <h3 className={`font-semibold ${t.textPrimary}`}>No HQ yet?</h3>
-        <p className={`text-sm mt-1 ${t.textSecondary}`}>
-          Head office signs up once at {siteLabel("hq.html")} with their email or phone
-          number. Every branch then connects to that.
-        </p>
+        <button
+          type="button"
+          onClick={() => setShowNoHq((v) => !v)}
+          className={`flex items-center justify-between w-full text-left font-semibold ${t.textPrimary}`}
+          aria-expanded={showNoHq}
+        >
+          No HQ yet?
+          <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${showNoHq ? "rotate-180" : ""}`} />
+        </button>
+        {showNoHq && (
+          <p className={`text-sm mt-2 ${t.textSecondary}`}>
+            Head office signs up once at {siteLabel("hq.html")} with their email or phone
+            number. Every branch then connects to that.
+          </p>
+        )}
       </div>
     </div>
   );
