@@ -85,9 +85,18 @@ export default function ActivationModal({ onClose }) {
     return candidate === "enterprise" && upgradeOnly ? "upgrade" : "plan";
   }
   function priceFor(candidate) {
-    const key = productFor(candidate) === "upgrade" ? "upgrade_enterprise" : candidate;
-    return prices[key]?.amount;
+    if (productFor(candidate) === "upgrade") {
+      // Only for what is left of the Business year -- the server's quote,
+      // the same number the order will charge.
+      const quote = licence?.upgrade;
+      return quote?.eligible ? Number(quote.amount) : prices.upgrade_enterprise?.amount;
+    }
+    return prices[candidate]?.amount;
   }
+  // The upgrade price shrinks day by day; read today's before showing it.
+  useEffect(() => {
+    refreshLicence?.();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Extra head-office branches, for an Enterprise shop.
   const [branchForm, setBranchForm] = useState(false);

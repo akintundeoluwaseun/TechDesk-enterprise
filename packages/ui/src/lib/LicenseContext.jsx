@@ -225,7 +225,7 @@ export function LicenseProvider({ children }) {
     if (!forPin) return null;
     const res = await checkout.licenceStatus(forPin);
     if (!res?.ok) return null; // offline: keep the cached answer, dates and all
-    const next = { found: !!res.found, tier: res.tier || null, expiresAt: res.expiresAt || null, checkedAt: new Date().toISOString() };
+    const next = { found: !!res.found, tier: res.tier || null, expiresAt: res.expiresAt || null, upgrade: res.upgrade || null, checkedAt: new Date().toISOString() };
     try { localStorage.setItem(KEY_LICENCE, JSON.stringify(next)); } catch { /* mirror only */ }
     setLicence(next);
     return next;

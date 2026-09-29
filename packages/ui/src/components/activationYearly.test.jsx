@@ -8,7 +8,7 @@ import { SettingsProvider } from "../lib/SettingsContext";
 // for Enterprise, an Enterprise shop can buy extra head-office branches, and
 // the prices shown are the server's.
 
-const state = vi.hoisted(() => ({ tier: "business" }));
+const state = vi.hoisted(() => ({ tier: "business", upgrade: null }));
 const { verifyCode, startOrder, claimCode, payWithFlutterwave, prices } = vi.hoisted(() => ({
   verifyCode: vi.fn(),
   startOrder: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock("../lib/LicenseContext", async (importOriginal) => ({
     boughtTier: state.tier,
     unlocks: [],
     verifyCode,
-    licence: { found: true, tier: state.tier, expiresAt: "2027-09-30T00:00:00Z" },
+    licence: { found: true, tier: state.tier, expiresAt: "2027-09-30T00:00:00Z", upgrade: state.upgrade },
     refreshLicence: async () => null,
   }),
 }));
@@ -60,6 +60,14 @@ beforeEach(() => {
 });
 
 describe("yearly plans", () => {
+  it("the upgrade shows only what is left of the Business year", async () => {
+    state.tier = "business";
+    state.upgrade = { eligible: true, amount: 830, full: 10000, daysLeft: 30 };
+    open();
+    await waitFor(() => expect(screen.getByText(/₦830 for the rest of your plan year/)).toBeTruthy());
+    state.upgrade = null;
+  });
+
   it("a Business shop upgrades to Enterprise at the upgrade price", async () => {
     state.tier = "business";
     startOrder.mockResolvedValue({ ok: true, txRef: "td-u", amount: 10000, currency: "NGN" });
