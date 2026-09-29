@@ -35,7 +35,8 @@ export { rememberRevoke, pendingRevoke, clearRevoke } from "./hqStore";
 // The numbers the top of each page reports, in one place, because three
 // screens and an export have to agree about what a repair costs.
 export {
-  isToday, startOfDay, repairTotal, repairOwed, saleOwed, isOpenRepair,
+  isToday, startOfDay, startOfWeek, startOfMonth, groupByPeriod,
+  repairTotal, repairOwed, saleOwed, isOpenRepair,
   repairsSummary, salesSummary, customerKey, customerTotals, customersSummary,
   pendingPaymentsSummary,
 } from "./summary";

@@ -35,6 +35,60 @@ export function isToday(iso, now = new Date()) {
   return t >= startOfDay(now).getTime() && t <= new Date(now).getTime() + 1000;
 }
 
+/** Monday of the week `now` falls in, on this device's own clock. */
+export function startOfWeek(now = new Date()) {
+  const d = startOfDay(now);
+  const day = d.getDay(); // 0 = Sunday .. 6 = Saturday
+  const sinceMonday = day === 0 ? 6 : day - 1;
+  d.setDate(d.getDate() - sinceMonday);
+  return d;
+}
+
+/** The 1st of the month `now` falls in, on this device's own clock. */
+export function startOfMonth(now = new Date()) {
+  const d = startOfDay(now);
+  d.setDate(1);
+  return d;
+}
+
+const PERIOD_BUCKETS = [
+  { key: "today", label: "Today" },
+  { key: "week", label: "This Week" },
+  { key: "month", label: "This Month" },
+  { key: "older", label: "Older" },
+];
+
+/**
+ * Sales and repairs, split into Today / This Week / This Month / Older --
+ * a list that only grows read fine at ten rows and became a scroll of
+ * identical-looking cards at two hundred, with nothing on the page to say
+ * where "today" ended and last month began.
+ *
+ * `records` is expected newest-first, same order db.getSales()/getRepairs()
+ * already return it in (they unshift onto save) -- this only partitions,
+ * it never re-sorts, so that order is kept inside each bucket. Empty
+ * buckets are left out entirely rather than returned as a heading with
+ * nothing under it.
+ */
+export function groupByPeriod(records = [], now = new Date()) {
+  const today = startOfDay(now).getTime();
+  const week = startOfWeek(now).getTime();
+  const month = startOfMonth(now).getTime();
+
+  const buckets = { today: [], week: [], month: [], older: [] };
+
+  for (const record of records) {
+    const t = new Date(record?.createdAt).getTime();
+    if (!Number.isFinite(t)) buckets.older.push(record);
+    else if (t >= today) buckets.today.push(record);
+    else if (t >= week) buckets.week.push(record);
+    else if (t >= month) buckets.month.push(record);
+    else buckets.older.push(record);
+  }
+
+  return PERIOD_BUCKETS.map((b) => ({ ...b, items: buckets[b.key] })).filter((b) => b.items.length > 0);
+}
+
 function num(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   isToday, repairTotal, repairOwed, saleOwed, isOpenRepair,
   repairsSummary, salesSummary, customerKey, customerTotals, customersSummary,
-  pendingPaymentsSummary,
+  pendingPaymentsSummary, groupByPeriod,
 } from "./summary";
 
 const NOW = new Date("2026-09-21T14:00:00+01:00");
@@ -39,6 +39,56 @@ describe("today means the shop's today", () => {
   it("says no to junk rather than guessing", () => {
     expect(isToday(null, NOW)).toBe(false);
     expect(isToday("not a date", NOW)).toBe(false);
+  });
+});
+
+describe("grouping sales and repairs by period", () => {
+  // A Thursday, so there is room in the fixture for "earlier this week"
+  // to actually be a different day from "today" -- the NOW above is a
+  // Monday, where those two are the same day and the split can't be tested.
+  const GROUP_NOW = new Date("2026-09-24T14:00:00+01:00");
+  const at = (iso) => new Date(iso).toISOString();
+
+  it("splits into Today / This Week / This Month / Older, newest bucket first", () => {
+    const records = [
+      { id: "a", createdAt: at("2026-09-24T09:00:00+01:00") }, // today (Thu)
+      { id: "b", createdAt: at("2026-09-22T09:00:00+01:00") }, // this week (Tue)
+      { id: "c", createdAt: at("2026-09-05T09:00:00+01:00") }, // this month
+      { id: "d", createdAt: at("2026-08-15T09:00:00+01:00") }, // older
+    ];
+
+    const groups = groupByPeriod(records, GROUP_NOW);
+
+    expect(groups.map((g) => g.key)).toEqual(["today", "week", "month", "older"]);
+    expect(groups.map((g) => g.label)).toEqual(["Today", "This Week", "This Month", "Older"]);
+    expect(groups.map((g) => g.items.map((r) => r.id))).toEqual([["a"], ["b"], ["c"], ["d"]]);
+  });
+
+  it("leaves out a bucket that has nothing in it, rather than an empty heading", () => {
+    const records = [{ id: "a", createdAt: at("2026-09-24T09:00:00+01:00") }];
+    const groups = groupByPeriod(records, GROUP_NOW);
+    expect(groups.map((g) => g.key)).toEqual(["today"]);
+  });
+
+  it("keeps records within a bucket in the order they were given", () => {
+    // db.getSales()/getRepairs() already return newest-first; this only
+    // partitions that order into buckets, it never re-sorts.
+    const records = [
+      { id: "second", createdAt: at("2026-09-24T15:00:00+01:00") },
+      { id: "first", createdAt: at("2026-09-24T09:00:00+01:00") },
+    ];
+    const groups = groupByPeriod(records, GROUP_NOW);
+    expect(groups[0].items.map((r) => r.id)).toEqual(["second", "first"]);
+  });
+
+  it("files a record with no usable date as Older rather than dropping it", () => {
+    const records = [{ id: "broken", createdAt: null }];
+    const groups = groupByPeriod(records, GROUP_NOW);
+    expect(groups.map((g) => g.key)).toEqual(["older"]);
+  });
+
+  it("returns nothing at all for an empty list", () => {
+    expect(groupByPeriod([], GROUP_NOW)).toEqual([]);
   });
 });
 
