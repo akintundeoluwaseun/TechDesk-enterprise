@@ -27,7 +27,36 @@ const STYLE = `
   pointer-events: none;
 `;
 
+// The shell's Toaster registers here. While it's mounted, toasts go to it --
+// animated cards, with confetti for the moments worth it. Without it (a
+// plain module running before or outside the app) the one-line pill below
+// still works exactly as before.
+const listeners = new Set();
+let nextId = 1;
+
+export function onToast(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+/**
+ * toast("Saved")                                  -- the original one-liner
+ * toast({ title, message?, tone?, celebrate? })   -- tone: success | info | danger
+ */
 export function toast(message, ms = 3500) {
+  const item = typeof message === "string" ? { title: message, tone: "info" } : { tone: "success", ...message };
+  if (listeners.size) {
+    const withId = { id: nextId++, ...item };
+    for (const fn of listeners) {
+      try {
+        fn(withId);
+      } catch {
+        // One listener throwing must not stop the rest.
+      }
+    }
+    return;
+  }
+  message = item.message ? `${item.title} — ${item.message}` : item.title;
   if (typeof document === "undefined") return;
 
   clearTimeout(timer);

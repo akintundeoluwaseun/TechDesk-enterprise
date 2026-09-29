@@ -21,7 +21,7 @@ describe("Clear actually clears", () => {
 
   it.each(SURFACES)("%s passes clearedAt to the feed, not just depends on it", (file) => {
     const src = readFileSync(resolve(__dirname, "../components", file), "utf-8");
-    expect(src).toMatch(/notificationFeed\(\s*clearedAt\s*\)/);
+    expect(src).toMatch(/notificationFeed\(\s*clearedAt\b/);
     // The exact shape of the old bug: called with nothing.
     expect(src).not.toMatch(/notificationFeed\(\s*\)/);
   });

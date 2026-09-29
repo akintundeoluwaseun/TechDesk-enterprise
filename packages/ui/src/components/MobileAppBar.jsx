@@ -33,6 +33,7 @@ import { searchEverything } from "../lib/searchAll";
 import { notificationFeed, notifStyle, timeAgo, isUnread, unreadCount } from "../lib/notifications";
 import { IS_ANDROID_APP } from "../lib/platform";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
+import { announcementFeedItems } from "../lib/announcements";
 import { db } from "../lib/db";
 import { openWhatsNew, useUnseenUpdate } from "../lib/whatsNew";
 
@@ -85,7 +86,7 @@ export default function MobileAppBar({ onOpenActivation }) {
   // Passed, not merely depended on -- see the note in Topbar. The same bug
   // was in both surfaces, which is what sharing a feed but not a call site
   // gets you.
-  const feed = useMemo(() => notificationFeed(clearedAt), [notifOpen, clearedAt]);
+  const feed = useMemo(() => notificationFeed(clearedAt, 8, announcementFeedItems()), [notifOpen, clearedAt]);
   const unread = unreadCount(feed, clearedAt);
 
   const results = useMemo(

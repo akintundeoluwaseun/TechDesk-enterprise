@@ -8,6 +8,7 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import { money } from "../lib/currency";
+import { toast } from "../lib/toast";
 import { useAuth } from "../lib/AuthContext";
 import { repairsSummary, repairTotal, repairOwed, groupByPeriod } from "@techdesk/core";
 import { generateRepairTicketPdf, generateBlankRepairFormPdf } from "../lib/generateRepairPdf";
@@ -76,9 +77,12 @@ export default function RepairsPage() {
     });
   }
 
-  function handleCompleted() {
+  function handleCompleted(saved) {
     setShowModal(false);
     refresh();
+    if (saved) {
+      toast({ title: `${labels.ticketSingular} booked in`, message: [saved.ticket, saved.device].filter(Boolean).join(" \u00b7 "), celebrate: true });
+    }
   }
 
   function updateField(id, field, value) {
@@ -87,8 +91,10 @@ export default function RepairsPage() {
   }
 
   function handleDelete(id) {
+    const gone = repairs.find((r) => r.id === id);
     db.deleteRepair(id);
     refresh();
+    toast({ title: `${labels.ticketSingular} deleted`, message: gone?.ticket, tone: "danger" });
   }
 
   function sendWhatsApp(repair) {

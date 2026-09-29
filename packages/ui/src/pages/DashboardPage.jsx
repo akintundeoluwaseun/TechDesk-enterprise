@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import Topbar from "../components/Topbar";
 import CountUp from "../components/CountUp";
+import Sparkline from "../components/Sparkline";
+import { useAuth } from "../lib/AuthContext";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
@@ -41,12 +43,43 @@ export default function DashboardPage() {
     (r) => (r.status === "completed" || r.status === "delivered") && isToday(r.createdAt)
   ).length;
   const lowStock = inventory.filter((p) => p.stock <= (p.lowStockThreshold || 5)).length;
+  const { user } = useAuth();
+
+  // The last seven days, oldest first -- what the little trend lines draw.
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return d.toDateString();
+  });
+  const onDay = (iso, day) => new Date(iso).toDateString() === day;
+  const salesByDay = days.map((d) => sales.filter((x) => onDay(x.createdAt, d)).reduce((n, x) => n + Number(x.total || 0), 0));
+  const repairsByDay = days.map((d) => repairs.filter((r) => onDay(r.createdAt, d)).length);
+  const doneByDay = days.map(
+    (d) => repairs.filter((r) => (r.status === "completed" || r.status === "delivered") && onDay(r.createdAt, d)).length
+  );
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const today = new Date().toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  const summary =
+    salesToday.length || inRepair
+      ? [
+          salesToday.length
+            ? `${salesToday.length} sale${salesToday.length === 1 ? "" : "s"} today, ${money(salesTodayTotal, settings)} taken`
+            : "No sales yet today",
+          inRepair ? `${inRepair} ${inRepair === 1 ? labels.ticketSingular.toLowerCase() : labels.ticketPlural.toLowerCase()} on the bench` : null,
+        ]
+          .filter(Boolean)
+          .join(" \u00b7 ")
+      : "A fresh day. Ring up your first sale whenever you're ready.";
 
   const stats = [
     {
       label: "Sales Today",
       value: <CountUp value={salesTodayTotal} format={(n) => money(n, settings)} />,
       sub: `${salesToday.length} transactions`,
+      spark: salesByDay,
+      sparkColor: "#3b82f6",
       icon: ShoppingCart,
       iconBg: t.dark ? "bg-white/5" : "bg-blue-100",
       iconColor: t.dark ? "text-white" : "text-blue-600",
@@ -56,6 +89,8 @@ export default function DashboardPage() {
       label: `In ${labels.ticketSingular}`,
       value: <CountUp value={inRepair} />,
       sub: "View all",
+      spark: repairsByDay,
+      sparkColor: "#10b981",
       icon: Wrench,
       iconBg: t.dark ? "bg-white/5" : "bg-emerald-100",
       iconColor: t.dark ? "text-white" : "text-emerald-600",
@@ -65,6 +100,8 @@ export default function DashboardPage() {
       label: "Completed",
       value: <CountUp value={completedToday} />,
       sub: "Today",
+      spark: doneByDay,
+      sparkColor: "#8b5cf6",
       icon: CheckCircle2,
       iconBg: t.dark ? "bg-white/5" : "bg-violet-100",
       iconColor: t.dark ? "text-white" : "text-violet-600",
@@ -93,7 +130,37 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 p-4 md:p-8">
-      <Topbar title="Dashboard" subtitle="Welcome back, Admin 👋" />
+      <Topbar title="Dashboard" />
+
+      {/* A greeting that knows the time of day and what's happened so far. */}
+      <div className="td-rise relative overflow-hidden rounded-3xl bg-neutral-950 text-white px-5 py-6 md:px-8 md:py-8 mb-6">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+          <div className="td-drift absolute rounded-full" style={{ width: 420, height: 420, left: -140, top: -220, background: "radial-gradient(circle, rgba(99,102,241,.55), transparent 65%)" }} />
+          <div className="td-drift-2 absolute rounded-full" style={{ width: 360, height: 360, right: -120, bottom: -220, background: "radial-gradient(circle, rgba(14,165,233,.45), transparent 65%)" }} />
+          <div className="td-orbit hidden md:block absolute right-6 md:right-16 top-1/2 -mt-[90px] w-[180px] h-[180px] rounded-full border border-white/10">
+            <span className="absolute -top-1 left-1/2 -ml-1 w-2 h-2 rounded-full bg-sky-300 shadow-[0_0_12px_2px_rgba(125,211,252,.8)]" />
+          </div>
+          <div className="hidden md:block absolute right-[3.25rem] md:right-[6.25rem] top-1/2 -mt-[50px] w-[100px] h-[100px] rounded-full border border-white/10" />
+        </div>
+        <div className="relative flex flex-col md:flex-row md:items-end md:justify-between gap-5">
+          <div className="min-w-0">
+            <div className="text-[11px] font-semibold tracking-[0.18em] uppercase text-sky-300">{today}</div>
+            <h2 className="text-2xl md:text-3xl font-bold mt-1.5">
+              {greeting}
+              {user?.name ? `, ${user.name}` : ""}
+            </h2>
+            <p className="text-sm md:text-[15px] text-neutral-300 mt-1.5 max-w-xl">{summary}</p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button onClick={() => navigate("/sales")} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-black text-sm font-semibold">
+              <ShoppingCart className="w-4 h-4" /> New sale
+            </button>
+            <button onClick={() => navigate("/repairs")} className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/10 text-white text-sm font-semibold hover:bg-white/15">
+              <Wrench className="w-4 h-4" /> New {labels.ticketSingular.toLowerCase()}
+            </button>
+          </div>
+        </div>
+      </div>
 
       <div data-tour="dash-stats" className="td-stagger grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
         {stats.map((s) => {
@@ -106,7 +173,10 @@ export default function DashboardPage() {
               </div>
               <div className={`text-[12px] md:text-sm ${t.textSecondary} mb-0.5 md:mb-1`}>{s.label}</div>
               <div className={`text-xl md:text-3xl font-bold ${t.textPrimary} mb-0.5 md:mb-1 truncate`}>{s.value}</div>
-              <div className={`text-[11px] md:text-sm ${t.textMuted} truncate`}>{s.sub}</div>
+              <div className={`text-[11px] md:text-sm ${t.textMuted} truncate pr-16 md:pr-24`}>{s.sub}</div>
+              {s.spark && (
+                <Sparkline data={s.spark} color={s.sparkColor} className="absolute bottom-3.5 right-3.5 md:bottom-5 md:right-5 w-14 h-7 md:w-20 md:h-9" />
+              )}
             </button>
           );
         })}

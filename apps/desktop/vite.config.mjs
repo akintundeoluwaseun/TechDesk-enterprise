@@ -1,5 +1,10 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { readFileSync } from "node:fs";
+
+// Stamped into the build so the app can say which version it is when it
+// checks in for notifications (see packages/ui/src/lib/announcements.js).
+const { version } = JSON.parse(readFileSync(new URL("./package.json", import.meta.url), "utf-8"));
 
 // ONE BUILD.
 //
@@ -15,6 +20,7 @@ import react from "@vitejs/plugin-react";
 // code from a file on the customer's own disk.
 export default defineConfig({
   plugins: [react()],
+  define: { __TECHDESK_VERSION__: JSON.stringify(version) },
   base: "./",
   server: {
     port: 5173,

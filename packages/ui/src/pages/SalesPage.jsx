@@ -15,6 +15,7 @@ import { openWhatsApp, saleMessage } from "../lib/share";
 import { LockedButton } from "../components/UpgradeLock";
 import PdfSaveButton from "../components/PdfSaveButton";
 import { money } from "../lib/currency";
+import { toast } from "../lib/toast";
 
 const PAYMENT_STATUSES = ["Paid", "Pending", "Partial"];
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "POS", "Transfer + Cash"];
@@ -73,10 +74,19 @@ export default function SalesPage() {
     setSales(db.getSales());
   }
 
-  function handleCompleted() {
+  function handleCompleted(saved) {
+    const wasEdit = Boolean(editingSale);
     setShowModal(false);
     setEditingSale(null);
     refresh();
+    if (!saved) return;
+    // A new sale is the moment the app exists for -- it gets confetti. An
+    // edit is housekeeping, and gets a plain confirmation.
+    toast(
+      wasEdit
+        ? { title: "Sale updated", message: saved.invoice }
+        : { title: "Sale saved", message: `${saved.invoice} \u00b7 ${money(Number(saved.total), settings)}`, celebrate: true }
+    );
   }
 
   function updateStatus(id, field, value) {
@@ -93,6 +103,7 @@ export default function SalesPage() {
       actor: user?.name,
     });
     refresh();
+    toast({ title: "Sale deleted", message: sale.invoice, tone: "danger" });
   }
 
   function sendWhatsApp(sale) {

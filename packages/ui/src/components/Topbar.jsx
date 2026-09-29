@@ -12,6 +12,7 @@ import {
   HelpCircle,
   X,
 } from "lucide-react";
+import { announcementFeedItems } from "../lib/announcements";
 import { useTheme, useThemeTokens } from "../lib/ThemeContext";
 import { useAuth, canAccess } from "../lib/AuthContext";
 import { searchEverything } from "../lib/searchAll";
@@ -62,7 +63,7 @@ export default function Topbar({ title, subtitle, action }) {
   // back the unfiltered feed every time: the marker moved, the badge went
   // quiet, and every line stayed exactly where it was. From the counter that
   // is a button that does nothing.
-  const notifFeed = useMemo(() => notificationFeed(clearedAt), [clearedAt]);
+  const notifFeed = useMemo(() => notificationFeed(clearedAt, 8, announcementFeedItems()), [clearedAt]);
   const unread = unreadCount(notifFeed, clearedAt);
   const hasAlerts = isAdmin && unread > 0;
 

@@ -22,7 +22,11 @@ import { onOpenUpgrade } from "./lib/upgradeModal";
 import TutorialModal from "./components/TutorialModal";
 import DataMergeModal from "./components/DataMergeModal";
 import GuidedTour from "./components/GuidedTour";
+import Toaster from "./components/Toaster";
+import AmbientGlow from "./components/AmbientGlow";
 import WhatsNewModal from "./components/WhatsNewModal";
+import AnnouncementModal from "./components/AnnouncementModal";
+import { useAnnouncementCheck, markAnnouncementSeen, unseenAnnouncements } from "./lib/announcements";
 import { hasUnseenUpdate, markUpdatesSeen, onOpenWhatsNew } from "./lib/whatsNew";
 import { isTourPending, markTourDone, markTourPending } from "./lib/tour";
 import { useHqSync } from "./lib/useHqSync";
@@ -85,6 +89,13 @@ function Shell() {
     markUpdatesSeen();
     setWhatsNew(false);
   }
+  // Messages pushed from the TechDesk console, one at a time.
+  const [announcement, setAnnouncement] = useState(null);
+  useAnnouncementCheck((a) => setAnnouncement((cur) => cur || a));
+  function closeAnnouncement() {
+    markAnnouncementSeen(announcement.id);
+    setAnnouncement(unseenAnnouncements()[0] || null);
+  }
   function finishTour() {
     markTourDone();
     // They've just been shown round; the startup help sheet would only
@@ -100,6 +111,7 @@ function Shell() {
 
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>
+      <AmbientGlow dark={t.dark} />
       <Sidebar onOpenActivation={() => setShowActivation(true)} />
       <MobileNav />
       <div className="flex-1 relative pb-16 md:pb-0 min-w-0">
@@ -121,6 +133,7 @@ function Shell() {
           </div>
         </Suspense>
       </div>
+      <Toaster />
       {showActivation && <ActivationModal onClose={() => setShowActivation(false)} />}
       {mergeEditions.length > 0 ? (
         <DataMergeModal editions={mergeEditions} onClose={dismissMerge} />
@@ -128,6 +141,8 @@ function Shell() {
         !showActivation && <GuidedTour onFinish={finishTour} />
       ) : whatsNew ? (
         <WhatsNewModal onClose={closeWhatsNew} />
+      ) : announcement ? (
+        <AnnouncementModal announcement={announcement} onClose={closeAnnouncement} />
       ) : (
         helpOpen && (
           <TutorialModal

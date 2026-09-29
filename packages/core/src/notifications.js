@@ -39,7 +39,9 @@ export function timeAgo(iso) {
  * from before that moment is gone; the next sale, repair or low-stock
  * crossing puts a fresh line at the top.
  */
-export function notificationFeed(clearedAt = null, limit = 8) {
+// `extra` is anything the app wants in the same list that core doesn't keep
+// -- messages pushed from the TechDesk console, which live on the device only.
+export function notificationFeed(clearedAt = null, limit = 8, extra = []) {
   const activity = db.getActivity();
   const lowStock = db
     .getInventory()
@@ -52,6 +54,7 @@ export function notificationFeed(clearedAt = null, limit = 8) {
   const pending = pendingPaymentsSummary(db.getSales(), db.getRepairs());
 
   const merged = [
+    ...extra,
     ...activity,
     ...lowStock.map((p) => ({
       type: "lowstock",

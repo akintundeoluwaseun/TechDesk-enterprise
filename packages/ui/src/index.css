@@ -102,3 +102,31 @@ select {
   .td-lift, .td-lift:hover { translate: none !important; transition: none !important; }
   button:not(:disabled):active { scale: 1; }
 }
+
+/* Toasts slide up, and a bar underneath runs down while they're showing. */
+@keyframes tdToastIn { from { opacity: 0; transform: translateY(16px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes tdToastBar { from { width: 100%; } to { width: 0; } }
+.td-toast { position: relative; animation: tdToastIn .35s cubic-bezier(.2, .8, .2, 1) backwards; }
+.td-toast-bar { animation-name: tdToastBar; animation-timing-function: linear; animation-fill-mode: forwards; }
+@media (prefers-reduced-motion: reduce) { .td-toast, .td-toast-bar { animation: none !important; } }
+
+/* The ambient glow behind the app. */
+@keyframes tdDrift { to { transform: translate(-90px, 70px) scale(1.12); } }
+@keyframes tdDrift2 { to { transform: translate(110px, -60px) scale(1.08); } }
+.td-drift { animation: tdDrift 26s ease-in-out infinite alternate; }
+.td-drift-2 { animation: tdDrift2 31s ease-in-out infinite alternate; }
+@media (prefers-reduced-motion: reduce) { .td-drift, .td-drift-2 { animation: none !important; } }
+
+/* Sparklines draw themselves in, then the end point pops. */
+@keyframes tdDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.td-spark-line { stroke-dasharray: 1; stroke-dashoffset: 1; animation: tdDraw 1.1s cubic-bezier(.2, .8, .2, 1) .35s forwards; }
+.td-spark-area { animation: tdFade .8s ease-out .8s backwards; }
+.td-spark-dot { transform-box: fill-box; transform-origin: center; animation: tdPop .4s cubic-bezier(.3, 1.5, .5, 1) 1.3s backwards; }
+@media (prefers-reduced-motion: reduce) { .td-spark-line { stroke-dashoffset: 0; animation: none; } .td-spark-area, .td-spark-dot { animation: none; } }
+
+/* The dashboard's greeting banner. */
+@keyframes tdOrbit { to { transform: rotate(360deg); } }
+.td-orbit { animation: tdOrbit 38s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .td-orbit { animation: none; } }
+.td-rise { animation: tdRise .5s cubic-bezier(.2, .8, .2, 1) backwards; }
+@media (prefers-reduced-motion: reduce) { .td-rise { animation: none !important; } }
