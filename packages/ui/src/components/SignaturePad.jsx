@@ -93,7 +93,7 @@ export default function SignaturePad({ onSave, onCancel }) {
   }
 
   return (
-    <div className="td-overlay fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
+    <div data-tour="signature-pad" className="td-overlay fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4">
       <div className={`w-full max-w-md rounded-2xl p-5 ${t.cardBg}`}>
         <div className="flex items-center justify-between mb-3">
           <h3 className={`font-semibold ${t.textPrimary}`}>Sign here</h3>

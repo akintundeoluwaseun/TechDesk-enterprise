@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, Search, MessageCircle, Printer, FileText, Receipt, Pencil, Trash2 } from "lucide-react";
 import Topbar from "../components/Topbar";
 import NewSaleModal from "../components/NewSaleModal";
@@ -17,6 +18,7 @@ import PdfSaveButton from "../components/PdfSaveButton";
 import PrintButton from "../components/PrintButton";
 import { money } from "../lib/currency";
 import { toast } from "../lib/toast";
+import { requestTour, wantsSaleSetup, markSaleSetupDone } from "../lib/setupTours";
 
 const PAYMENT_STATUSES = ["Paid", "Pending", "Partial"];
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "POS", "Transfer + Cash"];
@@ -35,6 +37,27 @@ export default function SalesPage() {
   const { user, isAdmin } = useAuth();
   const { settings } = useSettings();
   const [showModal, setShowModal] = useState(false);
+
+  // The first sale on a shop with no name or signature on its receipts yet
+  // goes by Settings first -- once. The tour brings them back here with
+  // ?new=1, and the sale they were starting opens.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get("new") === "1") {
+      setParams({}, { replace: true });
+      setShowModal(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  function startSale() {
+    setEditingSale(null);
+    if (wantsSaleSetup(settings)) {
+      markSaleSetupDone();
+      requestTour("sale-setup");
+      return;
+    }
+    setShowModal(true);
+  }
   // The sale waiting on a paper size, or null. Print asks rather than
   // assuming A4: a counter with a thermal roll wants the other one.
   const [printing, setPrinting] = useState(null);
@@ -257,10 +280,7 @@ export default function SalesPage() {
         action={
           <button
             data-tour="new-sale"
-            onClick={() => {
-              setEditingSale(null);
-              setShowModal(true);
-            }}
+            onClick={startSale}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${
               t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
             }`}

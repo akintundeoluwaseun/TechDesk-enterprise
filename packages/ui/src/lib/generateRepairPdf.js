@@ -5,11 +5,13 @@
 // month's ten. printPdf applies the same rule on its own.
 import { buildRepairTicketPdf, buildBlankRepairFormPdf, receiptFilename } from "@techdesk/core";
 import { savePdf, printPdf, freePrintGate } from "./saveFile";
+import { markTicketDownloaded } from "./setupTours";
 
 export function generateRepairTicketPdf(repair, { autoOpen = true, print = false } = {}) {
   const doc = buildRepairTicketPdf(repair);
   if (autoOpen) {
     const filename = receiptFilename(repair.customerName, repair.ticket);
+    markTicketDownloaded();
     if (print) printPdf(doc, filename);
     else if (freePrintGate(doc)) savePdf(doc, filename);
   }

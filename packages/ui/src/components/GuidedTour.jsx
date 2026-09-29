@@ -13,6 +13,17 @@ import { useCloseOnBack } from "../lib/useCloseOnBack";
 // Targets are found by data-tour="..." attributes on the real components, and
 // followed every frame, so a drawer opening, a page loading or the window
 // resizing just moves the spotlight with them.
+//
+// Step kinds (step.action):
+//   next    look only; a Next button moves on
+//   click   the target stays usable; clicking it moves on
+//   do      the target stays usable (type in it, sign it) and Next moves on
+//           once step.ready() says it's done
+//   wait    the tour steps aside -- nothing drawn -- while the shop uses
+//           something the target opened (a signature pad), until step.until()
+//           is true; if the target goes away first, back to step.fallback
+// A step with `center` has no target: the whole screen, one card, a button.
+// A step with `route` opens that page first.
 
 const FIND_TIMEOUT = 3000;
 const LOST_TIMEOUT = 1500;
@@ -156,7 +167,14 @@ function TourStyles() {
   );
 }
 
-export default function GuidedTour({ onFinish, steps: stepsProp, findTimeout = FIND_TIMEOUT }) {
+export default function GuidedTour({
+  onFinish,
+  steps: stepsProp,
+  findTimeout = FIND_TIMEOUT,
+  start = "/",
+  finale,
+  skipLabel = "Skip tour",
+}) {
   const navigate = useNavigate();
   const { settings } = useSettings();
   const [desktop] = useState(() =>
@@ -168,16 +186,31 @@ export default function GuidedTour({ onFinish, steps: stepsProp, findTimeout = F
   const [index, setIndex] = useState(0);
   const [rect, setRect] = useState(null);
   const [nudge, setNudge] = useState(0);
+  const [ready, setReady] = useState(false);
   const [cardSize, setCardSize] = useState({ w: 320, h: 170 });
   const cardRef = useRef(null);
   const done = index >= steps.length;
   const step = steps[index];
 
   // Always from the top, so a replay from Help starts where the tour expects.
+  // A tour started from somewhere particular passes start={null} and stays put.
   useEffect(() => {
-    navigate("/");
+    if (start) navigate(start);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // A step that lives on another page opens it.
+  useEffect(() => {
+    if (!done && step.route) navigate(step.route);
+    setReady(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
+
+  // No ending card asked for: finishing just finishes.
+  useEffect(() => {
+    if (done && finale === null) onFinish();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [done]);
 
   // Android's back gesture ends the tour rather than closing the app under it.
   useCloseOnBack(true, onFinish);
@@ -185,12 +218,31 @@ export default function GuidedTour({ onFinish, steps: stepsProp, findTimeout = F
   // Follow the target every frame. Not found in time: move on (or back, for
   // a step that only exists while something else is open).
   useEffect(() => {
-    if (done) return undefined;
+    if (done || step.center) return undefined;
     let raf;
     let lastSeen = null;
     let scrolled = false;
     const started = performance.now();
     const tick = () => {
+      if (step.action === "wait") {
+        if (step.until?.()) {
+          setIndex((i) => (i === index ? i + 1 : i));
+          return;
+        }
+        const open = findTarget(step.target);
+        if (open) lastSeen = performance.now();
+        else if (lastSeen !== null || performance.now() > started + findTimeout) {
+          // Closed without doing it: back to the step that opened it.
+          setIndex((i) => (i === index ? (step.fallback !== undefined ? step.fallback : i - 1) : i));
+          return;
+        }
+        raf = requestAnimationFrame(tick);
+        return;
+      }
+      if (step.action === "do" && step.ready) {
+        const ok = !!step.ready();
+        setReady((prev) => (prev === ok ? prev : ok));
+      }
       const el = findTarget(step.target);
       const now = performance.now();
       if (el) {
@@ -237,6 +289,58 @@ export default function GuidedTour({ onFinish, steps: stepsProp, findTimeout = F
 
   const blocked = () => setNudge((n) => n + 1);
 
+  if (done && finale === null) return null;
+
+  // Stepping aside: the pad (or whatever the target opened) has the screen.
+  if (!done && step.action === "wait") return null;
+
+  const fin = finale || {
+    title: "You\u2019re all set",
+    body: "That\u2019s the tour. Everything else is in the menu, and you can take this tour again any time from Help.",
+    button: "Start using TechDesk",
+  };
+
+  if (!done && step.center) {
+    const Icon = step.icon;
+    return createPortal(
+      <div className="tour-root fixed inset-0 flex items-center justify-center p-6 bg-neutral-950/95" style={{ zIndex: 1000, animation: "tourFade .3s ease-out both" }}>
+        <TourStyles />
+        <div role="dialog" aria-label={step.title} className="w-full max-w-md text-center text-white" style={{ animation: `tourIn .5s ${EASE} both` }}>
+          {Icon && (
+            <div className="relative mx-auto mb-6 w-20 h-20">
+              <span className="absolute inset-0 rounded-3xl bg-white/20" style={{ animation: "tourPulse 2s ease-out .4s infinite" }} />
+              <span className="relative flex w-20 h-20 rounded-3xl bg-white items-center justify-center" style={{ animation: "tourPop .55s cubic-bezier(.3,1.5,.5,1) both" }}>
+                <Icon className="w-10 h-10 text-neutral-900" strokeWidth={1.8} />
+              </span>
+            </div>
+          )}
+          {step.eyebrow && <div className="text-[11px] font-semibold tracking-[0.2em] uppercase text-neutral-400 mb-2">{step.eyebrow}</div>}
+          <h2 className="text-2xl sm:text-3xl font-bold leading-tight">{step.title}</h2>
+          <p className="text-[15px] text-neutral-300 mt-3 leading-relaxed">{step.body}</p>
+          {step.points && (
+            <ul className="mt-5 space-y-2.5 text-left max-w-sm mx-auto">
+              {step.points.map((pt) => (
+                <li key={pt} className="flex items-start gap-3 text-sm text-neutral-200">
+                  <Check className="w-4 h-4 mt-0.5 shrink-0 text-emerald-400" strokeWidth={3} /> <span>{pt}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          <button
+            onClick={() => setIndex((i) => i + 1)}
+            className="mt-8 w-full py-3.5 rounded-2xl font-semibold bg-white text-neutral-900 active:scale-[.98] transition-transform flex items-center justify-center gap-2"
+          >
+            {step.button || "Next"} <ArrowRight className="w-4 h-4" />
+          </button>
+          <button onClick={onFinish} className="mt-3 text-sm text-neutral-400 hover:text-white transition-colors">
+            {skipLabel}
+          </button>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   if (done) {
     return createPortal(
       <div className="tour-root fixed inset-0 flex items-center justify-center p-6 bg-black/80" style={{ zIndex: 1000, animation: "tourFade .3s ease-out both" }}>
@@ -251,12 +355,10 @@ export default function GuidedTour({ onFinish, steps: stepsProp, findTimeout = F
               <Check className="w-8 h-8 text-white" strokeWidth={3} />
             </span>
           </div>
-          <h3 className="text-xl font-bold text-neutral-900">You&rsquo;re all set</h3>
-          <p className="text-sm text-neutral-600 mt-2 leading-relaxed">
-            That&rsquo;s the tour. Everything else is in the menu, and you can take this tour again any time from Help.
-          </p>
+          <h3 className="text-xl font-bold text-neutral-900">{fin.title}</h3>
+          <p className="text-sm text-neutral-600 mt-2 leading-relaxed">{fin.body}</p>
           <button onClick={onFinish} className="mt-6 w-full py-3.5 rounded-2xl font-semibold bg-neutral-900 text-white active:scale-[.98] transition-transform">
-            Start using TechDesk
+            {fin.button}
           </button>
         </div>
       </div>,
@@ -267,6 +369,8 @@ export default function GuidedTour({ onFinish, steps: stepsProp, findTimeout = F
   const hole = holeFor(rect);
   const place = rect ? placeCard(hole, cardSize.w, cardSize.h) : null;
   const clickStep = step.action === "click";
+  const doStep = step.action === "do";
+  const openTarget = clickStep || doStep;
   const move = `top .45s ${EASE}, left .45s ${EASE}, width .45s ${EASE}, height .45s ${EASE}, border-radius .45s ${EASE}`;
 
   // Everything outside the target's own box swallows clicks. The target's
@@ -277,7 +381,7 @@ export default function GuidedTour({ onFinish, steps: stepsProp, findTimeout = F
         { top: rect.top + rect.height, left: 0, right: 0, bottom: 0 },
         { top: rect.top, left: 0, width: Math.max(0, rect.left), height: rect.height },
         { top: rect.top, left: rect.left + rect.width, right: 0, height: rect.height },
-        ...(clickStep ? [] : [{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }]),
+        ...(openTarget ? [] : [{ top: rect.top, left: rect.left, width: rect.width, height: rect.height }]),
       ]
     : [{ top: 0, left: 0, right: 0, bottom: 0 }];
 
@@ -304,7 +408,7 @@ export default function GuidedTour({ onFinish, steps: stepsProp, findTimeout = F
           transition: move,
         }}
       />
-      {rect && clickStep && (
+      {rect && openTarget && (
         <div
           aria-hidden="true"
           className="fixed z-[200] pointer-events-none border-2 border-white"
@@ -333,14 +437,16 @@ export default function GuidedTour({ onFinish, steps: stepsProp, findTimeout = F
                     <span key={i} className={`h-1 flex-1 rounded-full transition-colors duration-300 ${i <= index ? "bg-neutral-900" : "bg-neutral-200"}`} />
                   ))}
                 </div>
-                <div className="text-[11px] font-semibold tracking-wider uppercase text-neutral-400">
-                  Step {index + 1} of {steps.length}
-                </div>
+                {steps.length > 1 && (
+                  <div className="text-[11px] font-semibold tracking-wider uppercase text-neutral-400">
+                    Step {index + 1} of {steps.length}
+                  </div>
+                )}
                 <h3 className="text-[17px] font-bold text-neutral-900 mt-1">{step.title}</h3>
                 <p className="text-sm text-neutral-600 mt-1 leading-relaxed">{step.body}</p>
                 <div className="flex items-center justify-between gap-3 mt-4">
                   <button onClick={onFinish} className="text-sm text-neutral-400 hover:text-neutral-700 transition-colors">
-                    Skip tour
+                    {skipLabel}
                   </button>
                   {clickStep ? (
                     <span className="flex items-center gap-1.5 text-xs font-semibold text-sky-600">
@@ -349,10 +455,13 @@ export default function GuidedTour({ onFinish, steps: stepsProp, findTimeout = F
                     </span>
                   ) : (
                     <button
-                      onClick={() => setIndex((i) => i + 1)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-neutral-900 text-white text-sm font-semibold active:scale-[.97] transition-transform"
+                      onClick={() => (doStep && step.ready && !ready ? blocked() : setIndex((i) => i + 1))}
+                      aria-disabled={doStep && step.ready && !ready}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold active:scale-[.97] transition-all ${
+                        doStep && step.ready && !ready ? "bg-neutral-200 text-neutral-400" : "bg-neutral-900 text-white"
+                      }`}
                     >
-                      Next <ArrowRight className="w-4 h-4" />
+                      {step.button || "Next"} <ArrowRight className="w-4 h-4" />
                     </button>
                   )}
                 </div>

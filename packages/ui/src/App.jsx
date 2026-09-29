@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from "react";
-import { HashRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ThemeProvider, useThemeTokens } from "./lib/ThemeContext";
 import { SettingsProvider } from "./lib/SettingsContext";
 import { AuthProvider, useAuth, canAccess, homeFor } from "./lib/AuthContext";
@@ -31,6 +31,8 @@ import { useAnnouncementCheck, markAnnouncementSeen, unseenAnnouncements } from 
 import { hasUnseenUpdate, markUpdatesSeen, onOpenWhatsNew } from "./lib/whatsNew";
 import { isTourPending, markTourDone, markTourPending } from "./lib/tour";
 import { useHqSync } from "./lib/useHqSync";
+import { onTourRequest } from "./lib/setupTours";
+import { saleSetupSteps, repairTicketSteps } from "./lib/setupTourSteps";
 
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
 const SalesPage = lazy(() => import("./pages/SalesPage"));
@@ -114,6 +116,49 @@ function Shell() {
   const { user } = useAuth();
   useEffect(() => setAuthorName(user?.name), [user?.name]);
 
+  // One-off tours a page asks for at the moment they're useful: setting up
+  // the receipts before the first sale, the ticket after the first repair.
+  const navigate = useNavigate();
+  const [miniTour, setMiniTour] = useState(null);
+  useEffect(
+    () =>
+      onTourRequest((kind, options) => {
+        const desktop = window.matchMedia?.("(min-width: 768px)").matches ?? true;
+        if (kind === "sale-setup") {
+          // Staff who can't open Settings can't change what it would show them.
+          if (!canAccess(user, "/settings")) {
+            navigate("/sales?new=1");
+            return;
+          }
+          setMiniTour({
+            key: `sale-${Date.now()}`,
+            steps: saleSetupSteps({ desktop }),
+            finale: {
+              title: "Your receipts are ready",
+              body: "Your shop name and signature now go on every receipt and repair ticket. Let's make that sale.",
+              button: "Make my first sale",
+            },
+            // Back where they started, with the sale they meant to make open.
+            done: () => navigate("/sales?new=1"),
+          });
+        } else if (kind === "repair-ticket" && options.repairId) {
+          setMiniTour({
+            key: `ticket-${options.repairId}`,
+            steps: repairTicketSteps({ desktop, repairId: options.repairId, ticketLabel: options.ticketLabel || "repair ticket" }),
+            finale: null,
+            done: () => {},
+          });
+        }
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [user]
+  );
+  function finishMiniTour() {
+    const t = miniTour;
+    setMiniTour(null);
+    t?.done?.();
+  }
+
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>
       <AmbientGlow dark={t.dark} />
@@ -142,6 +187,15 @@ function Shell() {
       {showActivation && <ActivationModal onClose={() => setShowActivation(false)} />}
       {mergeEditions.length > 0 ? (
         <DataMergeModal editions={mergeEditions} onClose={dismissMerge} />
+      ) : miniTour ? (
+        <GuidedTour
+          key={miniTour.key}
+          steps={miniTour.steps}
+          start={null}
+          finale={miniTour.finale}
+          skipLabel="Not now"
+          onFinish={finishMiniTour}
+        />
       ) : touring ? (
         !showActivation && <GuidedTour onFinish={finishTour} />
       ) : whatsNew ? (

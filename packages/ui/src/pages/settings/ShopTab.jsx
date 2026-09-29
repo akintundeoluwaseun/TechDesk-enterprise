@@ -107,7 +107,7 @@ export default function ShopTab() {
             onChange={handleLogoUpload}
           />
 
-          <div className="flex-1 min-w-[12rem]">
+          <div data-tour="shop-name" className="flex-1 min-w-[12rem]">
             <label htmlFor="shop-name" className={label}>
               Shop name
             </label>
@@ -177,7 +177,7 @@ export default function ShopTab() {
       <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>
         Authorized signature
       </h2>
-      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
+      <div data-tour="owner-signature" className={`rounded-2xl p-6 ${t.cardBg}`}>
         <p className={`text-sm mb-3 ${t.textSecondary}`}>
           Printed automatically on every repair ticket and sales receipt from now on.
         </p>

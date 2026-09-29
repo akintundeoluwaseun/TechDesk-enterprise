@@ -9,6 +9,7 @@ import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import { money } from "../lib/currency";
 import { toast } from "../lib/toast";
+import { requestTour, ticketDownloaded } from "../lib/setupTours";
 import { useAuth } from "../lib/AuthContext";
 import { repairsSummary, repairTotal, repairOwed, groupByPeriod } from "@techdesk/core";
 import { generateRepairTicketPdf, generateBlankRepairFormPdf } from "../lib/generateRepairPdf";
@@ -82,6 +83,11 @@ export default function RepairsPage() {
     refresh();
     if (saved) {
       toast({ title: `${labels.ticketSingular} booked in`, message: [saved.ticket, saved.device].filter(Boolean).join(" \u00b7 "), celebrate: true });
+      // The first time, show where the ticket is and why it's worth printing.
+      // Once one has ever been downloaded, never again.
+      if (!ticketDownloaded()) {
+        setTimeout(() => requestTour("repair-ticket", { repairId: saved.id, ticketLabel: `${(labels.ticketSingular || "Repair").toLowerCase()} ticket` }), 900);
+      }
     }
   }
 
@@ -142,7 +148,7 @@ export default function RepairsPage() {
             )}
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={() => generateRepairTicketPdf(r)} className={t.textSecondary} title={TICKET_ACTION}>
+            <button data-tour={`ticket-${r.id}`} onClick={() => generateRepairTicketPdf(r)} className={t.textSecondary} title={TICKET_ACTION}>
               <FileText className="w-[18px] h-[18px]" />
             </button>
             <button onClick={() => sendWhatsApp(r)} className="text-emerald-500" title="WhatsApp">
