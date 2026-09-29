@@ -84,6 +84,45 @@ async function anchorDownload(blob, filename) {
   return { ok: true, via: "download" };
 }
 
+// A system notification from a browser tab or an Electron window. Through
+// the service worker where there is one -- Chrome on Android refuses the
+// plain constructor outright -- and the constructor everywhere else.
+async function browserCanNotify(ask) {
+  if (typeof window === "undefined" || !("Notification" in window)) return "unsupported";
+  if (Notification.permission === "default" && ask) {
+    try {
+      return await Notification.requestPermission();
+    } catch {
+      return "default";
+    }
+  }
+  return Notification.permission;
+}
+
+async function browserNotify({ title, body, tag }) {
+  if ((await browserCanNotify(false)) !== "granted") return false;
+  const options = { body, tag, icon: "./icon-192.png", badge: "./icon-192.png" };
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration?.();
+    if (reg?.showNotification) {
+      await reg.showNotification(title, options);
+      return true;
+    }
+  } catch {
+    // Fall through to the constructor.
+  }
+  try {
+    const n = new Notification(title, options);
+    n.onclick = () => {
+      window.focus();
+      n.close();
+    };
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** @type {import("./types").PlatformAdapter} */
 export const browserAdapter = {
   name: "browser",
@@ -117,4 +156,7 @@ export const browserAdapter = {
   openExternal(url) {
     window.open(url, "_blank", "noopener");
   },
+
+  notifyPermission: browserCanNotify,
+  notify: browserNotify,
 };

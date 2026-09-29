@@ -18,6 +18,7 @@
 // rules underneath it. See saveFile.
 import { Filesystem, Directory } from "@capacitor/filesystem";
 import { Share } from "@capacitor/share";
+import { LocalNotifications } from "@capacitor/local-notifications";
 import { blobToBase64 } from "./blob";
 import { folderOf } from "./folder";
 
@@ -81,5 +82,40 @@ export const capacitorAdapter = {
   openExternal(url) {
     window.open(url, "_blank", "noopener");
   },
+
+  // Android 13+ shows nothing without this permission.
+  async notifyPermission(ask) {
+    try {
+      const state = (p) => (p.display === "granted" ? "granted" : p.display === "denied" ? "denied" : "default");
+      const now = state(await LocalNotifications.checkPermissions());
+      if (now !== "default" || !ask) return now;
+      return state(await LocalNotifications.requestPermissions());
+    } catch {
+      return "unsupported";
+    }
+  },
+
+  async notify({ title, body, tag }) {
+    try {
+      await LocalNotifications.schedule({
+        notifications: [{
+          // Android wants a positive 32-bit int; the tag is a string.
+          id: notificationId(tag || title + body),
+          title,
+          body,
+          schedule: { at: new Date(Date.now() + 100) },
+        }],
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  },
 };
+
+function notificationId(key) {
+  let h = 0;
+  for (let i = 0; i < key.length; i += 1) h = (h * 31 + key.charCodeAt(i)) | 0;
+  return Math.abs(h) % 2_000_000_000;
+}
 

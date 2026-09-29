@@ -1,10 +1,11 @@
 import React from "react";
 import {
   Monitor, Wrench, FileText, Bell, ChevronRight, CheckCircle2,
-  AlertTriangle, Info, Package,
+  AlertTriangle, Info, Package, Wallet, PackageCheck, Phone,
 } from "lucide-react";
 import { Card, Empty, IconBubble, SectionHeader, StatTile, StatusDot } from "../components/ui";
 import { ago, firstName, greeting, time } from "../format";
+import { money } from "../currency";
 
 const ACTIVITY_LOOK = {
   sale: { tone: "green", Icon: CheckCircle2 },
@@ -19,6 +20,15 @@ export default function HomeScreen({ data, onOpenBranch, onSeeAll }) {
   const branches = data?.branches || [];
   const activity = data?.activity || [];
   const owner = firstName(data?.business?.ownerName);
+  const owed = data?.owed || [];
+  const uncollected = data?.uncollected || [];
+  const sales = data?.recentSales || [];
+  // Who owes and who hasn't collected, oldest first -- the list an owner
+  // rings round from.
+  const chase = [
+    ...owed.map((o) => ({ ...o, key: `o:${o.id}`, kind: "owed" })),
+    ...uncollected.map((u) => ({ ...u, key: `u:${u.id}`, kind: "uncollected" })),
+  ].sort((a, b) => new Date(a.since) - new Date(b.since));
 
   // Flattened, because an owner thinks in shops-and-machines, not in a tree.
   const devices = branches.flatMap((b) =>
@@ -54,10 +64,63 @@ export default function HomeScreen({ data, onOpenBranch, onSeeAll }) {
         <StatTile
           tone="red"
           icon={<Bell size={19} />}
-          value={(stats.lowStock ?? 0) + (stats.devicesNeedingAttention ?? 0)}
+          value={(stats.lowStock ?? 0) + (stats.devicesNeedingAttention ?? 0) + chase.length}
           label="Needs Attention"
         />
       </div>
+
+      {chase.length > 0 && (
+        <section className="mb-6">
+          <SectionHeader icon={<AlertTriangle size={17} />} title="Needs a look" />
+          <Card className="divide-y divide-slate-100">
+            {chase.slice(0, 6).map((c) => (
+              <div key={c.key} className="flex items-center gap-3 p-4">
+                <IconBubble tone={c.kind === "owed" ? "amber" : "violet"}>
+                  {c.kind === "owed" ? <Wallet size={17} /> : <PackageCheck size={17} />}
+                </IconBubble>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium leading-snug">
+                    {c.kind === "owed"
+                      ? `${c.customer || "A customer"} owes ${money(Number(c.amount) || 0)}`
+                      : `${c.customer || "A customer"} hasn't collected their ${c.device || "device"}`}
+                  </div>
+                  <div className="text-xs text-ink-faint mt-0.5 truncate">
+                    {[c.kind === "owed" ? `Unpaid · ${ago(c.since)}` : `Ready · ${ago(c.since)}`, c.branch, c.number].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+                {c.phone && (
+                  <a href={`tel:${c.phone}`} aria-label={`Call ${c.customer || "customer"}`} className="w-9 h-9 rounded-full bg-card shadow-raised-sm grid place-items-center text-blue-500 shrink-0">
+                    <Phone size={16} />
+                  </a>
+                )}
+              </div>
+            ))}
+          </Card>
+          {chase.length > 6 && <p className="text-xs text-ink-faint mt-2 px-1">and {chase.length - 6} more</p>}
+        </section>
+      )}
+
+      {sales.length > 0 && (
+        <section className="mb-6">
+          <SectionHeader icon={<FileText size={17} />} title="Latest Sales" />
+          <Card className="divide-y divide-slate-100">
+            {sales.slice(0, 5).map((s) => (
+              <div key={s.id} className="flex items-center gap-3 p-4">
+                <IconBubble tone="green"><CheckCircle2 size={17} /></IconBubble>
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium truncate">
+                    {s.by || "Someone"}{s.branch ? ` · ${s.branch}` : ""}
+                  </div>
+                  <div className="text-xs text-ink-faint mt-0.5 truncate">
+                    {[s.firstItem && `${Number(s.firstQty) > 1 ? `${s.firstQty} × ` : ""}${s.firstItem}${s.itemCount > 1 ? ` +${s.itemCount - 1}` : ""}`, s.customer && `to ${s.customer}`, s.paymentStatus && s.paymentStatus !== "Paid" && s.paymentStatus.toLowerCase()].filter(Boolean).join(" · ") || time(s.at)}
+                  </div>
+                </div>
+                <div className="text-sm font-semibold shrink-0 tabular-nums">{money(Number(s.total) || 0)}</div>
+              </div>
+            ))}
+          </Card>
+        </section>
+      )}
 
       <section className="mb-6">
         <SectionHeader

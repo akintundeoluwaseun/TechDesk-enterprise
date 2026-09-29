@@ -61,3 +61,34 @@ describe("notifications off Monitor's own refresh", () => {
     expect(await notifyNewActivity(undefined)).toBe(0);
   });
 });
+
+describe("sales and reminders from the summary", async () => {
+  const { notifyNewSales, notifyReminders, saleNotice, owedNotice, uncollectedNotice } = await import("./notify.js");
+
+  it("says who made the sale, where, and what", () => {
+    const n = saleNotice({ id: "s1", by: "Ade", branch: "Ikeja", total: 12500, firstItem: "Screen guard", firstQty: 2, itemCount: 2, customer: "Bola", paymentStatus: "Paid" });
+    expect(n.title).toBe("Ade made a sale at Ikeja");
+    expect(n.body).toMatch(/12,500 · 2 × Screen guard \+1 more · to Bola$/);
+  });
+
+  it("names who owes and who hasn't collected", () => {
+    expect(owedNotice({ id: "sale:x", customer: "Tunde", amount: 15000, since: "2026-09-24T10:00:00Z", branch: "Yaba" }).title).toBe("Tunde hasn't paid");
+    expect(uncollectedNotice({ id: "r", customer: "Chidi", device: "HP laptop", since: new Date(Date.now() - 4 * 86_400_000).toISOString() }).body).toMatch(/^Ready for 4 days/);
+  });
+
+  it("announces only sales it hasn't seen, and none on the first look", async () => {
+    store.clear();
+    expect(await notifyNewSales([{ id: "a" }])).toBe(0);
+    expect(await notifyNewSales([{ id: "b" }, { id: "a" }])).toBe(1);
+    expect(await notifyNewSales([{ id: "b" }, { id: "a" }])).toBe(0);
+  });
+
+  it("reminds once a day, not every refresh", async () => {
+    store.clear();
+    const owed = [{ id: "sale:x", customer: "Tunde", amount: 1, since: "2026-09-20T00:00:00Z" }];
+    const t = Date.parse("2026-09-29T09:00:00Z");
+    expect(await notifyReminders(owed, [], t)).toBe(1);
+    expect(await notifyReminders(owed, [], t + 60_000)).toBe(0);
+    expect(await notifyReminders(owed, [], t + 86_400_000)).toBe(1);
+  });
+});

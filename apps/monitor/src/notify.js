@@ -19,6 +19,7 @@
 // the case it is actually for: an owner with the app on their phone during
 // the working day.
 import { Preferences } from "@capacitor/preferences";
+import { money } from "./currency";
 
 const SEEN_KEY = "techdesk_monitor_seen_activity";
 const PREF_KEY = "techdesk_monitor_notify";
@@ -87,6 +88,9 @@ export async function requestPermission() {
 
 // What is worth interrupting someone for. A customer record being edited is
 // not; money arriving and a repair moving are.
+// Sales are announced from the summary's recentSales instead, which carries
+// who, what and how much; the activity line only says "Sale recorded".
+// `skipSales` is how App says so, when the summary has them.
 const WORTH_IT = new Set(["sale", "repair"]);
 
 /**
@@ -96,8 +100,8 @@ const WORTH_IT = new Set(["sale", "repair"]);
  * notifying: otherwise an owner opening Monitor for the first time gets
  * twenty notifications for sales they already know about.
  */
-export async function notifyNewActivity(activity) {
-  const items = Array.isArray(activity) ? activity : [];
+export async function notifyNewActivity(activity, { skipSales = false } = {}) {
+  const items = (Array.isArray(activity) ? activity : []).filter((a) => !(skipSales && a.type === "sale"));
   if (!items.length) return 0;
 
   const seen = await read(SEEN_KEY, null);
@@ -141,6 +145,114 @@ export async function notifyNewActivity(activity) {
 
   await write(SEEN_KEY, [...ids, ...seen].slice(0, SEEN_MAX));
   return fresh.length;
+}
+
+async function schedule(list) {
+  if (!list.length) return;
+  const { api } = await plugin();
+  if (!api) return;
+  try {
+    await api.schedule({
+      notifications: list.map((n) => ({
+        id: hashId(n.id),
+        title: n.title,
+        body: n.body,
+        smallIcon: "ic_stat_icon_config_sample",
+        schedule: { at: new Date(Date.now() + 100) },
+      })),
+    });
+  } catch {
+    // No permission, or no plugin. The screen still shows it all.
+  }
+}
+
+/** "Ade made a sale at Ikeja" / "₦12,500 · 2 × Screen guard +1 more · to Bola". */
+export function saleNotice(s) {
+  const who = s.by || "Someone";
+  const item = s.firstItem
+    ? `${Number(s.firstQty) > 1 ? `${s.firstQty} × ` : ""}${s.firstItem}${s.itemCount > 1 ? ` +${s.itemCount - 1} more` : ""}`
+    : null;
+  return {
+    id: `sale:${s.id}`,
+    title: `${who} made a sale${s.branch ? ` at ${s.branch}` : ""}`,
+    body: [
+      money(Number(s.total) || 0),
+      item,
+      s.customer ? `to ${s.customer}` : null,
+      s.paymentStatus && s.paymentStatus !== "Paid" ? s.paymentStatus.toLowerCase() : null,
+    ].filter(Boolean).join(" · "),
+  };
+}
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function shortDate(iso) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+export function owedNotice(o) {
+  return {
+    id: `owed:${o.id}`,
+    title: `${o.customer || "A customer"} hasn't paid`,
+    body: [`${money(Number(o.amount) || 0)} owed since ${shortDate(o.since)}`, o.branch, o.number].filter(Boolean).join(" · "),
+  };
+}
+
+export function uncollectedNotice(u) {
+  const days = Math.max(1, Math.floor((Date.now() - new Date(u.since).getTime()) / 86_400_000));
+  return {
+    id: `ready:${u.id}`,
+    title: `${u.customer || "A customer"} hasn't come for their ${u.device || "device"}`,
+    body: [`Ready for ${days} day${days === 1 ? "" : "s"}`, u.branch, u.phone].filter(Boolean).join(" · "),
+  };
+}
+
+const SALES_SEEN_KEY = "techdesk_monitor_seen_sales";
+const REMINDED_KEY = "techdesk_monitor_reminded";
+const DAY = 86_400_000;
+
+/**
+ * A notification per sale this phone hasn't seen, with who made it and
+ * what. Same first-run rule as the activity feed: the first refresh after
+ * signing in records what's there without announcing any of it.
+ */
+export async function notifyNewSales(recentSales) {
+  const items = Array.isArray(recentSales) ? recentSales : [];
+  const seen = await read(SALES_SEEN_KEY, null);
+  const ids = items.map((s) => s.id).filter(Boolean);
+  if (seen === null) {
+    await write(SALES_SEEN_KEY, ids.slice(0, SEEN_MAX));
+    return 0;
+  }
+  const known = new Set(seen);
+  const fresh = items.filter((s) => s.id && !known.has(s.id));
+  await write(SALES_SEEN_KEY, [...ids, ...seen].slice(0, SEEN_MAX));
+  if (!fresh.length || !(await notificationsEnabled())) return 0;
+  const notes = fresh.slice(0, 4).map(saleNotice);
+  if (fresh.length > 4) notes.push({ id: `sales:${Date.now()}`, title: `${fresh.length - 4} more sales`, body: "Open Monitor to see them all." });
+  await schedule(notes);
+  return fresh.length;
+}
+
+/**
+ * Who owes and who hasn't collected: once a day each, at most three at a
+ * time plus one line for the rest, so a morning check doesn't bury the
+ * phone.
+ */
+export async function notifyReminders(owed, uncollected, now = Date.now()) {
+  const all = [
+    ...(Array.isArray(owed) ? owed : []).map(owedNotice),
+    ...(Array.isArray(uncollected) ? uncollected : []).map(uncollectedNotice),
+  ];
+  const log = await read(REMINDED_KEY, {});
+  const due = all.filter((n) => !log[n.id] || now - log[n.id] >= DAY);
+  if (!due.length || !(await notificationsEnabled())) return 0;
+  for (const n of due) log[n.id] = now;
+  const trimmed = Object.fromEntries(Object.entries(log).sort((a, b) => b[1] - a[1]).slice(0, SEEN_MAX));
+  await write(REMINDED_KEY, trimmed);
+  const notes = due.length <= 3 ? due : [...due.slice(0, 2), { id: `more:${now}`, title: `${due.length - 2} more need a look`, body: "Unpaid balances and repairs waiting to be collected." }];
+  await schedule(notes);
+  return due.length;
 }
 
 /** Android wants a positive 32-bit int; the id is a string. */

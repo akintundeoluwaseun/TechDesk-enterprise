@@ -7,6 +7,8 @@ import { DEFAULT_LABELS, BUSINESS_PRESETS } from "./businessPresets";
 import { storage } from "./storage";
 import { emitChanged } from "./events";
 import { hostBridge } from "./bridge";
+import { authorship, deviceId } from "./author";
+import { emitArrived } from "./arrivals";
 
 const KEYS = {
   inventory: "techdesk_inventory",
@@ -224,6 +226,7 @@ export const db = {
       invoice: nextInvoiceNumber(),
       createdAt: new Date().toISOString(),
       ...sale,
+      ...authorship(sale),
     });
     sales.unshift(record);
     write(KEYS.sales, sales);
@@ -279,6 +282,7 @@ export const db = {
       paymentStatus: "Unpaid",
       parts: [],
       ...repair,
+      ...authorship(repair),
     });
     repairs.unshift(record);
     write(KEYS.repairs, repairs);
@@ -294,7 +298,14 @@ export const db = {
     const repairs = read(KEYS.repairs);
     const idx = repairs.findIndex((r) => r.id === id);
     if (idx > -1) {
-      repairs[idx] = stamp({ ...repairs[idx], ...patch });
+      // When it was finished, so "hasn't come for it" can count from then
+      // rather than from the day it was booked in.
+      const wasDone = String(repairs[idx].status || "").toLowerCase() === "completed";
+      const nowDone = String(patch?.status ?? repairs[idx].status ?? "").toLowerCase() === "completed";
+      const next = { ...repairs[idx], ...patch };
+      if (nowDone && !wasDone) next.readyAt = new Date().toISOString();
+      if (!nowDone) delete next.readyAt;
+      repairs[idx] = stamp(next);
       write(KEYS.repairs, repairs);
       return repairs[idx];
     }
@@ -684,6 +695,7 @@ export const db = {
     const NUMBERED = { sale: { field: "invoice", prefix: "INV" }, repair: { field: "ticket", prefix: "TKT" } };
 
     let applied = 0;
+    const arrived = [];
     for (const { kind, key } of db.SYNC_KINDS) {
       const forThisKind = incoming.filter((r) => r.kind === kind);
       if (!forThisKind.length) continue;
@@ -734,6 +746,11 @@ export const db = {
         byId.set(rec.id, payload);
         applied++;
         changed = true;
+        // A sale or job someone else rang up, seen here for the first time:
+        // what the "Ade made a sale" notification is made from.
+        if (!existing && (kind === "sale" || kind === "repair") && payload?.byDevice !== deviceId()) {
+          arrived.push({ kind, record: payload });
+        }
       }
 
       if (changed) write(key, Array.from(byId.values()));
@@ -750,7 +767,8 @@ export const db = {
         }
       }
     }
-    return { applied };
+    if (arrived.length) emitArrived(arrived);
+    return { applied, arrived: arrived.length };
   },
 
   eraseAllData: () => {

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { Monitor, RefreshCw } from "lucide-react";
 import { api } from "./api";
 import { session } from "./session";
-import { notifyNewActivity, requestPermission } from "./notify";
+import { notifyNewActivity, notifyNewSales, notifyReminders, requestPermission } from "./notify";
 import BottomNav from "./components/BottomNav";
 import LoginScreen from "./screens/LoginScreen";
 import HomeScreen from "./screens/HomeScreen";
@@ -39,7 +39,10 @@ export default function App() {
       // Anything in the feed this phone has not seen becomes a notification.
       // Deliberately not awaited: a slow or refused notification must never
       // hold up the numbers appearing on screen.
-      notifyNewActivity(res.activity).catch(() => {});
+      const detailed = Array.isArray(res.recentSales);
+      notifyNewActivity(res.activity, { skipSales: detailed }).catch(() => {});
+      if (detailed) notifyNewSales(res.recentSales).catch(() => {});
+      notifyReminders(res.owed, res.uncollected).catch(() => {});
       return;
     }
     // The session ended -- expired, or signed out from elsewhere. Clearing it

@@ -66,3 +66,11 @@ export { buildInvoicePdf } from "./receipts/invoice";
 export { buildThermalReceiptPdf } from "./receipts/thermal";
 export { buildRepairTicketPdf, buildBlankRepairFormPdf } from "./receipts/repair";
 export { buildReportPdf } from "./receipts/report";
+
+// Who made a record, and what is worth a system notification about it.
+export { deviceId, setAuthorName, authorName } from "./author";
+export { onArrived } from "./arrivals";
+export {
+  ALERT_DEFAULTS, alertPrefs, setAlertPrefs, arrivalAlert, arrivalAlerts,
+  reminderAlerts, takeDue, alertLog,
+} from "./alerts";

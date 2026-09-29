@@ -826,6 +826,10 @@ function createWindow() {
   }
 }
 
+// Windows only shows an app's notifications once it knows which app they
+// are from; this must match build.appId in package.json.
+if (process.platform === "win32") app.setAppUserModelId("com.techdesk.app");
+
 app.whenReady().then(() => {
   startActivityServer();
   createWindow();

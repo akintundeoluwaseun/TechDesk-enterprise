@@ -30,6 +30,7 @@ export const DESTINATIONS = [
   { label: "Receipts", type: "Settings", path: "/settings?tab=shop", keywords: "receipt invoice template footer thermal printer whatsapp message" },
   { label: "Users", type: "Settings", path: "/settings?tab=users", keywords: "user staff worker pin password role seller repairer permission" },
   { label: "Device", type: "Settings", path: "/settings?tab=device", keywords: "device backup restore data export import printer storage" },
+  { label: "Notifications", type: "Settings", path: "/settings?tab=device", keywords: "notifications alerts push reminders unpaid owed collect pop-up" },
   { label: "Sync with another device", type: "Settings", path: "/settings?tab=account", keywords: "sync pair link bench phone number code stock repairs customers" },
   { label: "Connect to HQ", type: "Settings", path: "/settings?tab=account", keywords: "hq head office connect branch link otp code monitor" },
   { label: "Support", type: "Settings", path: "/settings?tab=account", keywords: "developer support help contact about version licence license activation" },

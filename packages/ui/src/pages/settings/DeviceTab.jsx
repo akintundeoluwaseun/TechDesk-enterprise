@@ -5,6 +5,7 @@ import { db } from "../../lib/db";
 import { findOtherEditions } from "../../lib/editionData";
 import { IS_DESKTOP_APP } from "../../lib/platform";
 import DataMergeModal from "../../components/DataMergeModal";
+import NotificationSettings from "../../components/NotificationSettings";
 
 export default function DeviceTab() {
   const t = useThemeTokens();
@@ -84,6 +85,8 @@ export default function DeviceTab() {
 
   return (
     <div className="flex flex-col gap-5">
+      <NotificationSettings />
+
       <div className={`rounded-2xl p-6 ${t.cardBg}`}>
         <h3 className={`font-semibold mb-1 ${t.textPrimary}`}>Backup &amp; restore</h3>
         <p className={`text-sm mb-4 ${t.textSecondary}`}>

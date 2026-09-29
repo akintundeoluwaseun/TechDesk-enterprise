@@ -45,6 +45,12 @@
  *
  * @property {(url: string) => void} openExternal
  *   Open a link outside the app -- WhatsApp, a web page.
+ *
+ * @property {(ask: boolean) => Promise<"granted"|"denied"|"default"|"unsupported">} notifyPermission
+ *   Whether system notifications may be shown; asks first when `ask` is set.
+ *
+ * @property {(n: {title: string, body?: string, tag?: string}) => Promise<boolean>} notify
+ *   Show one system notification. False when it could not be shown.
  */
 
 export {};

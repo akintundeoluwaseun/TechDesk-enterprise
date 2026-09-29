@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import {
+  Bell,
   X,
   Sparkles,
   Compass,
@@ -31,6 +32,7 @@ export const ICONS = {
   shield: ShieldCheck,
   printer: Printer,
   phone: Smartphone,
+  bell: Bell,
 };
 
 const TONES = [

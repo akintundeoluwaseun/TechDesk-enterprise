@@ -8,7 +8,8 @@ import { HelpProvider, useHelp } from "./lib/HelpContext";
 import { useAutoBackup } from "./lib/useAutoBackup";
 import { useLanSync } from "./lib/useLanSync";
 import { useAccountSync } from "./lib/useAccountSync";
-import { useOwedReminder } from "./lib/useOwedReminder";
+import { useSystemAlerts } from "./lib/useSystemAlerts";
+import { setAuthorName } from "@techdesk/core";
 import { findOtherEditions, getMergeDecision, hasLocalRecords } from "./lib/editionData";
 import { getAccountGateDecision } from "./lib/account";
 import Splash from "./components/Splash";
@@ -107,7 +108,11 @@ function Shell() {
   useLanSync();
   useHqSync();
   useAccountSync();
-  useOwedReminder();
+  useSystemAlerts();
+  // Every sale and job made here carries who made it, so the shop's other
+  // devices can say "Ade made a sale" rather than "a sale was made".
+  const { user } = useAuth();
+  useEffect(() => setAuthorName(user?.name), [user?.name]);
 
   return (
     <div className={`min-h-screen w-full flex ${t.bg}`}>

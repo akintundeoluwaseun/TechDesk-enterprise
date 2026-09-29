@@ -14,6 +14,11 @@ export const UPDATES = [
     title: "A livelier dashboard",
     items: [
       {
+        icon: "bell",
+        title: "Notifications that tell you who and what",
+        text: "“Ade made a sale · ₦12,500 · 2 × Screen guard” from your other devices and branches, plus a daily nudge about customers who haven't paid or collected their repair. Turn each on or off in Settings → Device.",
+      },
+      {
         icon: "zap",
         title: "Your week at a glance",
         text: "The dashboard greets you, and every card shows a 7-day trend line.",
