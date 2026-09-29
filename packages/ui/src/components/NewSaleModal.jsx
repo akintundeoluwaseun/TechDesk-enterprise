@@ -5,6 +5,7 @@ import { useAuth } from "../lib/AuthContext";
 import { db } from "../lib/db";
 import { currencySymbol, money } from "../lib/currency";
 import { useSettings } from "../lib/SettingsContext";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 import MoneyInput from "./MoneyInput";
 import SignatureField from "./SignatureField";
 
@@ -12,6 +13,7 @@ const PAYMENT_METHODS = ["Cash", "Bank Transfer", "POS", "Transfer + Cash"];
 
 export default function NewSaleModal({ sale, onClose, onCompleted }) {
   const t = useThemeTokens();
+  useCloseOnBack(true, onClose);
   const { settings } = useSettings();
   const { user } = useAuth();
   const isEdit = !!sale;

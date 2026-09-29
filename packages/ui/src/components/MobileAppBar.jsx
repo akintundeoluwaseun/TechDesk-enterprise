@@ -31,6 +31,7 @@ import { useHelp } from "../lib/HelpContext";
 import { searchEverything } from "../lib/searchAll";
 import { notificationFeed, notifStyle, timeAgo, isUnread, unreadCount } from "../lib/notifications";
 import { IS_ANDROID_APP } from "../lib/platform";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { db } from "../lib/db";
 
 // The phone's persistent header, and behind its menu button the whole app.
@@ -61,6 +62,12 @@ export default function MobileAppBar({ onOpenActivation }) {
   const { openHelp } = useHelp();
   const [drawer, setDrawer] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  // This is exactly the bug report "the back button closes the whole app":
+  // opening either panel is just local state, so it left nothing on the
+  // WebView's own history for Android's back gesture to land on, and it
+  // fell through to the OS. Now each panel owns one entry while it's open.
+  useCloseOnBack(drawer, () => setDrawer(false));
+  useCloseOnBack(notifOpen, () => setNotifOpen(false));
   const [query, setQuery] = useState("");
   const [clearedAt, setClearedAt] = useState(() => db.getNotifClearedAt());
   const navigate = useNavigate();

@@ -7,6 +7,7 @@ import { CAPABILITIES, TIERS, TIER_META, isUpgrade, tierRank, sitePage, siteLabe
 import { checkout } from "@techdesk/core";
 import { addedBy } from "../lib/featureLabels";
 import { payWithFlutterwave } from "../lib/flutterwave";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 
 // The licence screen.
 //
@@ -95,6 +96,12 @@ export default function ActivationModal({ onClose }) {
     setChosenTier(null);
     resetPay();
   }
+
+  // Two back stops, not one: from a chosen tier's own page, back is the same
+  // as tapping "back to plans" below; only from the plan picker does it
+  // actually close this screen.
+  useCloseOnBack(true, onClose);
+  useCloseOnBack(chosenTier !== null, backToPlans);
 
   async function applyClaimedCode(claimedCode, claimedTier, txRef) {
     const res = await verifyCode(claimedCode);

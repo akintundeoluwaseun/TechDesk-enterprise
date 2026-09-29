@@ -3,9 +3,11 @@ import { X } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { db } from "../lib/db";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 
 export default function CustomerModal({ customer, onClose, onSaved }) {
   const t = useThemeTokens();
+  useCloseOnBack(true, onClose);
   const { user: authUser } = useAuth();
   const isEdit = !!customer;
   const [name, setName] = useState(customer?.name || "");

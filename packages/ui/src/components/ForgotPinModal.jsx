@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X, KeyRound } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { getQuestions, verifyAnswers, resetAdminPin, lockedForMs } from "../lib/pinRecovery";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 
 function minutes(ms) {
   return Math.max(1, Math.ceil(ms / 60000));
@@ -16,6 +17,7 @@ function minutes(ms) {
  */
 export default function ForgotPinModal({ onClose, onReset }) {
   const t = useThemeTokens();
+  useCloseOnBack(true, onClose);
   const questions = getQuestions();
 
   const [answers, setAnswers] = useState({});

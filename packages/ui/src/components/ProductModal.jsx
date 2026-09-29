@@ -5,10 +5,12 @@ import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import { currencySymbol } from "../lib/currency";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 import MoneyInput from "./MoneyInput";
 
 export default function ProductModal({ product, onClose, onSaved }) {
   const t = useThemeTokens();
+  useCloseOnBack(true, onClose);
   const { isAdmin, user: authUser } = useAuth();
   const { settings } = useSettings();
   const categories = settings.categories;

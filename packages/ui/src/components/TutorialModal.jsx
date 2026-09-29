@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { can } from "../lib/tier";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { MOD_KEY_LABEL } from "./Topbar";
 
 const STEPS = [
@@ -39,6 +40,8 @@ const SHORTCUTS = [
 export default function TutorialModal({ onClose }) {
   const t = useThemeTokens();
   const [dontShowAgain, setDontShowAgain] = useState(false);
+  // Same as tapping the X: dismisses without acting on the checkbox.
+  useCloseOnBack(true, () => onClose(dontShowAgain));
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6">

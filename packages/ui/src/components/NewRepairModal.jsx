@@ -5,6 +5,7 @@ import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import { currencySymbol, money } from "../lib/currency";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 import MoneyInput from "./MoneyInput";
 import SignatureField from "./SignatureField";
 
@@ -12,6 +13,7 @@ const STATUSES = ["received", "in progress", "awaiting parts", "completed", "del
 
 export default function NewRepairModal({ onClose, onCompleted }) {
   const t = useThemeTokens();
+  useCloseOnBack(true, onClose);
   const { user: authUser } = useAuth();
   const { settings } = useSettings();
   const labels = settings.labels;

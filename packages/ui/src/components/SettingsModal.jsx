@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { X } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 
 /**
  * A settings section that lives behind a button instead of down the page.
@@ -15,6 +16,8 @@ import { useThemeTokens } from "../lib/ThemeContext";
  * and offering one would promise something this does not do.
  */
 export default function SettingsModal({ title, description, onClose, children }) {
+  useCloseOnBack(true, onClose);
+
   // Escape closes, and the page behind must not scroll under the panel.
   useEffect(() => {
     function onKey(e) {

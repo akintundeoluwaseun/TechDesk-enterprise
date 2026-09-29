@@ -1,6 +1,7 @@
 import React from "react";
 import { FileText, Receipt, X } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 
 /**
  * Which paper, asked once.
@@ -13,6 +14,7 @@ import { useThemeTokens } from "../lib/ThemeContext";
  */
 export default function PrintSizeModal({ onPick, onClose, title = "Print" }) {
   const t = useThemeTokens();
+  useCloseOnBack(true, onClose);
 
   return (
     <div

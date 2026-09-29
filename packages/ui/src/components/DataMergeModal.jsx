@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { X, Database, ShoppingCart, Wrench, Box, Users, Check, AlertTriangle } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { mergeFromEdition, setMergeDecision } from "../lib/editionData";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 
 function timeAgo(iso) {
   const then = new Date(iso);
@@ -27,6 +28,7 @@ function plural(n, singular, pluralForm) {
 
 export default function DataMergeModal({ editions, onClose }) {
   const t = useThemeTokens();
+  useCloseOnBack(true, onClose);
   const [selected, setSelected] = useState(editions[0]?.file || null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
