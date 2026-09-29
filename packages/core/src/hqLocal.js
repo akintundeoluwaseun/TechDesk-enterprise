@@ -183,6 +183,14 @@ export const hqLocal = {
       appVersion: appVersion || null,
     }, state.token);
 
+    // HQ no longer recognises this device -- disconnected there, or removed.
+    // The token is dead, so it is dropped here as the desktop build already
+    // does, and the shop sees "not connected" instead of a branch that looks
+    // connected and quietly delivers nothing, retrying for ever.
+    if (res?.error === "unknown_device") {
+      clearState();
+      return { ...res, sent: 0, more: false };
+    }
     if (!res?.ok) return { ...res, sent: 0, more: batch.more };
 
     if (batch.records.length) {
