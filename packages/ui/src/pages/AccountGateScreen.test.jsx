@@ -7,7 +7,7 @@ import AccountGateScreen from "./AccountGateScreen";
 
 // "Single business" vs "connected to a larger business" is answered by which
 // button a shop taps here, not by a separate question -- Set up your
-// business is signUp (a brand new shop, empty), Connect to a business is
+// business is signUp (a brand new shop, empty), Sign in to your business is
 // signIn (an existing shop's cloud copy, which useAccountSync then pulls
 // down onto this device). The copy has to say that plainly, in the shop's
 // own words, not "create an account" / "sign in", which reads as though it's
@@ -16,7 +16,7 @@ describe("the choice a new device is actually asked", () => {
   it("offers set up vs connect, not a generic sign in / sign up", () => {
     render(<ThemeProvider><AuthProvider><AccountGateScreen onDone={vi.fn()} /></AuthProvider></ThemeProvider>);
     expect(screen.getByText("Set up your business")).toBeInTheDocument();
-    expect(screen.getByText("Connect to a business -- sign in")).toBeInTheDocument();
+    expect(screen.getByText("Sign in to your business")).toBeInTheDocument();
     expect(screen.getByText("Continue locally, no account")).toBeInTheDocument();
   });
 
@@ -26,10 +26,10 @@ describe("the choice a new device is actually asked", () => {
     expect(screen.getByRole("heading", { name: "Set up your business" })).toBeInTheDocument();
   });
 
-  it("Connect to a business opens the sign-in form", () => {
+  it("Sign in to your business opens the sign-in form", () => {
     render(<ThemeProvider><AuthProvider><AccountGateScreen onDone={vi.fn()} /></AuthProvider></ThemeProvider>);
-    fireEvent.click(screen.getByText("Connect to a business -- sign in"));
-    expect(screen.getByRole("heading", { name: "Connect to a business" })).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Sign in to your business"));
+    expect(screen.getByRole("heading", { name: "Sign in to your business" })).toBeInTheDocument();
   });
 
   it("offers a third door for a worker joining with a code, distinct from the owner's sign-in", () => {
@@ -37,7 +37,7 @@ describe("the choice a new device is actually asked", () => {
     fireEvent.click(screen.getByText("Joining as a worker, with a code"));
     expect(screen.getByRole("heading", { name: "Joining as a worker" })).toBeInTheDocument();
     // A code and a name, never a password -- that is the entire point of
-    // this door existing separately from "Connect to a business" above.
+    // this door existing separately from "Sign in to your business" above.
     expect(screen.getByPlaceholderText("6-digit code")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Your name")).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Password")).not.toBeInTheDocument();

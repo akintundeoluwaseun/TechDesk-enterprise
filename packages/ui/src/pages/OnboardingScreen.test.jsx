@@ -49,7 +49,7 @@ describe("first run walks through three steps, not straight to the dashboard", (
     fireEvent.click(screen.getByText("Next"));
     // AccountGateScreen's own screen -- unmodified, just reached a different way.
     expect(screen.getByText("Set up your business")).toBeInTheDocument();
-    expect(screen.getByText("Connect to a business -- sign in")).toBeInTheDocument();
+    expect(screen.getByText("Sign in to your business")).toBeInTheDocument();
     expect(screen.getByText("Continue locally, no account")).toBeInTheDocument();
   });
 
@@ -77,6 +77,18 @@ describe("first run walks through three steps, not straight to the dashboard", (
     fireEvent.click(screen.getByText("Next"));
     fireEvent.click(screen.getByText("Continue locally, no account"));
     expect(done).toBe(true);
+  });
+
+  it("is a first-startup-only screen: finishing it records the answer, so it never shows again", async () => {
+    const { getAccountGateDecision } = await import("../lib/account");
+    expect(getAccountGateDecision()).toBeFalsy();
+    show();
+    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByText("Next"));
+    fireEvent.click(screen.getByText("Continue locally, no account"));
+    // App.jsx only shows onboarding while this is empty (and the device has
+    // no records of its own), so once it's set the app opens straight in.
+    expect(getAccountGateDecision()).toBe("local");
   });
 
   it("shows all three steps as dots throughout", () => {

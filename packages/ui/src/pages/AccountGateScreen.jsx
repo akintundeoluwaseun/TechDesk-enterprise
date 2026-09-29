@@ -101,7 +101,7 @@ export default function AccountGateScreen({ onDone, transparent = false }) {
                 onClick={() => setMode(MODES.signin)}
                 className={`py-3 rounded-xl font-semibold text-sm ${t.pillBg} ${t.textPrimary}`}
               >
-                Connect to a business -- sign in
+                Sign in to your business
               </button>
               <button
                 onClick={() => setMode(MODES.worker)}
@@ -118,8 +118,8 @@ export default function AccountGateScreen({ onDone, transparent = false }) {
             </div>
             <p className={`mt-4 text-xs text-center ${t.textMuted}`}>
               Setting up a new shop for the first time? Choose "Set up your business". Getting a
-              new device of your own for a shop that already has an account? Choose "Connect to a
-              business" and sign in with its email and password. Handed a shop's email and a code
+              new device of your own for a shop that already has an account? Choose "Sign in to your
+              business" and use its email and password. Handed a shop's email and a code
               by its owner, to work there without their password? Choose "Joining as a worker".
             </p>
           </>
@@ -134,7 +134,7 @@ export default function AccountGateScreen({ onDone, transparent = false }) {
                   ? "Joining as a worker"
                   : mode === MODES.confirmSignup
                   ? "Confirm your email"
-                  : "Connect to a business"}
+                  : "Sign in to your business"}
               </h1>
               {mode === MODES.worker && (
                 <p className={`text-sm mt-2 ${t.textSecondary}`}>
@@ -208,7 +208,7 @@ export default function AccountGateScreen({ onDone, transparent = false }) {
                   ? "Join"
                   : mode === MODES.confirmSignup
                   ? "Confirm"
-                  : "Connect to a business"}
+                  : "Sign in to your business"}
               </button>
               {mode !== MODES.worker && mode !== MODES.confirmSignup && (
                 <button
@@ -219,7 +219,7 @@ export default function AccountGateScreen({ onDone, transparent = false }) {
                   }}
                   className={`text-sm ${t.textSecondary}`}
                 >
-                  {mode === MODES.signup ? "Already part of one? Connect to a business" : "Setting up a new one? Set up your business"}
+                  {mode === MODES.signup ? "Already have one? Sign in to your business" : "Setting up a new one? Set up your business"}
                 </button>
               )}
               <button
