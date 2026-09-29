@@ -52,11 +52,11 @@ export default function BranchScreen({ token, branch, onBack }) {
   }, [token, branch.id, kind]);
 
   return (
-    <div className="px-4">
+    <div className="px-4 lg:px-0">
       <button onClick={onBack} className="flex items-center gap-1.5 text-ink-soft mb-4 -ml-1">
         <ArrowLeft size={18} /> Back
       </button>
-      <h1 className="text-2xl font-bold mb-1">{branch.name}</h1>
+      <h1 className="text-2xl lg:text-3xl font-bold mb-1 m-rise">{branch.name}</h1>
       <p className="text-ink-soft mb-5">What this shop has been doing.</p>
 
       <div className="flex gap-2 mb-4">
@@ -65,7 +65,7 @@ export default function BranchScreen({ token, branch, onBack }) {
             key={t.kind}
             onClick={() => setKind(t.kind)}
             className={`px-4 py-2 rounded-full text-sm font-medium ${
-              kind === t.kind ? "bg-blue-500 text-white shadow-raised-sm" : "bg-card text-ink-soft shadow-raised-sm"
+              kind === t.kind ? "bg-white text-[#0a0c10]" : "bg-card text-ink-soft border border-white/[0.08] hover:text-ink"
             }`}
           >
             {t.label}
@@ -80,7 +80,7 @@ export default function BranchScreen({ token, branch, onBack }) {
       ) : rows.length === 0 ? (
         <Empty title="Nothing here yet" detail="This branch hasn't sent anything of this kind." />
       ) : (
-        <Card className="divide-y divide-slate-100">
+        <Card className="divide-y divide-white/[0.06]">
           {rows.map((r) => {
             const l = line(kind, r.payload || {});
             return (

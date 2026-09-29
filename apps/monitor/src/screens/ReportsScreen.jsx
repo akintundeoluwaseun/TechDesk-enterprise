@@ -1,6 +1,6 @@
 import React from "react";
 import { FileText, TrendingUp } from "lucide-react";
-import { Card, Empty, IconBubble } from "../components/ui";
+import { Card, CountUp, Empty, IconBubble } from "../components/ui";
 
 export default function ReportsScreen({ data }) {
   const branches = data?.branches || [];
@@ -8,14 +8,15 @@ export default function ReportsScreen({ data }) {
   const total = branches.reduce((n, b) => n + (b.salesToday || 0), 0);
 
   return (
-    <div className="px-4">
-      <h1 className="text-2xl font-bold mb-1">Reports</h1>
+    <div className="px-4 lg:px-0 lg:max-w-3xl">
+      <h1 className="text-2xl lg:text-3xl font-bold mb-1 m-rise">Reports</h1>
       <p className="text-ink-soft mb-5">Today, branch by branch.</p>
 
-      <Card className="p-5 mb-5 flex items-center gap-4">
+      <Card className="relative overflow-hidden p-5 mb-5 flex items-center gap-4 m-rise">
+        <span aria-hidden="true" className="pointer-events-none absolute -right-16 -top-16 w-48 h-48 rounded-full" style={{ background: "radial-gradient(circle, rgba(167,139,250,0.35), transparent 70%)" }} />
         <IconBubble tone="violet"><TrendingUp size={19} /></IconBubble>
         <div>
-          <div className="text-3xl font-bold leading-none tabular-nums">{stats.salesToday ?? total}</div>
+          <div className="text-4xl font-bold leading-none tabular-nums"><CountUp value={stats.salesToday ?? total} /></div>
           <div className="text-sm text-ink-soft mt-1.5">sales across every branch today</div>
         </div>
       </Card>
@@ -26,7 +27,7 @@ export default function ReportsScreen({ data }) {
           detail="Once a branch connects and starts selling, its numbers show up here."
         />
       ) : (
-        <Card className="divide-y divide-slate-100">
+        <Card className="divide-y divide-white/[0.06]">
           {branches.map((b) => (
             <div key={b.id} className="flex items-center gap-3 p-4">
               <IconBubble tone="blue"><FileText size={17} /></IconBubble>
@@ -36,7 +37,10 @@ export default function ReportsScreen({ data }) {
                   {(b.devices || []).filter((d) => d.online).length} of {(b.devices || []).length} online
                 </div>
               </div>
-              <div className="text-lg font-bold tabular-nums">{b.salesToday ?? 0}</div>
+              <div className="w-24 lg:w-40 h-2 rounded-full bg-white/[0.06] overflow-hidden hidden sm:block" aria-hidden="true">
+                <div className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-sky-400" style={{ width: `${Math.round(((b.salesToday || 0) / Math.max(1, ...branches.map((x) => x.salesToday || 0))) * 100)}%` }} />
+              </div>
+              <div className="text-lg font-bold tabular-nums w-10 text-right">{b.salesToday ?? 0}</div>
             </div>
           ))}
         </Card>

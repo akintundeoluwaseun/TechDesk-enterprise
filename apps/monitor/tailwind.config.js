@@ -3,18 +3,19 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Taken from the design. A soft blue-grey ground with white cards
-        // raised off it -- the whole look depends on the ground never being
-        // pure white, or the cards have nothing to sit on.
-        ground: "#eaeef5",
-        card: "#ffffff",
-        sunk: "#e4e9f2",
-        ink: { DEFAULT: "#1e2430", soft: "#5b6478", faint: "#94a0b5" },
+        // Dark, like the TechDesk app's own welcome: a near-black ground,
+        // cards a step lighter with a hairline edge, and colour carried by
+        // soft light rather than by fills.
+        ground: "#0a0c10",
+        card: "#12151c",
+        sunk: "#1a1e27",
+        ink: { DEFAULT: "#f2f4f8", soft: "#a8b0bf", faint: "#6b7385" },
       },
       boxShadow: {
-        raised: "6px 6px 14px rgba(163,177,198,0.32), -6px -6px 14px rgba(255,255,255,0.9)",
-        "raised-sm": "3px 3px 8px rgba(163,177,198,0.28), -3px -3px 8px rgba(255,255,255,0.85)",
-        pressed: "inset 3px 3px 7px rgba(163,177,198,0.4), inset -3px -3px 7px rgba(255,255,255,0.85)",
+        raised: "0 1px 0 rgba(255,255,255,0.04) inset, 0 24px 48px -28px rgba(0,0,0,0.9)",
+        "raised-sm": "0 1px 0 rgba(255,255,255,0.05) inset, 0 10px 24px -16px rgba(0,0,0,0.9)",
+        pressed: "inset 0 2px 6px rgba(0,0,0,0.5)",
+        glow: "0 0 0 1px rgba(56,189,248,0.35), 0 12px 40px -12px rgba(56,189,248,0.45)",
       },
       borderRadius: { xl2: "22px" },
     },

@@ -2,13 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
+:root { color-scheme: dark; }
 
 body {
   margin: 0;
-  background: #eaeef5;
-  color: #1e2430;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: #0a0c10;
+  color: #f2f4f8;
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   /* Below the status bar and above the gesture bar on Android. */
   padding-top: env(safe-area-inset-top);
@@ -16,3 +16,45 @@ body {
 
 /* A phone app should not rubber-band like a web page. */
 html, body { overscroll-behavior-y: none; }
+
+/* ---- Motion -------------------------------------------------------------
+   Every entrance uses fill-mode `backwards`, so the resting state is what
+   stays: nothing is left invisible if an animation never runs. */
+
+@keyframes m-rise { from { opacity: 0; transform: translateY(14px); } }
+@keyframes m-fade { from { opacity: 0; } }
+@keyframes m-pop { from { opacity: 0; transform: scale(0.94); } }
+@keyframes m-drift { to { transform: translate(60px, 40px) scale(1.12); } }
+@keyframes m-pulse { 0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.55); } 100% { box-shadow: 0 0 0 10px rgba(52, 211, 153, 0); } }
+@keyframes m-shine { to { background-position: 300% 0; } }
+@keyframes m-spin { to { transform: rotate(360deg); } }
+
+.m-rise { animation: m-rise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.m-fade { animation: m-fade 0.4s ease backwards; }
+.m-pop { animation: m-pop 0.35s cubic-bezier(0.2, 1.2, 0.3, 1) backwards; }
+.m-stagger > * { animation: m-rise 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.m-stagger > :nth-child(2) { animation-delay: 0.05s; }
+.m-stagger > :nth-child(3) { animation-delay: 0.1s; }
+.m-stagger > :nth-child(4) { animation-delay: 0.15s; }
+.m-stagger > :nth-child(5) { animation-delay: 0.2s; }
+.m-stagger > :nth-child(6) { animation-delay: 0.25s; }
+.m-live { animation: m-pulse 1.8s ease-out infinite; }
+.m-shine {
+  background: linear-gradient(90deg, #7dd3fc, #a5b4fc, #6ee7b7, #7dd3fc);
+  background-size: 300% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: m-shine 8s linear infinite;
+}
+.m-lift { transition: transform 0.2s ease, background-color 0.2s ease; }
+.m-lift:hover { transform: translateY(-2px); }
+button:active { transform: scale(0.97); }
+
+.m-glow {
+  position: fixed; z-index: 0; pointer-events: none; border-radius: 50%;
+  filter: blur(10px);
+  animation: m-drift 18s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

@@ -7,8 +7,8 @@ export default function DevicesScreen({ data, onOpenBranch }) {
   const branches = data?.branches || [];
 
   return (
-    <div className="px-4">
-      <h1 className="text-2xl font-bold mb-1">Branches</h1>
+    <div className="px-4 lg:px-0">
+      <h1 className="text-2xl lg:text-3xl font-bold mb-1 m-rise">Branches</h1>
       <p className="text-ink-soft mb-5">Every shop reporting to you.</p>
 
       {branches.length === 0 ? (
@@ -17,12 +17,12 @@ export default function DevicesScreen({ data, onOpenBranch }) {
           detail="Each branch connects from its own computer: Settings → Connect to HQ, then your phone number."
         />
       ) : (
-        <div className="flex flex-col gap-4">
+        <div className="m-stagger grid gap-4 lg:grid-cols-2 lg:items-start">
           {branches.map((b) => (
             <Card key={b.id} className="overflow-hidden">
               <button
                 onClick={() => onOpenBranch(b.id)}
-                className="w-full flex items-center gap-3 p-4 text-left"
+                className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/[0.03] transition-colors"
               >
                 <IconBubble tone="blue"><Building2 size={18} /></IconBubble>
                 <div className="flex-1 min-w-0">
@@ -39,7 +39,7 @@ export default function DevicesScreen({ data, onOpenBranch }) {
                   "fine". A shop that had just disconnected a device looked
                   here and saw no difference. */}
               {(b.devices || []).length === 0 && (
-                <div className="border-t border-slate-100 px-4 py-3 bg-slate-50/60 flex items-center gap-3">
+                <div className="border-t border-white/[0.06] px-4 py-3 bg-white/[0.02] flex items-center gap-3">
                   <Unplug className="text-ink-faint shrink-0" size={16} />
                   <div className="text-sm text-ink-faint">
                     Nothing connected here. Connect TechDesk on the shop's computer or phone.
@@ -48,9 +48,9 @@ export default function DevicesScreen({ data, onOpenBranch }) {
               )}
 
               {(b.devices || []).length > 0 && (
-                <div className="border-t border-slate-100 divide-y divide-slate-100">
+                <div className="border-t border-white/[0.06] divide-y divide-white/[0.06]">
                   {b.devices.map((d) => (
-                    <div key={d.id} className="flex items-center gap-3 px-4 py-3 bg-slate-50/60">
+                    <div key={d.id} className="flex items-center gap-3 px-4 py-3 bg-white/[0.02]">
                       <Monitor className="text-ink-faint shrink-0" size={16} />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm">
