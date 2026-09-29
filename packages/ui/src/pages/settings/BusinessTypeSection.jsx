@@ -61,7 +61,7 @@ export default function BusinessTypeSection() {
             </option>
           ))}
         </select>
-        <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -tranneutral-y-1/2 pointer-events-none ${t.textMuted}`} />
+        <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
       </div>
 
       <button onClick={() => setShowCustomize((s) => !s)} className={`text-sm font-medium mb-4 ${t.textSecondary} underline`}>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from "react";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { ThemeProvider, useThemeTokens } from "./lib/ThemeContext";
 import { SettingsProvider } from "./lib/SettingsContext";
 import { AuthProvider, useAuth, canAccess, homeFor } from "./lib/AuthContext";
@@ -22,6 +22,8 @@ import { onOpenUpgrade } from "./lib/upgradeModal";
 import TutorialModal from "./components/TutorialModal";
 import DataMergeModal from "./components/DataMergeModal";
 import GuidedTour from "./components/GuidedTour";
+import WhatsNewModal from "./components/WhatsNewModal";
+import { hasUnseenUpdate, markUpdatesSeen, onOpenWhatsNew } from "./lib/whatsNew";
 import { isTourPending, markTourDone, markTourPending } from "./lib/tour";
 import { useHqSync } from "./lib/useHqSync";
 
@@ -68,6 +70,7 @@ function useFirstRunMergePrompt() {
 
 function Shell() {
   const t = useThemeTokens();
+  const location = useLocation();
   const { open: helpOpen, dismiss: dismissHelp } = useHelp();
   const [showActivation, setShowActivation] = useState(false);
   // A locked control anywhere in the app can open this, without every page
@@ -75,6 +78,13 @@ function Shell() {
   useEffect(() => onOpenUpgrade(() => setShowActivation(true)), []);
   const [mergeEditions, dismissMerge] = useFirstRunMergePrompt();
   const [touring, setTouring] = useState(() => isTourPending());
+  // Once per update, then from the menu whenever they like.
+  const [whatsNew, setWhatsNew] = useState(() => hasUnseenUpdate());
+  useEffect(() => onOpenWhatsNew(() => setWhatsNew(true)), []);
+  function closeWhatsNew() {
+    markUpdatesSeen();
+    setWhatsNew(false);
+  }
   function finishTour() {
     markTourDone();
     // They've just been shown round; the startup help sheet would only
@@ -95,6 +105,8 @@ function Shell() {
       <div className="flex-1 relative pb-16 md:pb-0 min-w-0">
         <MobileAppBar onOpenActivation={() => setShowActivation(true)} />
         <Suspense fallback={null}>
+          {/* Keyed on the page, so every move between pages plays the entrance. */}
+          <div key={location.pathname} className="td-page">
           <Routes>
             <Route path="/" element={<Guard path="/"><DashboardPage /></Guard>} />
             <Route path="/sales" element={<Guard path="/sales"><SalesPage /></Guard>} />
@@ -106,6 +118,7 @@ function Shell() {
             <Route path="/settings" element={<Guard path="/settings"><SettingsPage /></Guard>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          </div>
         </Suspense>
       </div>
       {showActivation && <ActivationModal onClose={() => setShowActivation(false)} />}
@@ -113,6 +126,8 @@ function Shell() {
         <DataMergeModal editions={mergeEditions} onClose={dismissMerge} />
       ) : touring ? (
         !showActivation && <GuidedTour onFinish={finishTour} />
+      ) : whatsNew ? (
+        <WhatsNewModal onClose={closeWhatsNew} />
       ) : (
         helpOpen && (
           <TutorialModal
@@ -147,6 +162,9 @@ function Root() {
       <OnboardingScreen
         onDone={() => {
           markTourPending();
+          // A brand-new shop gets the welcome and the tour; "what changed
+          // since last time" means nothing to them yet.
+          markUpdatesSeen();
           dismissGate();
         }}
       />

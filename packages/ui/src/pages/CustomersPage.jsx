@@ -106,7 +106,7 @@ export default function CustomersPage() {
           <div className={`text-sm ${t.textMuted}`}>Try a different search</div>
         </div>
       ) : (
-        <div className={`rounded-2xl overflow-hidden ${t.cardBg}`}>
+        <div className={`td-stagger rounded-2xl overflow-hidden ${t.cardBg}`}>
           {filtered.map((c, idx) => (
             <div
               key={c.id}

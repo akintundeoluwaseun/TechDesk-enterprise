@@ -11,6 +11,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import Topbar from "../components/Topbar";
+import CountUp from "../components/CountUp";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
@@ -44,7 +45,7 @@ export default function DashboardPage() {
   const stats = [
     {
       label: "Sales Today",
-      value: `${money(salesTodayTotal, settings)}`,
+      value: <CountUp value={salesTodayTotal} format={(n) => money(n, settings)} />,
       sub: `${salesToday.length} transactions`,
       icon: ShoppingCart,
       iconBg: t.dark ? "bg-white/5" : "bg-blue-100",
@@ -53,7 +54,7 @@ export default function DashboardPage() {
     },
     {
       label: `In ${labels.ticketSingular}`,
-      value: String(inRepair),
+      value: <CountUp value={inRepair} />,
       sub: "View all",
       icon: Wrench,
       iconBg: t.dark ? "bg-white/5" : "bg-emerald-100",
@@ -62,7 +63,7 @@ export default function DashboardPage() {
     },
     {
       label: "Completed",
-      value: String(completedToday),
+      value: <CountUp value={completedToday} />,
       sub: "Today",
       icon: CheckCircle2,
       iconBg: t.dark ? "bg-white/5" : "bg-violet-100",
@@ -71,7 +72,7 @@ export default function DashboardPage() {
     },
     {
       label: "Low Stock",
-      value: String(lowStock),
+      value: <CountUp value={lowStock} />,
       sub: "View items",
       icon: Box,
       iconBg: t.dark ? "bg-white/5" : "bg-orange-100",
@@ -94,11 +95,11 @@ export default function DashboardPage() {
     <div className="flex-1 p-4 md:p-8">
       <Topbar title="Dashboard" subtitle="Welcome back, Admin 👋" />
 
-      <div data-tour="dash-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
+      <div data-tour="dash-stats" className="td-stagger grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
         {stats.map((s) => {
           const Icon = s.icon;
           return (
-            <button key={s.label} onClick={s.onClick} className={`rounded-2xl p-3.5 md:p-5 relative text-left ${t.cardBg}`}>
+            <button key={s.label} onClick={s.onClick} className={`td-lift rounded-2xl p-3.5 md:p-5 relative text-left ${t.cardBg}`}>
               <ArrowUpRight className={`absolute top-3.5 right-3.5 md:top-5 md:right-5 w-3.5 h-3.5 md:w-4 md:h-4 ${t.textMuted}`} />
               <div className={`w-9 h-9 md:w-11 md:h-11 rounded-full flex items-center justify-center mb-2.5 md:mb-4 ${s.iconBg}`}>
                 <Icon className={`w-[18px] h-[18px] md:w-5 md:h-5 ${s.iconColor}`} />
@@ -111,7 +112,7 @@ export default function DashboardPage() {
         })}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
+      <div className="td-stagger grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5 mb-6">
         <div className={`rounded-2xl p-4 md:p-6 ${t.cardBg}`}>
           <div className="flex items-center justify-between mb-4 md:mb-6">
             <h3 className={`font-semibold ${t.textPrimary}`}>Recent {labels.ticketPlural}</h3>
@@ -121,7 +122,7 @@ export default function DashboardPage() {
           </div>
           {recentRepairs.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${t.dark ? "bg-white/5" : "bg-neutral-100"}`}>
+              <div className={`td-float w-14 h-14 rounded-full flex items-center justify-center mb-4 ${t.dark ? "bg-white/5" : "bg-neutral-100"}`}>
                 <Wrench className={`w-6 h-6 ${t.textMuted}`} />
               </div>
               <div className={`font-semibold ${t.textPrimary} mb-1`}>No {labels.ticketPlural.toLowerCase()} yet</div>
@@ -157,7 +158,7 @@ export default function DashboardPage() {
           </div>
           {recentSales.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-6 text-center">
-              <div className={`w-14 h-14 rounded-full flex items-center justify-center mb-4 ${t.dark ? "bg-white/5" : "bg-neutral-100"}`}>
+              <div className={`td-float w-14 h-14 rounded-full flex items-center justify-center mb-4 ${t.dark ? "bg-white/5" : "bg-neutral-100"}`}>
                 <ShoppingCart className={`w-6 h-6 ${t.textMuted}`} />
               </div>
               <div className={`font-semibold ${t.textPrimary} mb-1`}>No sales yet</div>
@@ -187,14 +188,14 @@ export default function DashboardPage() {
 
       <div className={`rounded-2xl p-4 md:p-6 ${t.cardBg}`}>
         <h3 className={`font-semibold ${t.textPrimary} mb-5`}>Quick Actions</h3>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div className="td-stagger grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           {quickActions.map((qa) => {
             const Icon = qa.icon;
             return (
               <button
                 key={qa.label}
                 onClick={() => navigate(qa.path)}
-                className={`flex flex-col items-start gap-3 rounded-2xl p-4 text-left transition-colors ${
+                className={`td-lift flex flex-col items-start gap-3 rounded-2xl p-4 text-left ${
                   t.dark ? "bg-white/5 hover:bg-white/10" : "bg-black/5 hover:bg-black/10"
                 }`}
               >

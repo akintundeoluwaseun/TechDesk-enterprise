@@ -13,8 +13,18 @@ export function ThemeProvider({ children }) {
     document.documentElement.classList.toggle("dark", dark);
   }, [dark]);
 
+  function toggleDark() {
+    // Fade the whole app across rather than flashing from one to the other.
+    // Only for the moment of the switch: left on, it would slow every hover.
+    const root = document.documentElement;
+    root.classList.add("td-theme-fade");
+    clearTimeout(toggleDark.timer);
+    toggleDark.timer = setTimeout(() => root.classList.remove("td-theme-fade"), 450);
+    setDark((d) => !d);
+  }
+
   return (
-    <ThemeContext.Provider value={{ dark, toggleDark: () => setDark((d) => !d) }}>
+    <ThemeContext.Provider value={{ dark, toggleDark }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -18,7 +18,7 @@ export default function PrintSizeModal({ onPick, onClose, title = "Print" }) {
 
   return (
     <div
-      className="fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/55 p-0 sm:p-6"
+      className="td-overlay fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/55 p-0 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label={title}

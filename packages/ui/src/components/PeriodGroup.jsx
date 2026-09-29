@@ -25,7 +25,7 @@ export default function PeriodGroup({ label, count, open, onToggle, children }) 
         <span className={`text-sm font-semibold ${t.textPrimary}`}>{label}</span>
         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${t.pillBg}`}>{count}</span>
       </button>
-      {open && <div className="flex flex-col gap-3">{children}</div>}
+      {open && <div className="td-open td-stagger flex flex-col gap-3">{children}</div>}
     </div>
   );
 }

@@ -36,7 +36,7 @@ export default function SettingsModal({ title, description, onClose, children })
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 sm:p-6 overflow-y-auto"
+      className="td-overlay fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-4 sm:p-6 overflow-y-auto"
       onClick={(e) => {
         // Clicking the backdrop closes; clicking the panel must not.
         if (e.target === e.currentTarget) onClose?.();

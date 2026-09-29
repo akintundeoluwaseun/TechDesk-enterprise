@@ -61,7 +61,7 @@ export default function DataMergeModal({ editions, onClose }) {
   if (result) {
     const total = Object.values(result.added).reduce((a, b) => a + b, 0);
     return (
-      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-6">
+      <div className="td-overlay fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-6">
         <div className={`w-full max-w-md rounded-2xl p-6 ${panel}`}>
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/15 flex items-center justify-center shrink-0">
@@ -102,7 +102,7 @@ export default function DataMergeModal({ editions, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-6">
+    <div className="td-overlay fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-6">
       <div className={`w-full max-w-md max-h-[85vh] flex flex-col rounded-2xl p-6 ${panel}`}>
         <div className="flex items-start justify-between mb-4 shrink-0">
           <div className="flex items-center gap-3">

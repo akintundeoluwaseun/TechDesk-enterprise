@@ -21,6 +21,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   LogOut,
+  Sparkles,
 } from "lucide-react";
 import { useTheme, useThemeTokens } from "../lib/ThemeContext";
 import { useAuth, canAccess } from "../lib/AuthContext";
@@ -33,6 +34,7 @@ import { notificationFeed, notifStyle, timeAgo, isUnread, unreadCount } from "..
 import { IS_ANDROID_APP } from "../lib/platform";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { db } from "../lib/db";
+import { openWhatsNew, useUnseenUpdate } from "../lib/whatsNew";
 
 // The phone's persistent header, and behind its menu button the whole app.
 //
@@ -60,6 +62,7 @@ export default function MobileAppBar({ onOpenActivation }) {
   const { tier } = useLicense();
   const restricted = false;
   const { openHelp } = useHelp();
+  const unseenUpdate = useUnseenUpdate();
   const [drawer, setDrawer] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   // This is exactly the bug report "the back button closes the whole app":
@@ -115,9 +118,10 @@ export default function MobileAppBar({ onOpenActivation }) {
           }}
           aria-label="Menu"
           data-tour="menu-button"
-          className={t.textPrimary}
+          className={`relative ${t.textPrimary}`}
         >
           <Menu className="w-6 h-6" />
+          {unseenUpdate && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-sky-500" />}
         </button>
 
         <div className="min-w-0 flex-1">
@@ -159,7 +163,7 @@ export default function MobileAppBar({ onOpenActivation }) {
           <button
             type="button"
             aria-label="Close notifications"
-            className="absolute inset-0 bg-black/50"
+            className="td-fade absolute inset-0 bg-black/50"
             onClick={() => setNotifOpen(false)}
           />
           <div
@@ -168,7 +172,7 @@ export default function MobileAppBar({ onOpenActivation }) {
             // The header grew to fit the inset; anything else that starts at
             // the top of the screen has to as well.
             style={{ paddingTop: "env(safe-area-inset-top)" }}
-            className={`absolute inset-x-0 top-0 max-h-[85vh] flex flex-col rounded-b-2xl overflow-hidden ${
+            className={`td-drop absolute inset-x-0 top-0 max-h-[85vh] flex flex-col rounded-b-2xl overflow-hidden ${
               dark ? "bg-neutral-950" : "bg-white"
             }`}
           >
@@ -261,10 +265,10 @@ export default function MobileAppBar({ onOpenActivation }) {
           <button
             type="button"
             aria-label="Close menu"
-            className="absolute inset-0 bg-black/50"
+            className="td-fade absolute inset-0 bg-black/50"
             onClick={() => setDrawer(false)}
           />
-          <div className={`relative w-80 max-w-[88%] h-full flex flex-col ${dark ? "bg-neutral-950" : "bg-white"}`}>
+          <div className={`td-drawer relative w-80 max-w-[88%] h-full flex flex-col ${dark ? "bg-neutral-950" : "bg-white"}`}>
             <div className="flex items-start justify-between gap-3 p-4 pb-3">
               <div className="min-w-0">
                 <div className={`text-base font-bold truncate ${t.textPrimary}`}>{settings.shopName}</div>
@@ -357,6 +361,18 @@ export default function MobileAppBar({ onOpenActivation }) {
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
               >
                 <HelpCircle className="w-[18px] h-[18px] shrink-0" /> Help
+              </button>
+              <button
+                onClick={() => {
+                  setDrawer(false);
+                  openWhatsNew();
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
+              >
+                <Sparkles className="w-[18px] h-[18px] shrink-0" /> What&rsquo;s new
+                {unseenUpdate && (
+                  <span className="ml-auto text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-500 text-white">New</span>
+                )}
               </button>
 
               {/* Always. This was behind `!activated`, with `activated`

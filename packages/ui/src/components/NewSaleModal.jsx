@@ -258,7 +258,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-6 overflow-y-auto">
+    <div className="td-overlay fixed inset-0 z-50 flex items-start justify-center bg-black/60 p-6 overflow-y-auto">
       <div className={`w-full max-w-xl rounded-2xl mt-10 mb-10 ${t.cardBg}`}>
         <div className="flex items-center justify-between px-6 pt-6 pb-4">
           <h2 className={`text-xl font-bold ${t.textPrimary}`}>{isEdit ? "Edit Sale" : "New Sale"}</h2>

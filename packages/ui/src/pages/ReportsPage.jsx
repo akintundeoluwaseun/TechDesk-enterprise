@@ -92,7 +92,7 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
+      <div className="td-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-5">
         {statCards.map((c) => (
           <div key={c.label} className={`rounded-2xl p-5 ${t.cardBg}`}>
             <div className={`text-sm ${t.textSecondary} mb-1`}>{c.label}</div>
@@ -102,7 +102,7 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-5 mb-5">
+      <div className="td-stagger grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-5 mb-5">
         {secondaryCards.map((c) => (
           <div key={c.label} className={`rounded-2xl p-4 sm:p-5 ${t.cardBg}`}>
             <div className={`text-xs sm:text-sm ${t.textSecondary} mb-1`}>{c.label}</div>

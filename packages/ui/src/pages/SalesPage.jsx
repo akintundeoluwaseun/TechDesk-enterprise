@@ -274,7 +274,7 @@ export default function SalesPage() {
           <div className={`text-sm ${t.textMuted}`}>Sales will appear here</div>
         </div>
       ) : isSearching ? (
-        <div className="flex flex-col gap-3">{filtered.map(renderSaleCard)}</div>
+        <div className="td-stagger flex flex-col gap-3">{filtered.map(renderSaleCard)}</div>
       ) : (
         <div>
           {groups.map((g) => (

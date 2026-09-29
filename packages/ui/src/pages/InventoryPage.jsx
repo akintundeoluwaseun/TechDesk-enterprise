@@ -189,7 +189,7 @@ export default function InventoryPage() {
             <option value="sold-out">Sold out ({soldOutCount})</option>
             <option value="low-stock">Low stock ({lowStockCount})</option>
           </select>
-          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -tranneutral-y-1/2 pointer-events-none ${t.textMuted}`} />
+          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
         </div>
 
         <div className="relative">
@@ -204,7 +204,7 @@ export default function InventoryPage() {
               </option>
             ))}
           </select>
-          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -tranneutral-y-1/2 pointer-events-none ${t.textMuted}`} />
+          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
         </div>
 
         <div className="relative">
@@ -221,11 +221,11 @@ export default function InventoryPage() {
             <option value="stock-asc">Stock (low to high)</option>
             <option value="stock-desc">Stock (high to low)</option>
           </select>
-          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -tranneutral-y-1/2 pointer-events-none ${t.textMuted}`} />
+          <ChevronDown className={`w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none ${t.textMuted}`} />
         </div>
       </div>
 
-      <div className={`rounded-2xl overflow-hidden ${t.cardBg}`}>
+      <div className={`td-stagger rounded-2xl overflow-hidden ${t.cardBg}`}>
         <div
           className={`grid ${
             tab === "low-stock" ? "grid-cols-[2fr_1fr_1fr_1fr_1fr]" : "grid-cols-[2fr_1fr_1fr_1fr]"

@@ -33,3 +33,72 @@ select {
 .dark select {
   color-scheme: dark;
 }
+
+/* ------------------------------------------------------------------ motion
+   The app's shared movement, in one place so it all feels like one thing.
+   Entrances use fill-mode `backwards`, never `both`: a transform or opacity
+   left filled on an element after it has finished animating makes it a
+   containing block for anything position:fixed inside it, and every modal
+   in this app is position:fixed. Backwards applies only before the start,
+   then gets out of the way completely. */
+@keyframes tdFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tdRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes tdPop { from { opacity: 0; transform: translateY(14px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes tdDrawer { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes tdDrop { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+@keyframes tdOpen { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+@keyframes tdFloat { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
+
+/* Every page, when you move to it. */
+.td-page { animation: tdRise .38s cubic-bezier(.2, .8, .2, 1) backwards; }
+
+/* Pop-ups: the dim fades in, the card rises into place. */
+.td-overlay { animation: tdFade .2s ease-out backwards; }
+.td-overlay > * { animation: tdPop .34s cubic-bezier(.2, .8, .2, 1) backwards; }
+
+/* The phone's menu slides in; its notification sheet drops down. */
+.td-fade { animation: tdFade .22s ease-out backwards; }
+.td-drawer { animation: tdDrawer .3s cubic-bezier(.2, .8, .2, 1) backwards; }
+.td-drop { animation: tdDrop .28s cubic-bezier(.2, .8, .2, 1) backwards; }
+.td-open { animation: tdOpen .28s cubic-bezier(.2, .8, .2, 1) backwards; }
+
+/* Lists and grids cascade in, one after another. */
+.td-stagger > * { animation: tdRise .45s cubic-bezier(.2, .8, .2, 1) backwards; animation-delay: .3s; }
+.td-stagger > *:nth-child(1) { animation-delay: .03s; }
+.td-stagger > *:nth-child(2) { animation-delay: .07s; }
+.td-stagger > *:nth-child(3) { animation-delay: .11s; }
+.td-stagger > *:nth-child(4) { animation-delay: .15s; }
+.td-stagger > *:nth-child(5) { animation-delay: .19s; }
+.td-stagger > *:nth-child(6) { animation-delay: .22s; }
+.td-stagger > *:nth-child(7) { animation-delay: .25s; }
+.td-stagger > *:nth-child(8) { animation-delay: .28s; }
+
+/* Empty-state icons breathe a little rather than sitting dead. */
+.td-float { animation: tdFloat 4s ease-in-out infinite; }
+
+/* Cards that lead somewhere lift under the pointer. `translate` and `scale`
+   are their own properties, so they stack with any transform a component
+   already uses rather than replacing it. */
+.td-lift { transition: translate .2s ease, box-shadow .2s ease, scale .12s ease, background-color .2s ease; }
+@media (hover: hover) {
+  .td-lift:hover { translate: 0 -3px; box-shadow: 0 16px 34px -16px rgba(0, 0, 0, .35); }
+}
+
+@layer base {
+  /* Every button gives under a press, and colours ease instead of snapping. */
+  button, a { transition-property: scale, background-color, border-color, color, box-shadow, opacity; transition-duration: .15s; transition-timing-function: ease-out; }
+  button:not(:disabled):active { scale: .97; }
+}
+
+/* Switching light/dark fades across instead of flashing. Only while the
+   class is on (ThemeContext adds it for a moment around the switch). */
+.td-theme-fade, .td-theme-fade * {
+  transition: background-color .35s ease, border-color .35s ease, color .35s ease, fill .35s ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .td-page, .td-overlay, .td-overlay > *, .td-fade, .td-drawer, .td-drop, .td-open,
+  .td-stagger > *, .td-float { animation: none !important; }
+  .td-lift, .td-lift:hover { translate: none !important; transition: none !important; }
+  button:not(:disabled):active { scale: 1; }
+}

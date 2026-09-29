@@ -163,7 +163,7 @@ export default function ActivationModal({ onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6 overflow-y-auto">
+    <div className="td-overlay fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6 overflow-y-auto">
       <div className={`w-full max-w-sm rounded-2xl p-6 my-auto ${t.cardBg}`}>
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2 min-w-0">

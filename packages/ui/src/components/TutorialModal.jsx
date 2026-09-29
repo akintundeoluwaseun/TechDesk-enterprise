@@ -44,7 +44,7 @@ export default function TutorialModal({ onClose, onStartTour }) {
   useCloseOnBack(true, () => onClose(dontShowAgain));
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6">
+    <div className="td-overlay fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6">
       <div className={`w-full max-w-md max-h-[85vh] flex flex-col rounded-2xl p-6 ${t.cardBg}`}>
         <div className="flex items-center justify-between mb-4 shrink-0">
           <h2 className={`text-lg font-bold ${t.textPrimary}`}>How to use TechDesk</h2>

@@ -268,7 +268,7 @@ export default function RepairsPage() {
           <div className={`text-sm ${t.textMuted}`}>{labels.ticketPlural} will appear here</div>
         </div>
       ) : isSearching ? (
-        <div className="flex flex-col gap-3">{filtered.map(renderRepairCard)}</div>
+        <div className="td-stagger flex flex-col gap-3">{filtered.map(renderRepairCard)}</div>
       ) : (
         <div>
           {groups.map((g) => (
