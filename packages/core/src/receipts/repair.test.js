@@ -52,6 +52,25 @@ describe("a long shop name never prints on top of a repair document's title", ()
     db.saveSettings({ shopName: LONG_NAME, logo: "data:image/png;base64,not-really-a-png" });
     expect(() => buildRepairTicketPdf(REPAIR)).not.toThrow();
   });
+
+  // A real, reported case: a shop's own name and email, run together with
+  // nothing to break on, still didn't fit beside the centred title even at
+  // the smallest legible size the old fix would shrink to -- LONG_NAME above
+  // was fixed by shrinking alone, but this one kept printing through
+  // "REPAIR TICKET" and "SERVICE PASS" regardless. The fix wraps it onto a
+  // second line instead once shrinking alone stops being enough.
+  const NAME_AND_EMAIL = "OLUWASEUN JOSHUA SEUN85148@GMAIL.COM";
+
+  it("wraps a name that still doesn't fit even at the smallest legible size", () => {
+    db.saveSettings({ shopName: NAME_AND_EMAIL });
+    expect(() => buildRepairTicketPdf(REPAIR)).not.toThrow();
+    expect(hasImage(buildRepairTicketPdf(REPAIR))).toBe(false);
+  });
+
+  it("wraps the same name on the blank repair form", () => {
+    db.saveSettings({ shopName: NAME_AND_EMAIL });
+    expect(() => buildBlankRepairFormPdf()).not.toThrow();
+  });
 });
 
 describe("a captured customer signature prints on the ticket", () => {

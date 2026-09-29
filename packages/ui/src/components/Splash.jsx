@@ -37,8 +37,12 @@ export default function Splash({ onDone, duration = 1800 }) {
         >
           <Monitor className={`w-9 h-9 ${t.dark ? "text-white" : "text-blue-500"}`} />
         </div>
-        <h1 className={`text-2xl font-bold tracking-tight mb-1 ${t.textPrimary}`}>{settings.shopName}</h1>
-        <p className={`text-xs mb-8 ${t.textMuted}`}>{settings.tagline}</p>
+        <h1
+          className={`text-2xl font-bold tracking-tight mb-1 text-center break-words max-w-[280px] ${t.textPrimary}`}
+        >
+          {settings.shopName}
+        </h1>
+        <p className={`text-xs mb-8 text-center max-w-[280px] ${t.textMuted}`}>{settings.tagline}</p>
 
         <div className={`w-40 h-1 rounded-full overflow-hidden ${t.dark ? "bg-white/10" : "bg-neutral-200"}`}>
           <div

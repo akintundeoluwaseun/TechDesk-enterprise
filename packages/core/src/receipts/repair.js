@@ -60,19 +60,29 @@ function header(doc, marginX, settings, big = 22, maxNameWidth = Infinity) {
     LOGO_H = 28;
   const logoH = drawLogo(doc, settings, marginX, y - 26, LOGO_W, LOGO_H);
   const textX = marginX + (logoH > 0 ? LOGO_W + 8 : 0);
+  const nameMaxWidth = maxNameWidth - (textX - marginX);
 
-  // Shrunk to fit whatever is drawn beside it, rather than left to grow into
-  // it -- a long shop name and the centred title beside it, both left at
-  // their natural size, print directly on top of each other.
+  // Shrunk to fit whatever is drawn beside it first -- but a name that
+  // still doesn't fit even at the smallest legible size (an owner's own
+  // name run together with their email, with nothing natural to break on,
+  // easily outgrows most registered shop names) used to just keep printing
+  // at that size anyway, running straight into the centred title beside it.
+  // Wrapping it onto a second line, the same fallback the thermal receipt
+  // already uses for the same reason, is the actual fix; the block below
+  // returns however tall it actually ended up, rather than a fixed height.
   const name = pdfSafe(settings.shopName || "TechDesk").toUpperCase();
-  fitFontSize(doc, name, maxNameWidth - (textX - marginX), { max: big });
-  doc.text(name, textX, y - 8);
+  const size = fitFontSize(doc, name, nameMaxWidth, { max: big });
+  const lines = doc.splitTextToSize(name, nameMaxWidth);
+  const lineH = size * 1.15;
+  lines.forEach((line, i) => doc.text(line, textX, y - 8 + i * lineH));
+  const nameBottom = y - 8 + (lines.length - 1) * lineH;
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10);
-  doc.text(settings.tagline || "", textX, y + 6);
+  const taglineY = nameBottom + 14;
+  doc.text(settings.tagline || "", textX, taglineY);
 
-  return y + 24;
+  return taglineY + 10;
 }
 
 export function buildRepairTicketPdf(repair) {
@@ -90,18 +100,24 @@ export function buildRepairTicketPdf(repair) {
   const ticketTitle = pdfSafe(settings.labels.ticketTitle).toUpperCase();
   const titleLeftEdge = pageW / 2 - doc.getTextWidth(ticketTitle) / 2;
 
-  header(doc, marginX, settings, 22, titleLeftEdge - marginX - 16);
+  const headerBottom = header(doc, marginX, settings, 22, titleLeftEdge - marginX - 16);
+  // A one-line shop name comfortably clears the title and ticket-number box
+  // at their normal fixed positions below. A name that wrapped onto extra
+  // lines can run past that -- shift the title, the box and everything
+  // below down together by whatever extra room the wrap actually needed,
+  // instead of letting the taller header print through them.
+  const extraShift = Math.max(0, headerBottom - 66);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(20);
-  doc.text(ticketTitle, pageW / 2, 46, { align: "center" });
+  doc.text(ticketTitle, pageW / 2, 46 + extraShift, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(10.5);
-  doc.text("SERVICE PASS", pageW / 2, 62, { align: "center" });
+  doc.text("SERVICE PASS", pageW / 2, 62 + extraShift, { align: "center" });
 
   const boxW = 170,
     boxX = pageW - marginX - boxW,
-    boxY = 22;
+    boxY = 22 + extraShift;
   doc.setFillColor(15, 15, 15);
   doc.rect(boxX, boxY, boxW, 16, "F");
   doc.setTextColor(255, 255, 255);
@@ -289,13 +305,23 @@ export function buildBlankRepairFormPdf() {
 
     const logoH = drawLogo(doc, settings, marginX, y - 22, 30, 22);
     const nameX = marginX + (logoH > 0 ? 38 : 0);
+    const nameMaxWidth = titleLeftEdge - 16 - nameX;
 
+    // Wrapped, not just shrunk, when a name doesn't fit even at the
+    // smallest legible size -- see the ticket header above for why. Bounded
+    // to the same width as before, so a wrapped line can never reach into
+    // the centred title or copy label beside it, whichever row it lands on.
     const nameText = pdfSafe(settings.shopName || "TechDesk").toUpperCase();
-    fitFontSize(doc, nameText, titleLeftEdge - 16 - nameX, { max: 14 });
-    doc.text(nameText, nameX, y);
+    const nameSize = fitFontSize(doc, nameText, nameMaxWidth, { max: 14 });
+    const nameLines = doc.splitTextToSize(nameText, nameMaxWidth);
+    const nameLineH = nameSize * 1.15;
+    nameLines.forEach((line, i) => doc.text(line, nameX, y + i * nameLineH));
+    const nameBottom = y + (nameLines.length - 1) * nameLineH;
+
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.text(settings.tagline || "", nameX, y + 12);
+    const taglineY = nameBottom + 12;
+    doc.text(settings.tagline || "", nameX, taglineY);
 
     doc.setFont("helvetica", "bold");
     doc.setFontSize(16);
@@ -310,11 +336,8 @@ export function buildBlankRepairFormPdf() {
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
-    doc.text(
-      contactLine(settings),
-      marginX,
-      y + 26
-    );
+    const contactY = taglineY + 14;
+    doc.text(contactLine(settings), marginX, contactY);
 
     const boxW = 120;
     doc.setLineWidth(0.75);
@@ -327,7 +350,10 @@ export function buildBlankRepairFormPdf() {
     doc.text("STATUS :", pageW - marginX - boxW + 8, y + 17);
     underline(pageW - marginX - boxW + 42, y + 16, boxW - 52);
 
-    return y + 40;
+    // The normal, one-line case keeps its original y + 40; a wrapped name
+    // pushes this down by exactly the extra height it needed, same 14pt
+    // clearance below the contact line as before.
+    return Math.max(y + 40, contactY + 14);
   }
 
   function customerDetailsBox(y, label) {
@@ -498,12 +524,21 @@ export function buildBlankRepairFormPdf() {
 
   const logoH3 = drawLogo(doc, settings, marginX, y - 20, 30, 22);
   const nameX3 = marginX + (logoH3 > 0 ? 38 : 0);
+  const nameMaxWidth3 = serviceTitleLeftEdge - 16 - nameX3;
+
+  // Wrapped, not just shrunk -- same reason and same bound as the two
+  // headers above.
   const nameText3 = pdfSafe(settings.shopName || "TechDesk").toUpperCase();
-  fitFontSize(doc, nameText3, serviceTitleLeftEdge - 16 - nameX3, { max: 14 });
-  doc.text(nameText3, nameX3, y);
+  const nameSize3 = fitFontSize(doc, nameText3, nameMaxWidth3, { max: 14 });
+  const nameLines3 = doc.splitTextToSize(nameText3, nameMaxWidth3);
+  const nameLineH3 = nameSize3 * 1.15;
+  nameLines3.forEach((line, i) => doc.text(line, nameX3, y + i * nameLineH3));
+  const nameBottom3 = y + (nameLines3.length - 1) * nameLineH3;
+
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
-  doc.text(settings.tagline || "", nameX3, y + 12);
+  const taglineY3 = nameBottom3 + 12;
+  doc.text(settings.tagline || "", nameX3, taglineY3);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(15);
@@ -513,11 +548,8 @@ export function buildBlankRepairFormPdf() {
   doc.text("(After Job Completion)", pageW / 2, y + 6, { align: "center" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7.5);
-  doc.text(
-    contactLine(settings),
-    marginX,
-    y + 26
-  );
+  const contactY3 = taglineY3 + 14;
+  doc.text(contactLine(settings), marginX, contactY3);
 
   const boxW3 = 110;
   doc.setLineWidth(0.75);
@@ -528,7 +560,10 @@ export function buildBlankRepairFormPdf() {
   doc.text("TIME :", pageW - marginX - boxW3 + 6, y + 9);
   underline(pageW - marginX - boxW3 + 34, y + 8, boxW3 - 42);
 
-  y += 32;
+  // The normal, one-line case keeps its original y + 32; a wrapped name
+  // pushes this down by exactly the extra height it needed, same 6pt
+  // clearance below the contact line as before.
+  y = Math.max(y + 32, contactY3 + 6);
   const custColW = contentW * 0.33;
   doc.setFillColor(15, 15, 15);
   doc.rect(marginX, y, 130, 14, "F");
