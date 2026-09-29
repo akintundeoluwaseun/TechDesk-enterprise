@@ -39,6 +39,7 @@ export default function MobileNav() {
             key={item.to}
             to={item.to}
             end={item.end}
+            data-tour={`tab-${item.to === "/" ? "dashboard" : item.to.slice(1)}`}
             className={({ isActive }) =>
               `flex flex-col items-center justify-center gap-1 flex-1 min-w-0 py-2.5 text-[10px] font-medium ${
                 isActive ? t.textPrimary : t.textMuted

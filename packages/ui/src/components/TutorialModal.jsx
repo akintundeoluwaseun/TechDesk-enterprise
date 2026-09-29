@@ -37,7 +37,7 @@ const SHORTCUTS = [
   { keys: ["Enter"], what: "In New Sale, add the scanned or typed SKU to the cart" },
 ];
 
-export default function TutorialModal({ onClose }) {
+export default function TutorialModal({ onClose, onStartTour }) {
   const t = useThemeTokens();
   const [dontShowAgain, setDontShowAgain] = useState(false);
   // Same as tapping the X: dismisses without acting on the checkbox.
@@ -109,6 +109,14 @@ export default function TutorialModal({ onClose }) {
           <span className={`text-sm ${t.textSecondary}`}>Don't show this on startup</span>
         </label>
 
+        {onStartTour && (
+          <button
+            onClick={onStartTour}
+            className={`w-full py-3 mb-2 rounded-xl font-semibold shrink-0 ${t.pillBg}`}
+          >
+            Take the guided tour
+          </button>
+        )}
         <button
           onClick={() => onClose(dontShowAgain)}
           className={`w-full py-3 rounded-xl font-semibold shrink-0 ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}

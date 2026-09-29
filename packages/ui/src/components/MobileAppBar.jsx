@@ -114,6 +114,7 @@ export default function MobileAppBar({ onOpenActivation }) {
             setDrawer(true);
           }}
           aria-label="Menu"
+          data-tour="menu-button"
           className={t.textPrimary}
         >
           <Menu className="w-6 h-6" />
@@ -319,6 +320,7 @@ export default function MobileAppBar({ onOpenActivation }) {
                         key={item.to}
                         to={item.to}
                         end={item.end}
+                        data-tour={`drawer-${item.to === "/" ? "dashboard" : item.to.slice(1)}`}
                         onClick={() => setDrawer(false)}
                         className={({ isActive }) =>
                           `flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${

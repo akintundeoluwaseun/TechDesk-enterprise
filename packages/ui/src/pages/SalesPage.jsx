@@ -244,6 +244,7 @@ export default function SalesPage() {
         }
         action={
           <button
+            data-tour="new-sale"
             onClick={() => {
               setEditingSale(null);
               setShowModal(true);

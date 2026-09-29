@@ -21,21 +21,29 @@ describe("first run walks through three steps, not straight to the dashboard", (
 
   it("opens on Welcome", () => {
     show();
-    expect(screen.getByText("Welcome to TechDesk")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /welcome to techdesk/i })).toBeInTheDocument();
     expect(screen.getByText("Get Started")).toBeInTheDocument();
   });
 
-  it("Get Started moves to the quick-info step", () => {
+  it("Get Started moves to the feature showcase, with a tab for each part of the app", () => {
     show();
     fireEvent.click(screen.getByText("Get Started"));
     expect(screen.getByText("Everything your shop needs")).toBeInTheDocument();
-    expect(screen.getByText("Sales")).toBeInTheDocument();
-    expect(screen.getByText("Repairs")).toBeInTheDocument();
-    expect(screen.getByText("Inventory")).toBeInTheDocument();
-    expect(screen.getByText("Reports")).toBeInTheDocument();
+    const tabs = screen.getAllByRole("tab").map((t) => t.textContent);
+    expect(tabs).toEqual(["Sales", "Repairs", "Inventory", "Reports"]);
+    // Sales plays first.
+    expect(screen.getByText("Ring up a sale in seconds")).toBeInTheDocument();
   });
 
-  it("Next on quick-info reaches the new-business / join-existing question", () => {
+  it("tapping a tab switches the showcase to it", () => {
+    show();
+    fireEvent.click(screen.getByText("Get Started"));
+    fireEvent.click(screen.getByRole("tab", { name: /repairs/i }));
+    expect(screen.getByText("Track every job to the end")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /repairs/i })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("Next reaches the new-business / join-existing question", () => {
     show();
     fireEvent.click(screen.getByText("Get Started"));
     fireEvent.click(screen.getByText("Next"));
@@ -45,14 +53,14 @@ describe("first run walks through three steps, not straight to the dashboard", (
     expect(screen.getByText("Continue locally, no account")).toBeInTheDocument();
   });
 
-  it("Back on quick-info returns to Welcome", () => {
+  it("Back on the showcase returns to Welcome", () => {
     show();
     fireEvent.click(screen.getByText("Get Started"));
     fireEvent.click(screen.getByText("Back"));
-    expect(screen.getByText("Welcome to TechDesk")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /welcome to techdesk/i })).toBeInTheDocument();
   });
 
-  it("Back on the last step returns to quick-info, not out of onboarding", () => {
+  it("Back on the last step returns to the showcase, not out of onboarding", () => {
     show();
     fireEvent.click(screen.getByText("Get Started"));
     fireEvent.click(screen.getByText("Next"));
@@ -79,9 +87,6 @@ describe("first run walks through three steps, not straight to the dashboard", (
   it("is dark regardless of the shop's own saved theme -- there's no shop settings yet", () => {
     localStorage.setItem("techdesk_theme", "light");
     const { container } = show();
-    // bg-neutral-900 is the dark token for the page background; the light
-    // token is bg-neutral-200. This is the one place that never reads the
-    // saved preference.
     expect(container.querySelector(".bg-neutral-900")).not.toBe(null);
     expect(container.querySelector(".bg-neutral-200")).toBe(null);
   });

@@ -95,7 +95,7 @@ export default function Sidebar({ onOpenActivation }) {
           {collapsed ? <ChevronRight className="w-4 h-4" /> : <><ChevronLeft className="w-4 h-4" /> Collapse</>}
         </button>
 
-        <nav className="flex flex-col gap-1">
+        <nav data-tour="sidebar-nav" className="flex flex-col gap-1">
           {visibleItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -103,6 +103,7 @@ export default function Sidebar({ onOpenActivation }) {
                 key={item.to}
                 to={item.to}
                 end={item.end}
+                data-tour={`nav-${item.to === "/" ? "dashboard" : item.to.slice(1)}`}
                 title={collapsed ? item.label : undefined}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition-colors ${

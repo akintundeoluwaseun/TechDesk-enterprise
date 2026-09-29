@@ -94,7 +94,7 @@ export default function DashboardPage() {
     <div className="flex-1 p-4 md:p-8">
       <Topbar title="Dashboard" subtitle="Welcome back, Admin 👋" />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
+      <div data-tour="dash-stats" className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5 mb-6">
         {stats.map((s) => {
           const Icon = s.icon;
           return (

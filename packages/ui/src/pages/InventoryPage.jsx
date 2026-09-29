@@ -150,6 +150,7 @@ export default function InventoryPage() {
               <FileSpreadsheet className="w-4 h-4" /> {tab === "low-stock" ? "Export restock list" : "Export CSV"}
             </button>
             <button
+              data-tour="new-product"
               onClick={() => {
                 setEditingProduct(null);
                 setShowModal(true);

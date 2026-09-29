@@ -240,6 +240,7 @@ export default function RepairsPage() {
               <FileText className="w-4 h-4" /> Ticket
             </button>
             <button
+              data-tour="new-repair"
               onClick={() => setShowModal(true)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${
                 t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"

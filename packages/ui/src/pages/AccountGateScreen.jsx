@@ -13,7 +13,9 @@ const MODES = { choose: "choose", signup: "signup", signin: "signin", worker: "w
  * has records of its own, so nobody running the shop today is suddenly
  * interrupted by it.
  */
-export default function AccountGateScreen({ onDone }) {
+// `transparent` drops the page background, for when onboarding draws its
+// own animated one behind this screen.
+export default function AccountGateScreen({ onDone, transparent = false }) {
   const t = useThemeTokens();
   const { syncUserFromAccount } = useAuth();
   const [mode, setMode] = useState(MODES.choose);
@@ -74,7 +76,7 @@ export default function AccountGateScreen({ onDone }) {
   const input = `w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`;
 
   return (
-    <div className={`min-h-screen w-full flex items-center justify-center ${t.bg}`}>
+    <div className={`min-h-screen w-full flex items-center justify-center py-16 ${transparent ? "" : t.bg}`}>
       <div className="w-full max-w-sm px-6">
         {mode === MODES.choose ? (
           <>

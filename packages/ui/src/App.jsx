@@ -21,6 +21,8 @@ import ActivationModal from "./components/ActivationModal";
 import { onOpenUpgrade } from "./lib/upgradeModal";
 import TutorialModal from "./components/TutorialModal";
 import DataMergeModal from "./components/DataMergeModal";
+import GuidedTour from "./components/GuidedTour";
+import { isTourPending, markTourDone, markTourPending } from "./lib/tour";
 import { useHqSync } from "./lib/useHqSync";
 
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -72,6 +74,14 @@ function Shell() {
   // having to be handed a callback it does not otherwise care about.
   useEffect(() => onOpenUpgrade(() => setShowActivation(true)), []);
   const [mergeEditions, dismissMerge] = useFirstRunMergePrompt();
+  const [touring, setTouring] = useState(() => isTourPending());
+  function finishTour() {
+    markTourDone();
+    // They've just been shown round; the startup help sheet would only
+    // repeat it. Help in the menu still opens it, and can replay the tour.
+    dismissHelp(true);
+    setTouring(false);
+  }
   useAutoBackup();
   useLanSync();
   useHqSync();
@@ -101,8 +111,18 @@ function Shell() {
       {showActivation && <ActivationModal onClose={() => setShowActivation(false)} />}
       {mergeEditions.length > 0 ? (
         <DataMergeModal editions={mergeEditions} onClose={dismissMerge} />
+      ) : touring ? (
+        !showActivation && <GuidedTour onFinish={finishTour} />
       ) : (
-        helpOpen && <TutorialModal onClose={dismissHelp} />
+        helpOpen && (
+          <TutorialModal
+            onClose={dismissHelp}
+            onStartTour={() => {
+              dismissHelp(false);
+              setTouring(true);
+            }}
+          />
+        )
       )}
     </div>
   );
@@ -122,7 +142,16 @@ function useFirstRunAccountGate() {
 function Root() {
   const { user } = useAuth();
   const [showGate, dismissGate] = useFirstRunAccountGate();
-  if (showGate) return <OnboardingScreen onDone={dismissGate} />;
+  if (showGate) {
+    return (
+      <OnboardingScreen
+        onDone={() => {
+          markTourPending();
+          dismissGate();
+        }}
+      />
+    );
+  }
   if (!user) return <LoginScreen />;
   return <Shell />;
 }
