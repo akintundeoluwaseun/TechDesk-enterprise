@@ -1,11 +1,14 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { dayKey, normalizeState, advance, mergeStates } from "./trial";
-import { clampUsed, remaining as pdfsRemainingFrom } from "./pdfAllowance";
+import { remaining as pdfsRemainingFrom } from "./pdfAllowance";
+import { usage as outputUsage, recordPdf, onUsageChange } from "./outputAllowance";
 import { IS_ANDROID_APP } from "./platform";
 import { isTier, tierCan, isUpgrade } from "@techdesk/editions";
 import { FREE_TIER, setCurrentTier } from "./tier";
 import { HASH_HEX, normalizeCode, hashPreimage } from "./activationCode";
 import { TABLE_SIZE, isValidIndex, pinAt, hashesAt } from "./activationTable";
+import { checkout } from "@techdesk/core";
+import { effectiveTier } from "./licenceTerm";
 
 const LicenseContext = createContext(null);
 
@@ -15,7 +18,19 @@ const KEY_TRIAL_START_LEGACY = "techdesk_trial_start";
 const KEY_ACTIVATED = "techdesk_activated";
 const KEY_TIER = "techdesk_tier";
 const KEY_UNLOCKS = "techdesk_unlocks";
-const KEY_PDF_TRIAL = "techdesk_free_pdf_count";
+// The server's yearly licence for this PIN, cached so it still counts down
+// with no connection. See licenceTerm.js.
+const KEY_LICENCE = "techdesk_licence_term";
+const LICENCE_CHECK_MS = 6 * 60 * 60 * 1000;
+
+function readLicence() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY_LICENCE) || "null");
+    return raw && typeof raw === "object" ? raw : null;
+  } catch {
+    return null;
+  }
+}
 
 // What a device activated before any of this counts as.
 //
@@ -88,20 +103,6 @@ function writeLocalTrial(state) {
   } catch {
     // Out of quota, or storage blocked. The userData file is the durable
     // copy, so losing this mirror is survivable.
-  }
-}
-
-// The free-tier PDF trial's count. Unlike the trial clock above, this is not
-// mirrored to a userData file: it is not meant to be tamper-proof, the same
-// way tier.js's own licence flag is not -- what actually defends a paid
-// capability is the server, and this is a taste offered to a free shop, not
-// a lock. A shop determined enough to clear localStorage for three more free
-// PDFs is not the problem this exists to solve.
-function readPdfsUsed() {
-  try {
-    return clampUsed(localStorage.getItem(KEY_PDF_TRIAL));
-  } catch {
-    return 0;
   }
 }
 
@@ -218,24 +219,51 @@ export function LicenseProvider({ children }) {
     };
   }, [licenseIndex]);
 
+  // What the server says this PIN has paid for, and until when.
+  const [licence, setLicence] = useState(readLicence);
+  async function refreshLicence(forPin = pin) {
+    if (!forPin) return null;
+    const res = await checkout.licenceStatus(forPin);
+    if (!res?.ok) return null; // offline: keep the cached answer, dates and all
+    const next = { found: !!res.found, tier: res.tier || null, expiresAt: res.expiresAt || null, checkedAt: new Date().toISOString() };
+    try { localStorage.setItem(KEY_LICENCE, JSON.stringify(next)); } catch { /* mirror only */ }
+    setLicence(next);
+    return next;
+  }
+  useEffect(() => {
+    if (!pin) return undefined;
+    refreshLicence(pin);
+    const every = setInterval(() => refreshLicence(pin), LICENCE_CHECK_MS);
+    return () => clearInterval(every);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pin]);
+
+  // A licence can run out while the app is open; recompute on the hour.
+  const [clock, setClock] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setClock(Date.now()), 60 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
+  const effective = effectiveTier({ bought: tier, unlocks, licence, now: clock });
+
   const tierRef = useRef(tier);
   tierRef.current = tier;
   const unlocksRef = useRef(unlocks);
   unlocksRef.current = unlocks;
 
-  const [pdfsUsed, setPdfsUsed] = useState(readPdfsUsed);
+  // The free plan's three clean receipt PDFs a month -- counted, with the
+  // ten stamped prints, in outputAllowance.js.
+  const [pdfsUsed, setPdfsUsed] = useState(() => outputUsage().pdfs);
+  useEffect(() => onUsageChange((u) => setPdfsUsed(u.pdfs)), []);
+  // A new month frees them up again, without a restart.
+  useEffect(() => {
+    const t = setInterval(() => setPdfsUsed(outputUsage().pdfs), 60 * 60 * 1000);
+    return () => clearInterval(t);
+  }, []);
 
-  /** A free shop just spent one of its three free PDF saves. */
+  /** A free shop just spent one of this month's free PDF saves. */
   function recordPdfSaved() {
-    setPdfsUsed((n) => {
-      const next = n + 1;
-      try {
-        localStorage.setItem(KEY_PDF_TRIAL, String(next));
-      } catch {
-        // Not durable, and does not need to be -- see readPdfsUsed's note.
-      }
-      return next;
-    });
+    recordPdf();
   }
 
   // Render immediately from local storage; the userData file is read a tick
@@ -360,8 +388,8 @@ export function LicenseProvider({ children }) {
   // the sync hook -- so it has to learn about the licence too, on first load
   // as well as on an upgrade.
   useEffect(() => {
-    setCurrentTier(tier);
-  }, [tier]);
+    setCurrentTier(effective);
+  }, [effective]);
 
   // The mobile app is free. The trial and the activation code belong to the
   // desktop build, which is the one that is sold -- on a phone they are a
@@ -383,7 +411,7 @@ export function LicenseProvider({ children }) {
   // The trial state is still read and still written, because old installs
   // have it on disk and an upgrade must not look like data loss. It simply
   // stops being able to take anything away.
-  const freeEdition = tier === FREE_TIER;
+  const freeEdition = effective === FREE_TIER;
   const restricted = false;
 
   /**
@@ -512,6 +540,7 @@ export function LicenseProvider({ children }) {
     }
 
     await applyTier(matched, withUnlock(unlocksRef.current, matched, clean));
+    refreshLicence();
     return { ok: true, applied: true, tier: matched };
   }
 
@@ -551,8 +580,13 @@ export function LicenseProvider({ children }) {
         // On mobile there is nothing to activate, so nothing asks.
         activated: activated || freeEdition,
         freeEdition,
-        tier,
-        can: (feature) => tierCan(tier, feature),
+        // The tier in force today: what the codes prove, for as long as the
+        // yearly licence runs (licenceTerm.js).
+        tier: effective,
+        boughtTier: tier,
+        licence,
+        refreshLicence,
+        can: (feature) => tierCan(effective, feature),
         pin,
         unlocks,
         daysUsed: trial.daysUsed,

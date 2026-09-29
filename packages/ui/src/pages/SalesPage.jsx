@@ -14,6 +14,7 @@ import { generateThermalReceiptPdf } from "../lib/generateThermalReceipt";
 import { openWhatsApp, saleMessage } from "../lib/share";
 import { LockedButton } from "../components/UpgradeLock";
 import PdfSaveButton from "../components/PdfSaveButton";
+import PrintButton from "../components/PrintButton";
 import { money } from "../lib/currency";
 import { toast } from "../lib/toast";
 
@@ -183,11 +184,11 @@ export default function SalesPage() {
             two that send a customer their receipt looked the same as
             the one that deletes the sale. */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Print stays free: a shop that cannot hand a customer a
-              receipt is not a shop. Saving the file and sending it are
-              what Business is for -- Save A4/58mm give a free shop
-              three tries at that first (PdfSaveButton), WhatsApp does
-              not. Every one of them stays visible even locked -- a
+          {/* Print stays on the free plan -- a shop that cannot hand a
+              customer a receipt is not a shop -- ten a month, stamped
+              "TechDesk" (PrintButton). Saving the file and sending it are
+              what Business is for -- Save A4/58mm give a free shop three
+              clean saves a month (PdfSaveButton), WhatsApp does not. Every one of them stays visible even locked -- a
               button that vanishes reads as a bug, and a free shop
               never discovers the paid version does it. */}
           <LockedButton
@@ -198,12 +199,12 @@ export default function SalesPage() {
           >
             <MessageCircle className="w-4 h-4 shrink-0" /> WhatsApp
           </LockedButton>
-          <button
-            onClick={() => setPrinting(sale)}
+          <PrintButton
+            onPrint={() => setPrinting(sale)}
             className={`flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium ${t.pillBg}`}
           >
             <Printer className="w-4 h-4 shrink-0" /> Print
-          </button>
+          </PrintButton>
           <PdfSaveButton
             title="Save A4"
             onSave={() => generateInvoicePdf(sale)}

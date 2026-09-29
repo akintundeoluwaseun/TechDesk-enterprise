@@ -8,6 +8,7 @@ import { setCurrentTier, FREE_TIER } from "../lib/tier";
 import { onOpenUpgrade } from "../lib/upgradeModal";
 import { FREE_PDF_ALLOWANCE } from "../lib/pdfAllowance";
 import PdfSaveButton from "./PdfSaveButton";
+import { usage } from "../lib/outputAllowance";
 
 function show(ui) {
   return render(
@@ -84,7 +85,7 @@ describe("PdfSaveButton", () => {
     expect(screen.getByRole("button").textContent).toMatch(String(FREE_PDF_ALLOWANCE));
   });
 
-  it("never un-saves a PDF already made -- the count only ever goes up", async () => {
+  it("counts this month's saves, and a new month starts again at three", async () => {
     const user = userEvent.setup();
     show(
       <PdfSaveButton title="Save A4" onSave={() => {}}>
@@ -92,6 +93,9 @@ describe("PdfSaveButton", () => {
       </PdfSaveButton>
     );
     await user.click(screen.getByRole("button", { name: /save a4/i }));
-    expect(localStorage.getItem("techdesk_free_pdf_count")).toBe("1");
+    expect(usage().pdfs).toBe(1);
+    // Last month's count does not carry over.
+    localStorage.setItem("techdesk_free_outputs", JSON.stringify({ month: "1999-01", prints: 9, pdfs: 3 }));
+    expect(usage()).toMatchObject({ prints: 0, pdfs: 0 });
   });
 });

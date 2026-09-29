@@ -48,8 +48,41 @@ export const checkout = {
    * checkout widget needs to open, never the price the caller asked for --
    * that would let it be edited before it reaches the server.
    */
-  async startOrder({ pin, tier, contact }) {
-    return fnFetch("activation-order", { pin, tier, contact });
+  async startOrder({ pin, tier, product = "plan", quantity, hqIdentity, contact }) {
+    return fnFetch("activation-order", { pin, tier, product, quantity, hqIdentity, contact });
+  },
+
+  /**
+   * What this PIN has paid for, and until when -- plans are yearly, and the
+   * server's licence is what says for how long. {ok, found, tier, expiresAt}.
+   */
+  async licenceStatus(pin) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/licence_status`, {
+        method: "POST",
+        headers: { apikey: PUBLISHABLE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_pin: String(pin) }),
+      });
+      if (!res.ok) return { ok: false };
+      const data = await res.json();
+      return data && typeof data === "object" ? data : { ok: false };
+    } catch {
+      return { ok: false, error: "offline" };
+    }
+  },
+
+  /** Today's prices, from the server -- never hard-coded where a shop pays. */
+  async prices() {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/price_list?select=product,amount,currency,label&active=eq.true`, {
+        headers: { apikey: PUBLISHABLE_KEY },
+      });
+      if (!res.ok) return null;
+      const rows = await res.json();
+      return Object.fromEntries((rows || []).map((r) => [r.product, { amount: Number(r.amount), currency: r.currency, label: r.label }]));
+    } catch {
+      return null;
+    }
   },
 
   /**

@@ -74,7 +74,7 @@ describe("paying for an upgrade online", () => {
     goToEmailStep("shop@example.com");
 
     await waitFor(() =>
-      expect(startOrder).toHaveBeenCalledWith({ pin: "482913", tier: "business", contact: "shop@example.com" }),
+      expect(startOrder).toHaveBeenCalledWith({ pin: "482913", tier: "business", product: "plan", contact: "shop@example.com" }),
     );
     await waitFor(() => expect(payWithFlutterwave).toHaveBeenCalled());
     await waitFor(() => expect(claimCode).toHaveBeenCalledWith("td-1"));
@@ -144,7 +144,7 @@ describe("paying for an upgrade online", () => {
     fireEvent.click(screen.getByRole("button", { name: /Continue to payment/i }));
 
     await waitFor(() =>
-      expect(startOrder).toHaveBeenCalledWith({ pin: "482913", tier: "enterprise", contact: "shop@example.com" }),
+      expect(startOrder).toHaveBeenCalledWith({ pin: "482913", tier: "enterprise", product: "plan", contact: "shop@example.com" }),
     );
     await waitFor(() =>
       expect(screen.getByText(/Done\. TechDesk Enterprise is unlocked/i)).toBeInTheDocument(),

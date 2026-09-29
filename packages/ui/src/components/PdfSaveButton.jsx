@@ -4,7 +4,7 @@ import { useLicense } from "../lib/LicenseContext";
 import { LockedButton } from "./UpgradeLock";
 
 /**
- * Save-as-PDF, with three free tries for a shop that has not paid for it.
+ * Save-as-PDF, with three free saves a month for a shop that has not paid for it.
  *
  * receiptPdf is a paid capability, but a free shop that has never seen what
  * a saved PDF looks like has no way to judge whether it is worth paying for.
@@ -33,7 +33,7 @@ export default function PdfSaveButton({ onSave, className, children, title }) {
   return (
     <button
       type="button"
-      title={paid ? title : `${title} — ${pdfsRemaining} free left`}
+      title={paid ? title : `${title} — ${pdfsRemaining} free this month`}
       onClick={() => {
         onSave();
         if (!paid) recordPdfSaved();

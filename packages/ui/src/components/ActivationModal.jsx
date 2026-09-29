@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { X, ShieldCheck, Phone, Mail, Check, CreditCard, ChevronRight, ArrowLeft } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { X, ShieldCheck, Phone, Mail, Check, CreditCard, ChevronRight, ArrowLeft, RefreshCw, Building2 } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useLicense } from "../lib/LicenseContext";
 import { useSettings } from "../lib/SettingsContext";
@@ -8,6 +8,20 @@ import { checkout } from "@techdesk/core";
 import { addedBy } from "../lib/featureLabels";
 import { payWithFlutterwave } from "../lib/flutterwave";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
+import { licenceActive, daysLeft } from "../lib/licenceTerm";
+
+// Shown until the server's price list arrives, and if it never does. The
+// checkout itself always charges the server's price, never these.
+const FALLBACK_PRICES = {
+  business: { amount: 10000 },
+  enterprise: { amount: 20000 },
+  upgrade_enterprise: { amount: 10000 },
+  branch: { amount: 5000 },
+};
+
+function naira(n) {
+  return `₦${Number(n || 0).toLocaleString("en-NG")}`;
+}
 
 // The licence screen.
 //
@@ -54,7 +68,31 @@ function humanDate(iso) {
 
 export default function ActivationModal({ onClose }) {
   const t = useThemeTokens();
-  const { pin, tier, unlocks, verifyCode } = useLicense();
+  const { pin, tier, boughtTier, unlocks, verifyCode, licence, refreshLicence } = useLicense();
+  const [prices, setPrices] = useState(FALLBACK_PRICES);
+  useEffect(() => {
+    let live = true;
+    Promise.resolve(checkout.prices?.()).then((p) => { if (live && p && Object.keys(p).length) setPrices({ ...FALLBACK_PRICES, ...p }); });
+    return () => { live = false; };
+  }, []);
+
+  // What the chosen purchase is: a plan (new or a renewal), or the
+  // Business -> Enterprise upgrade, which costs less for the rest of the year.
+  const running = licenceActive(licence);
+  const left = daysLeft(licence);
+  const upgradeOnly = tier === "business";
+  function productFor(candidate) {
+    return candidate === "enterprise" && upgradeOnly ? "upgrade" : "plan";
+  }
+  function priceFor(candidate) {
+    const key = productFor(candidate) === "upgrade" ? "upgrade_enterprise" : candidate;
+    return prices[key]?.amount;
+  }
+
+  // Extra head-office branches, for an Enterprise shop.
+  const [branchForm, setBranchForm] = useState(false);
+  const [branchHq, setBranchHq] = useState("");
+  const [branchQty, setBranchQty] = useState(1);
   const { settings } = useSettings();
   const [note, setNote] = useState("");
 
@@ -78,6 +116,9 @@ export default function ActivationModal({ onClose }) {
   const paid = tier !== "free";
   const newest = unlocks.length ? unlocks[unlocks.length - 1] : null;
   const upgradeOptions = TIERS.filter((candidate) => isUpgrade(tier, candidate));
+  // Renewing: the plan this device is on, a year at a time.
+  const renewTier = tier !== "free" && licence?.found ? tier : null;
+  const [renewing, setRenewing] = useState(false);
   const chosen = chosenTier ? TIER_META[chosenTier] : null;
   const gains = chosenTier ? addedBy(CAPABILITIES[tier], CAPABILITIES[chosenTier]) : [];
 
@@ -87,8 +128,9 @@ export default function ActivationModal({ onClose }) {
     setPayTxRef(null);
   }
 
-  function pick(candidate) {
+  function pick(candidate, { renew = false } = {}) {
     setChosenTier(candidate);
+    setRenewing(renew);
     resetPay();
   }
 
@@ -103,9 +145,26 @@ export default function ActivationModal({ onClose }) {
   useCloseOnBack(true, onClose);
   useCloseOnBack(chosenTier !== null, backToPlans);
 
-  async function applyClaimedCode(claimedCode, claimedTier, txRef) {
+  async function applyClaimedCode(claimedCode, claimedTier, txRef, expiresAt) {
+    const until = expiresAt ? ` until ${humanDate(expiresAt)}` : "";
+    // An extra branch has no code: it lives on the head office, not here.
+    if (!claimedCode) {
+      setNote(`Done. Your head office can connect more branches${until}.`);
+      setBranchForm(false);
+      resetPay();
+      return;
+    }
     const res = await verifyCode(claimedCode);
-    if (!res.ok || !res.applied) {
+    // A renewal hands back the code this device already has: nothing new to
+    // apply, just a later end date, which refreshLicence picks up.
+    if (res.ok && !res.applied) {
+      await refreshLicence?.();
+      setNote(`Done. ${TIER_META[claimedTier]?.label || claimedTier} renewed${until}.`);
+      setChosenTier(null);
+      resetPay();
+      return;
+    }
+    if (!res.ok) {
       // A server-issued code always verifies against this device's own PIN --
       // this is the "should never happen" backstop, not the normal path, so
       // a shop that really has paid is never just told to go away.
@@ -117,7 +176,8 @@ export default function ActivationModal({ onClose }) {
       setPayStep("failed");
       return;
     }
-    setNote(`Done. ${TIER_META[claimedTier]?.label || claimedTier} is unlocked on this computer.`);
+    await refreshLicence?.();
+    setNote(`Done. ${TIER_META[claimedTier]?.label || claimedTier} is unlocked on this computer${until}.`);
     setChosenTier(null);
     resetPay();
   }
@@ -136,7 +196,7 @@ export default function ActivationModal({ onClose }) {
       }
       return;
     }
-    await applyClaimedCode(res.code, res.tier, txRef);
+    await applyClaimedCode(res.code, res.tier, txRef, res.expiresAt);
   }
 
   async function startPayment() {
@@ -151,14 +211,21 @@ export default function ActivationModal({ onClose }) {
       return;
     }
     setPayStep("paying");
-    const order = await checkout.startOrder({ pin, tier: chosenTier, contact: trimmedEmail });
+    const order = branchForm
+      ? await checkout.startOrder({ product: "branch", quantity: branchQty, hqIdentity: branchHq.trim(), contact: trimmedEmail })
+      : await checkout.startOrder({
+          pin,
+          tier: chosenTier,
+          product: renewing ? "plan" : productFor(chosenTier),
+          contact: trimmedEmail,
+        });
     if (!order.ok) {
       setPayError(order.message || "Couldn't start that order. Try again.");
       setPayStep("failed");
       return;
     }
     setPayTxRef(order.txRef);
-    await payWithFlutterwave({ order, email: trimmedEmail, title: chosen?.label });
+    await payWithFlutterwave({ order, email: trimmedEmail, title: order.label || chosen?.label });
     await claim(order.txRef);
   }
 
@@ -182,7 +249,9 @@ export default function ActivationModal({ onClose }) {
             )}
             <h2 className={`text-lg font-bold ${t.textPrimary}`}>
               {chosenTier
-                ? `Upgrade to ${chosen.label}`
+                ? renewing ? `Renew ${chosen.label}` : `Upgrade to ${chosen.label}`
+                : branchForm
+                ? "Add branches"
                 : paid
                 ? `${meta.label} is on`
                 : "Unlock more of TechDesk"}
@@ -199,12 +268,15 @@ export default function ActivationModal({ onClose }) {
               {upgradeOptions.length > 0
                 ? `Every ${meta.label.replace("TechDesk ", "").toLowerCase()} feature is open on this computer.`
                 : "Every feature is open on this computer. Thank you for supporting TechDesk."}
-              {newest ? ` Unlocked ${humanDate(newest.at)}.` : ""}
+              {running
+                ? ` Your plan runs until ${humanDate(licence.expiresAt)}${left !== null && left <= 30 ? ` — ${left} day${left === 1 ? "" : "s"} left` : ""}.`
+                : newest ? ` Unlocked ${humanDate(newest.at)}.` : ""}
             </p>
           ) : (
             <p className={`text-sm mb-4 ${t.textSecondary}`}>
-              You&rsquo;re on {meta.label} &mdash; a whole working shop, free, forever. This is
-              where you open the rest.
+              {licence?.found && !running && boughtTier !== "free"
+                ? `Your ${TIER_META[licence.tier]?.label || "plan"} year ended on ${humanDate(licence.expiresAt)}. Renew to switch it back on — your records are all still here.`
+                : <>You&rsquo;re on {meta.label} &mdash; a whole working shop, free, forever. This is where you open the rest.</>}
             </p>
           )
         )}
@@ -225,6 +297,10 @@ export default function ActivationModal({ onClose }) {
                 <span className={`block font-semibold ${t.textPrimary}`}>
                   Upgrade to {candidateMeta.label}
                 </span>
+                <span className={`block text-xs font-semibold mt-0.5 ${t.textSecondary}`}>
+                  {naira(priceFor(candidate))}
+                  {productFor(candidate) === "upgrade" ? " for the rest of your plan year" : " a year"}
+                </span>
                 {preview && (
                   <span className={`block text-xs mt-0.5 truncate ${t.textMuted}`}>{preview}</span>
                 )}
@@ -234,11 +310,94 @@ export default function ActivationModal({ onClose }) {
           );
         })}
 
+        {!chosenTier && !branchForm && renewTier && (
+          <button
+            onClick={() => pick(renewTier, { renew: true })}
+            className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
+          >
+            <span className="min-w-0">
+              <span className={`block font-semibold ${t.textPrimary}`}>Renew {TIER_META[renewTier].label}</span>
+              <span className={`block text-xs mt-0.5 ${t.textMuted}`}>
+                {naira(prices[renewTier]?.amount)} for another year{running ? `, added on after ${humanDate(licence.expiresAt)}` : ""}
+              </span>
+            </span>
+            <RefreshCw className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
+          </button>
+        )}
+
+        {!chosenTier && tier === "enterprise" && !branchForm && (
+          <button
+            onClick={() => { setBranchForm(true); resetPay(); }}
+            className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
+          >
+            <span className="min-w-0">
+              <span className={`block font-semibold ${t.textPrimary}`}>Add head-office branches</span>
+              <span className={`block text-xs mt-0.5 ${t.textMuted}`}>
+                2 are included. {naira(prices.branch?.amount)} a year for each one after that.
+              </span>
+            </span>
+            <Building2 className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
+          </button>
+        )}
+
+        {!chosenTier && branchForm && (
+          <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
+            <label htmlFor="branch-hq" className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
+              Your head office&rsquo;s email or phone
+            </label>
+            <input
+              id="branch-hq"
+              value={branchHq}
+              onChange={(e) => { setBranchHq(e.target.value); setPayError(""); }}
+              placeholder="hq@yourshop.com or 0803…"
+              className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none mb-3 ${t.inputBg}`}
+            />
+            <label htmlFor="branch-qty" className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
+              How many extra branches
+            </label>
+            <div className="flex items-center gap-3 mb-3">
+              <input
+                id="branch-qty"
+                type="number"
+                min={1}
+                max={50}
+                value={branchQty}
+                onChange={(e) => setBranchQty(Math.max(1, Math.min(50, Math.trunc(Number(e.target.value) || 1))))}
+                className={`w-20 rounded-xl px-3 py-2.5 text-sm outline-none ${t.inputBg}`}
+              />
+              <span className={`text-sm font-semibold ${t.textPrimary}`}>
+                {naira((prices.branch?.amount || 0) * branchQty)} a year
+              </span>
+            </div>
+            {payStep === "idle" && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => (branchHq.trim() ? setPayStep("email") : setPayError("Enter your head office's email or phone."))}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}
+                >
+                  Continue
+                </button>
+                <button onClick={() => { setBranchForm(false); resetPay(); }} className={`px-4 py-2.5 rounded-xl text-sm font-medium ${t.pillBg}`}>
+                  Cancel
+                </button>
+              </div>
+            )}
+            {payStep === "idle" && payError && <p className="text-xs text-red-500 mt-2">{payError}</p>}
+          </div>
+        )}
+
         {/* Everything below is that one tier's own page -- what it adds, then
             the one way to pay for it. */}
-        {chosenTier && (
+        {(chosenTier || branchForm) && (
           <>
-            {gains.length > 0 && (
+            {chosenTier && renewing && (
+              <div className={`rounded-xl p-4 mb-4 text-sm ${t.insetBg} ${t.textSecondary}`}>
+                Another year of {chosen.label} for {naira(prices[chosenTier]?.amount)}
+                {running ? `, added on after ${humanDate(licence.expiresAt)} so you lose nothing by renewing early.` : ", starting today."}
+              </div>
+            )}
+
+            {chosenTier && !renewing && gains.length > 0 && (
               <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
                 <ul className={`text-sm space-y-1.5 ${t.textSecondary}`}>
                   {gains.map((line) => (
@@ -249,13 +408,15 @@ export default function ActivationModal({ onClose }) {
                   ))}
                 </ul>
                 <p className={`text-xs mt-3 ${t.textMuted}`}>
-                  One payment, not a subscription. Your records stay exactly where they are &mdash;
-                  nothing to download, nothing to reinstall.
+                  {productFor(chosenTier) === "upgrade" && !renewing
+                    ? `${naira(priceFor(chosenTier))} for the rest of your Business year, then ${naira(prices.enterprise?.amount)} a year.`
+                    : `${naira(prices[chosenTier]?.amount)} a year.`}{" "}
+                  Your records stay exactly where they are &mdash; nothing to download, nothing to reinstall.
                 </p>
               </div>
             )}
 
-            {payStep === "idle" && (
+            {chosenTier && payStep === "idle" && (
               <button
                 onClick={() => setPayStep("email")}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold mb-4 ${

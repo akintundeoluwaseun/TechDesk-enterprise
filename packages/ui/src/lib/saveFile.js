@@ -8,6 +8,33 @@
 // prevent, so a real failure gets said out loud.
 import { platform } from "@techdesk/platform";
 import { toast } from "./toast";
+import { isFreePrinting, printsLeft, recordPrint, FREE_PRINTS_PER_MONTH } from "./outputAllowance";
+import { addWatermark } from "./watermark";
+import { openUpgrade } from "./upgradeModal";
+
+/**
+ * The free plan's printing rule, in one place: stamp the page and count it,
+ * or -- once this month's ten are used -- say so and open the upgrade screen
+ * instead. Returns false when the print must not go ahead. A paid shop walks
+ * straight through.
+ */
+export function freePrintGate(doc) {
+  if (!isFreePrinting()) return true;
+  if (printsLeft() <= 0) {
+    toast({
+      title: `You've used this month's ${FREE_PRINTS_PER_MONTH} free prints`,
+      message: "Upgrade to Business for unlimited printing without the TechDesk stamp.",
+      tone: "info",
+    });
+    openUpgrade();
+    return false;
+  }
+  addWatermark(doc);
+  recordPrint();
+  const left = printsLeft();
+  if (left <= 3) toast({ title: `${left} free print${left === 1 ? "" : "s"} left this month`, tone: "info" });
+  return true;
+}
 
 // Naming a receipt is core's job; delivering it is this file's.
 export { receiptFilename } from "@techdesk/core";
@@ -56,6 +83,7 @@ export function sharePdf(doc, filename) {
  * in Downloads that the shop has to tidy up.
  */
 export async function printPdf(doc, filename) {
+  if (!freePrintGate(doc)) return { ok: false, error: "free_print_limit" };
   try {
     return await platform().openFile(doc.output("blob"), filename);
   } catch (err) {
