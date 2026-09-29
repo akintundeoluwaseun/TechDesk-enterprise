@@ -83,12 +83,13 @@ describe("sales and reminders from the summary", async () => {
     expect(await notifyNewSales([{ id: "b" }, { id: "a" }])).toBe(0);
   });
 
-  it("reminds once a day, not every refresh", async () => {
+  it("reminds every five hours, not every refresh", async () => {
     store.clear();
     const owed = [{ id: "sale:x", customer: "Tunde", amount: 1, since: "2026-09-20T00:00:00Z" }];
     const t = Date.parse("2026-09-29T09:00:00Z");
     expect(await notifyReminders(owed, [], t)).toBe(1);
     expect(await notifyReminders(owed, [], t + 60_000)).toBe(0);
-    expect(await notifyReminders(owed, [], t + 86_400_000)).toBe(1);
+    expect(await notifyReminders(owed, [], t + 4 * 3_600_000)).toBe(0);
+    expect(await notifyReminders(owed, [], t + 5 * 3_600_000)).toBe(1);
   });
 });

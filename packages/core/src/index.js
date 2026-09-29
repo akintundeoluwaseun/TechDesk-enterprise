@@ -71,6 +71,6 @@ export { buildReportPdf } from "./receipts/report";
 export { deviceId, setAuthorName, authorName } from "./author";
 export { onArrived } from "./arrivals";
 export {
-  ALERT_DEFAULTS, alertPrefs, setAlertPrefs, arrivalAlert, arrivalAlerts,
+  REMIND_EVERY_MS, arrivalAlert, arrivalAlerts,
   reminderAlerts, takeDue, alertLog,
 } from "./alerts";

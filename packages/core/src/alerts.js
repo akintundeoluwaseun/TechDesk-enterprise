@@ -6,43 +6,25 @@
 //   owed         "Bola hasn't paid" -- money still owed after a few days.
 //   uncollected  "Chidi hasn't come for his laptop" -- finished, still here.
 //
-// The last two are states, not events, so they repeat: once a day while they
-// stay true, never more. Everything here is pure -- the app decides whether
-// to show a notification, core decides what it says and whether it is due.
+// The last two are states, not events, so they repeat: every five hours
+// until the money is in or the customer has collected. There is no switch
+// for them -- a shop owner who is owed money wants to hear about it, and
+// the reminder stops by itself the moment it stops being true. Everything
+// here is pure -- the app shows the notification, core decides what it says
+// and whether it is due.
 
 import { storage } from "./storage";
 import { saleOwed, repairOwed, repairTotal } from "./summary";
 import { money } from "./currency";
 
-const DAY = 24 * 60 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 
-export const ALERT_DEFAULTS = {
-  enabled: true,
-  arrivals: true,   // sales and jobs from other devices / branches
-  owed: true,
-  uncollected: true,
-  owedAfterDays: 3,
-  uncollectedAfterDays: 3,
-};
+/** How often a reminder repeats, and how long after the sale the first one comes. */
+export const REMIND_EVERY_MS = 5 * HOUR;
 
-const KEY_PREFS = "techdesk_alert_prefs";
 const KEY_LOG = "techdesk_alert_log";
 const LOG_MAX = 400;
-
-export function alertPrefs() {
-  try {
-    const raw = storage.getItem(KEY_PREFS);
-    return { ...ALERT_DEFAULTS, ...(raw ? JSON.parse(raw) : {}) };
-  } catch {
-    return { ...ALERT_DEFAULTS };
-  }
-}
-
-export function setAlertPrefs(patch) {
-  const next = { ...alertPrefs(), ...patch };
-  storage.setItem(KEY_PREFS, JSON.stringify(next));
-  return next;
-}
 
 function time(iso) {
   const t = new Date(iso).getTime();
@@ -55,9 +37,16 @@ function shortDate(iso) {
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
 }
 
-function daysAgo(t, now) {
+function waited(t, now) {
+  const hours = Math.floor((now - t) / HOUR);
+  if (hours < 24) return `${Math.max(1, hours)} hour${hours === 1 ? "" : "s"}`;
   const days = Math.floor((now - t) / DAY);
-  return days <= 1 ? "a day" : `${days} days`;
+  return `${days} day${days === 1 ? "" : "s"}`;
+}
+
+function since(iso, now) {
+  const d = new Date(iso);
+  return new Date(now).toDateString() === d.toDateString() ? "earlier today" : `since ${shortDate(iso)}`;
 }
 
 function who(record) {
@@ -98,56 +87,52 @@ export function arrivalAlert({ kind, record }, settings = {}) {
 }
 
 /**
- * Every owed / uncollected reminder currently true, oldest first. Whether
- * each is DUE (not already shown today) is dueAlerts' job, not this one's.
+ * Every owed / uncollected reminder currently true, oldest first. Each is
+ * true from five hours after the sale (or after the job was finished) until
+ * it is paid or collected. Whether each is DUE again is takeDue's job.
  */
-export function reminderAlerts(sales = [], repairs = [], { now = Date.now(), prefs = alertPrefs(), settings = {} } = {}) {
+export function reminderAlerts(sales = [], repairs = [], { now = Date.now(), settings = {} } = {}) {
   const out = [];
-  const owedCut = now - prefs.owedAfterDays * DAY;
-  const readyCut = now - prefs.uncollectedAfterDays * DAY;
+  const cut = now - REMIND_EVERY_MS;
 
-  if (prefs.owed) {
-    for (const s of sales) {
-      const owed = saleOwed(s);
-      const at = time(s?.createdAt);
-      if (owed <= 0 || at === null || at > owedCut) continue;
-      out.push({
-        id: `owed:sale:${s.id}`,
-        kind: "owed",
-        at,
-        title: `${who(s) || "A customer"} hasn't paid`,
-        body: `${money(owed, settings)} owed since ${shortDate(s.createdAt)}${s.invoice ? ` · ${s.invoice}` : ""}`,
-      });
-    }
-    for (const r of repairs) {
-      // A job with no price on it yet owes nothing worth chasing.
-      const owed = repairOwed(r);
-      const at = time(r?.createdAt);
-      if (owed <= 0 || repairTotal(r) <= 0 || at === null || at > owedCut) continue;
-      out.push({
-        id: `owed:repair:${r.id}`,
-        kind: "owed",
-        at,
-        title: `${who(r) || "A customer"} hasn't paid`,
-        body: `${money(owed, settings)} owed for the ${r.device || "repair"} since ${shortDate(r.createdAt)}${r.ticket ? ` · ${r.ticket}` : ""}`,
-      });
-    }
+  for (const s of sales) {
+    const owed = saleOwed(s);
+    const at = time(s?.createdAt);
+    if (owed <= 0 || at === null || at > cut) continue;
+    out.push({
+      id: `owed:sale:${s.id}`,
+      kind: "owed",
+      at,
+      title: `${who(s) || "A customer"} hasn't paid`,
+      body: `${money(owed, settings)} owed ${since(s.createdAt, now)}${s.invoice ? ` · ${s.invoice}` : ""}`,
+    });
+  }
+  for (const r of repairs) {
+    // A job with no price on it yet owes nothing worth chasing.
+    const owed = repairOwed(r);
+    const at = time(r?.createdAt);
+    if (owed <= 0 || repairTotal(r) <= 0 || at === null || at > cut) continue;
+    out.push({
+      id: `owed:repair:${r.id}`,
+      kind: "owed",
+      at,
+      title: `${who(r) || "A customer"} hasn't paid`,
+      body: `${money(owed, settings)} owed for the ${r.device || "repair"} ${since(r.createdAt, now)}${r.ticket ? ` · ${r.ticket}` : ""}`,
+    });
   }
 
-  if (prefs.uncollected) {
-    for (const r of repairs) {
-      if (String(r?.status || "").toLowerCase() !== "completed") continue;
-      // When it was finished; older records only know when they last changed.
-      const at = time(r.readyAt) ?? time(r.updatedAt) ?? time(r.createdAt);
-      if (at === null || at > readyCut) continue;
-      out.push({
-        id: `ready:${r.id}`,
-        kind: "uncollected",
-        at,
-        title: `${who(r) || "A customer"} hasn't come for their ${r.device || "device"}`,
-        body: `Ready for ${daysAgo(at, now)}${r.customerPhone ? ` · ${r.customerPhone}` : ""}${r.ticket ? ` · ${r.ticket}` : ""}`,
-      });
-    }
+  for (const r of repairs) {
+    if (String(r?.status || "").toLowerCase() !== "completed") continue;
+    // When it was finished; older records only know when they last changed.
+    const at = time(r.readyAt) ?? time(r.updatedAt) ?? time(r.createdAt);
+    if (at === null || at > cut) continue;
+    out.push({
+      id: `ready:${r.id}`,
+      kind: "uncollected",
+      at,
+      title: `${who(r) || "A customer"} hasn't come for their ${r.device || "device"}`,
+      body: `Ready for ${waited(at, now)}${r.customerPhone ? ` · ${r.customerPhone}` : ""}${r.ticket ? ` · ${r.ticket}` : ""}`,
+    });
   }
 
   return out.sort((a, b) => a.at - b.at);
@@ -170,11 +155,11 @@ function saveLog(log) {
 
 /**
  * The ones to show now, and marks them shown. An arrival shows once ever; a
- * reminder once per `repeatMs` (a day). More than `max` at once collapse into
+ * reminder again every `repeatMs` (five hours) for as long as it is true. More than `max` at once collapse into
  * the first few plus one summary line, so a shop opening the app after a
  * week away gets three notifications, not forty.
  */
-export function takeDue(alerts, { now = Date.now(), repeatMs = DAY, max = 3 } = {}) {
+export function takeDue(alerts, { now = Date.now(), repeatMs = REMIND_EVERY_MS, max = 3 } = {}) {
   const log = alertLog();
   const due = alerts.filter((a) => {
     const last = log[a.id];

@@ -75,7 +75,7 @@ export async function setNotificationsEnabled(on) {
 /** Ask once. Android 13 and newer refuse to show anything without this. */
 export async function requestPermission() {
   const { api } = await plugin();
-  if (!api) return false;
+  if (!api) return browserPermission();
   try {
     const current = await api.checkPermissions();
     if (current.display === "granted") return true;
@@ -140,6 +140,8 @@ export async function notifyNewActivity(activity, { skipSales = false } = {}) {
       } catch {
         // No permission, or no plugin. The feed still updates on screen.
       }
+    } else {
+      browserShow(fresh.slice(0, 5).map((a) => ({ id: a.id, title: a.branch || "TechDesk", body: a.message || "New activity" })));
     }
   }
 
@@ -147,10 +149,32 @@ export async function notifyNewActivity(activity, { skipSales = false } = {}) {
   return fresh.length;
 }
 
+// Monitor in a desktop or phone browser: the browser's own notifications.
+async function browserPermission() {
+  if (typeof window === "undefined" || !("Notification" in window)) return false;
+  if (Notification.permission === "default") {
+    try { await Notification.requestPermission(); } catch { /* refused to ask */ }
+  }
+  return Notification.permission === "granted";
+}
+
+function browserShow(list) {
+  if (typeof window === "undefined" || !("Notification" in window) || Notification.permission !== "granted") return;
+  for (const n of list) {
+    try {
+      const note = new Notification(n.title, { body: n.body, tag: n.id });
+      note.onclick = () => { window.focus(); note.close(); };
+    } catch { /* a browser that advertises it and still refuses */ }
+  }
+}
+
 async function schedule(list) {
   if (!list.length) return;
   const { api } = await plugin();
-  if (!api) return;
+  if (!api) {
+    browserShow(list);
+    return;
+  }
   try {
     await api.schedule({
       notifications: list.map((n) => ({
@@ -199,17 +223,20 @@ export function owedNotice(o) {
 }
 
 export function uncollectedNotice(u) {
-  const days = Math.max(1, Math.floor((Date.now() - new Date(u.since).getTime()) / 86_400_000));
+  const hours = Math.max(1, Math.floor((Date.now() - new Date(u.since).getTime()) / 3_600_000));
+  const waited = hours < 24 ? `${hours} hour${hours === 1 ? "" : "s"}` : `${Math.floor(hours / 24)} day${hours < 48 ? "" : "s"}`;
   return {
     id: `ready:${u.id}`,
     title: `${u.customer || "A customer"} hasn't come for their ${u.device || "device"}`,
-    body: [`Ready for ${days} day${days === 1 ? "" : "s"}`, u.branch, u.phone].filter(Boolean).join(" · "),
+    body: [`Ready for ${waited}`, u.branch, u.phone].filter(Boolean).join(" · "),
   };
 }
 
 const SALES_SEEN_KEY = "techdesk_monitor_seen_sales";
 const REMINDED_KEY = "techdesk_monitor_reminded";
-const DAY = 86_400_000;
+// Every five hours until it's paid or collected -- the same as the shop's
+// own devices.
+const REMIND_EVERY_MS = 5 * 60 * 60 * 1000;
 
 /**
  * A notification per sale this phone hasn't seen, with who made it and
@@ -235,9 +262,8 @@ export async function notifyNewSales(recentSales) {
 }
 
 /**
- * Who owes and who hasn't collected: once a day each, at most three at a
- * time plus one line for the rest, so a morning check doesn't bury the
- * phone.
+ * Who owes and who hasn't collected: every five hours each, for as long as
+ * HQ still lists them, at most three at a time plus one line for the rest.
  */
 export async function notifyReminders(owed, uncollected, now = Date.now()) {
   const all = [
@@ -245,7 +271,7 @@ export async function notifyReminders(owed, uncollected, now = Date.now()) {
     ...(Array.isArray(uncollected) ? uncollected : []).map(uncollectedNotice),
   ];
   const log = await read(REMINDED_KEY, {});
-  const due = all.filter((n) => !log[n.id] || now - log[n.id] >= DAY);
+  const due = all.filter((n) => !log[n.id] || now - log[n.id] >= REMIND_EVERY_MS);
   if (!due.length || !(await notificationsEnabled())) return 0;
   for (const n of due) log[n.id] = now;
   const trimmed = Object.fromEntries(Object.entries(log).sort((a, b) => b[1] - a[1]).slice(0, SEEN_MAX));

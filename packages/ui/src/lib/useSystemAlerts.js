@@ -1,12 +1,10 @@
 import { useEffect } from "react";
 import { platform } from "@techdesk/platform";
-import {
-  onArrived, arrivalAlerts, reminderAlerts, takeDue, alertPrefs,
-} from "@techdesk/core";
+import { onArrived, arrivalAlerts, reminderAlerts, takeDue } from "@techdesk/core";
 import { db } from "./db";
 import { toast } from "./toast";
 
-// How often reminders are CHECKED. Each one still shows at most once a day;
+// How often reminders are CHECKED. Each one still repeats only every five hours;
 // this only decides how soon after coming due it goes out.
 const CHECK_EVERY_MS = 20 * 60 * 1000;
 // Long enough after start that the first sync has landed and the shop is
@@ -27,25 +25,54 @@ async function show(alerts) {
 }
 
 /**
+ * Notifications are part of the app, not an option in it: this asks for
+ * permission on its own, straight away. Some browsers (Safari, Firefox) only
+ * let a page ask from inside a tap or click, so if the first ask could not
+ * happen, the shop's first tap anywhere asks instead.
+ */
+function askForPermission() {
+  const p = platform();
+  if (!p.notifyPermission) return () => {};
+  let done = false;
+  const onTap = () => {
+    if (done) return;
+    done = true;
+    window.removeEventListener("pointerdown", onTap, true);
+    p.notifyPermission(true).catch(() => {});
+  };
+  p.notifyPermission(true)
+    .then((state) => {
+      if (state === "default" && !done) window.addEventListener("pointerdown", onTap, true);
+    })
+    .catch(() => {});
+  return () => {
+    done = true;
+    window.removeEventListener("pointerdown", onTap, true);
+  };
+}
+
+/**
  * The shop's system notifications: sales and jobs made on the shop's other
- * devices and branches as they sync in, and a daily nudge about customers
- * who owe money or have left finished work on the shelf.
+ * devices and branches as they sync in, and a reminder every five hours
+ * about each customer who still owes money or has left finished work on the
+ * shelf -- until they pay or collect.
  */
 export function useSystemAlerts() {
   useEffect(() => {
     let cancelled = false;
+    // A moment after start, so the ask lands on the app rather than a splash.
+    let stopAsking = () => {};
+    const ask = setTimeout(() => {
+      stopAsking = askForPermission();
+    }, 2500);
 
     const off = onArrived((items) => {
-      const prefs = alertPrefs();
-      if (!prefs.enabled || !prefs.arrivals) return;
       show(takeDue(arrivalAlerts(items, db.getSettings()))).catch(() => {});
     });
 
     function checkReminders() {
       if (cancelled) return;
-      const prefs = alertPrefs();
-      if (!prefs.enabled) return;
-      const list = reminderAlerts(db.getSales(), db.getRepairs(), { prefs, settings: db.getSettings() });
+      const list = reminderAlerts(db.getSales(), db.getRepairs(), { settings: db.getSettings() });
       show(takeDue(list)).catch(() => {});
     }
 
@@ -54,6 +81,8 @@ export function useSystemAlerts() {
     return () => {
       cancelled = true;
       off();
+      clearTimeout(ask);
+      stopAsking();
       clearTimeout(first);
       clearInterval(every);
     };

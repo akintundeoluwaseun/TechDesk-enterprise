@@ -3,9 +3,10 @@ import { storage } from "./storage";
 import { db } from "./db";
 import { onArrived } from "./arrivals";
 import { setAuthorName, deviceId } from "./author";
-import { arrivalAlert, arrivalAlerts, reminderAlerts, takeDue, setAlertPrefs } from "./alerts";
+import { arrivalAlert, arrivalAlerts, reminderAlerts, takeDue } from "./alerts";
 
-const DAY = 24 * 60 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 const NOW = Date.parse("2026-09-29T12:00:00.000Z");
 const ago = (days) => new Date(NOW - days * DAY).toISOString();
 
@@ -73,35 +74,43 @@ describe("arrivals from other devices", () => {
 describe("reminders", () => {
   const sales = [
     { id: "s1", customerName: "Bola", total: 20000, amountPaid: 5000, paymentStatus: "Partial", createdAt: ago(5), invoice: "INV-00012" },
-    { id: "s2", customerName: "Tunde", total: 3000, paymentStatus: "Unpaid", createdAt: ago(1) },   // too recent
+    { id: "s2", customerName: "Tunde", total: 3000, paymentStatus: "Unpaid", createdAt: new Date(NOW - 2 * HOUR).toISOString() },   // under 5 hours
     { id: "s3", customerName: "Paid Pat", total: 3000, paymentStatus: "Paid", createdAt: ago(9) },
   ];
   const repairs = [
     { id: "r1", customerName: "Chidi", device: "laptop", status: "completed", readyAt: ago(4), createdAt: ago(10), paymentStatus: "Paid", repairCost: 1 },
     { id: "r2", customerName: "Ngozi", device: "phone", status: "in progress", createdAt: ago(8), paymentStatus: "Unpaid", repairCost: 0 },
+    { id: "r3", customerName: "Musa", device: "tablet", status: "completed", readyAt: new Date(NOW - 7 * HOUR).toISOString(), createdAt: ago(2), paymentStatus: "Paid", repairCost: 1 },
   ];
 
-  it("finds who hasn't paid and who hasn't collected", () => {
+  it("finds who hasn't paid and who hasn't collected, from five hours on", () => {
     const list = reminderAlerts(sales, repairs, { now: NOW });
-    // Oldest first: Bola has owed for five days, Chidi's laptop has waited four.
-    expect(list.map((a) => a.title)).toEqual(["Bola hasn't paid", "Chidi hasn't come for their laptop"]);
+    // Oldest first. Tunde's sale is two hours old: not yet.
+    expect(list.map((a) => a.title)).toEqual([
+      "Bola hasn't paid",
+      "Chidi hasn't come for their laptop",
+      "Musa hasn't come for their tablet",
+    ]);
     expect(list.find((a) => a.kind === "owed").body).toMatch(/15,000 owed since 24 Sep · INV-00012/);
-    expect(list.find((a) => a.kind === "uncollected").body).toMatch(/^Ready for 4 days/);
+    expect(list.find((a) => a.id === "ready:r1").body).toMatch(/^Ready for 4 days/);
+    expect(list.find((a) => a.id === "ready:r3").body).toMatch(/^Ready for 7 hours/);
   });
 
-  it("switches off by kind", () => {
-    setAlertPrefs({ owed: false });
-    expect(reminderAlerts(sales, repairs, { now: NOW }).map((a) => a.kind)).toEqual(["uncollected"]);
+  it("stops the moment it's paid or collected", () => {
+    const paid = sales.map((s) => ({ ...s, paymentStatus: "Paid" }));
+    const collected = repairs.map((r) => ({ ...r, status: "delivered" }));
+    expect(reminderAlerts(paid, collected, { now: NOW })).toEqual([]);
   });
 
-  it("shows a reminder once a day, an arrival once ever", () => {
+  it("repeats every five hours, an arrival only once", () => {
     const alerts = [
       { id: "owed:x", kind: "owed", title: "", body: "" },
       { id: "sale:y", kind: "arrival", title: "", body: "" },
     ];
     expect(takeDue(alerts, { now: NOW })).toHaveLength(2);
-    expect(takeDue(alerts, { now: NOW + DAY / 2 })).toHaveLength(0);
-    expect(takeDue(alerts, { now: NOW + DAY }).map((a) => a.id)).toEqual(["owed:x"]);
+    expect(takeDue(alerts, { now: NOW + 4 * HOUR })).toHaveLength(0);
+    expect(takeDue(alerts, { now: NOW + 5 * HOUR }).map((a) => a.id)).toEqual(["owed:x"]);
+    expect(takeDue(alerts, { now: NOW + 10 * HOUR }).map((a) => a.id)).toEqual(["owed:x"]);
   });
 
   it("folds a pile of them into a few plus one summary", () => {
