@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Building2, CheckCircle2, ChevronDown, Link2, Phone, RefreshCw, Unlink } from "lucide-react";
+import { Building2, CheckCircle2, ChevronDown, Link2, Phone, Unlink } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
-import { db } from "../../lib/db";
+import { db, CHANGED_EVENT } from "../../lib/db";
 import { hq } from "../../lib/hq";
 import { IS_ANDROID_APP } from "../../lib/platform";
 import { siteLabel } from "@techdesk/editions";
@@ -31,48 +31,34 @@ export default function ConnectHqTab() {
   const [showNoHq, setShowNoHq] = useState(false);
   // What has and has not reached HQ. Connecting and then seeing nothing at
   // head office used to look identical to a broken connection, because this
-  // screen said "Connected" and then never mentioned sending again.
-  const [sync, setSync] = useState({ waiting: 0, lastSyncAt: null, busy: false, note: "" });
+  // screen said "Connected" and then never mentioned sending again. There is
+  // no button for it: sending itself runs on its own, in the background
+  // (useHqSync), on its own heartbeat plus the instant a record changes --
+  // this panel only ever reports what that's already done.
+  const [sync, setSync] = useState({ waiting: 0, lastSyncAt: null });
 
   useEffect(() => {
-    hq.status().then((next) => {
-      setStatus(next);
-      if (next?.hqConnected) refreshSync(next);
-    });
+    hq.status().then((next) => setStatus(next));
   }, []);
 
   function refreshSync(state) {
-    setSync((s) => ({
-      ...s,
+    setSync({
       waiting: db.countUnsynced(state?.lastSyncAt ?? null),
       lastSyncAt: state?.lastSyncAt ?? null,
-    }));
-  }
-
-  async function sendNow() {
-    setSync((s) => ({ ...s, busy: true, note: "" }));
-    let res = await hq.sync();
-    // Keep going while HQ says there is more, so a shop with a month of
-    // history behind it does not have to press this twenty times.
-    let guard = 0;
-    while (res?.ok && res.more && guard < 20) {
-      guard += 1;
-      res = await hq.sync();
-    }
-    const next = await hq.status();
-    setStatus(next);
-    const waiting = db.countUnsynced(next?.lastSyncAt ?? null);
-    setSync({
-      waiting,
-      lastSyncAt: next?.lastSyncAt ?? null,
-      busy: false,
-      note: res?.ok
-        ? waiting
-          ? "Some of it went up. The rest follows shortly."
-          : "Everything is up to date at HQ."
-        : res?.message || "Couldn't reach HQ just now. It will try again on its own.",
     });
   }
+
+  useEffect(() => {
+    if (!status?.hqConnected) return undefined;
+    refreshSync(status);
+    const heartbeat = setInterval(() => hq.status().then((next) => refreshSync(next)), 5000);
+    const onChange = () => refreshSync(status);
+    window.addEventListener(CHANGED_EVENT, onChange);
+    return () => {
+      clearInterval(heartbeat);
+      window.removeEventListener(CHANGED_EVENT, onChange);
+    };
+  }, [status?.hqConnected]);
 
   const input = `w-full rounded-xl px-3 py-2.5 text-sm outline-none ${t.inputBg}`;
 
@@ -197,15 +183,6 @@ export default function ConnectHqTab() {
                 ? "Nothing waiting."
                 : `${sync.waiting} record${sync.waiting === 1 ? "" : "s"} waiting to go up.`}
             </div>
-            <button
-              onClick={sendNow}
-              disabled={sync.busy}
-              className={`mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${t.pillBg} disabled:opacity-60`}
-            >
-              <RefreshCw className={`w-4 h-4 ${sync.busy ? "animate-spin" : ""}`} />
-              {sync.busy ? "Sending…" : "Send now"}
-            </button>
-            {sync.note && <p className={`text-xs mt-2 ${t.textMuted}`}>{sync.note}</p>}
           </div>
         </div>
 

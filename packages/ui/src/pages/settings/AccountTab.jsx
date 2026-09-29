@@ -1,15 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { Cloud, CheckCircle2, LogOut, LogIn, RefreshCw, ChevronRight } from "lucide-react";
+import { Cloud, CheckCircle2, LogOut, LogIn, ChevronRight } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
-import { db } from "../../lib/db";
-import {
-  account,
-  setAccountGateDecision,
-  getPushCursor,
-  setPushCursor,
-  getPullCursor,
-  setPullCursor,
-} from "../../lib/account";
+import { db, CHANGED_EVENT } from "../../lib/db";
+import { account, setAccountGateDecision, getPushCursor, getPullCursor } from "../../lib/account";
 import ConnectHqTab from "./ConnectHqTab";
 import DeveloperTab from "./DeveloperTab";
 import UpgradeLock from "../../components/UpgradeLock";
@@ -51,8 +44,11 @@ export default function AccountTab() {
   const [error, setError] = useState("");
   // What has and has not gone up. Signing in and then seeing nothing move
   // used to look identical to a broken connection -- this is here so nobody
-  // has to guess whether it is working.
-  const [sync, setSync] = useState({ waiting: 0, lastPushAt: null, lastPullAt: null, busy: false, note: "" });
+  // has to guess whether it is working. There is no button for it: syncing
+  // itself runs on its own, in the background (useAccountSync), on its own
+  // heartbeat plus the instant a record changes -- this panel only ever
+  // reports what that's already done, on the same cadence, never triggers it.
+  const [sync, setSync] = useState({ waiting: 0, lastPushAt: null, lastPullAt: null });
   // A plain "you're in" said out loud, not just a modal quietly closing and a
   // card somewhere below changing its text. Clears itself after a few
   // seconds; it is a moment, not a permanent label -- the signed-in card
@@ -66,54 +62,31 @@ export default function AccountTab() {
   }, [justSignedIn]);
 
   useEffect(() => {
-    account.status().then((next) => {
-      setStatus(next);
-      if (next?.signedIn) refreshSync();
-    });
+    account.status().then((next) => setStatus(next));
   }, []);
 
   function refreshSync() {
-    setSync((s) => ({
-      ...s,
+    setSync({
       waiting: db.countUnsynced(getPushCursor()),
       lastPushAt: getPushCursor(),
       lastPullAt: getPullCursor(),
-    }));
-  }
-
-  async function syncNow() {
-    setSync((s) => ({ ...s, busy: true, note: "" }));
-
-    let guard = 0;
-    let pulled = await account.pull(getPullCursor());
-    while (pulled?.ok && pulled.more && guard < 20) {
-      guard += 1;
-      pulled = await account.pull(pulled.cursor);
-    }
-    if (pulled?.ok && pulled.cursor) setPullCursor(pulled.cursor);
-
-    guard = 0;
-    let pushed = await account.push(getPushCursor());
-    while (pushed?.ok && pushed.more && guard < 20) {
-      guard += 1;
-      pushed = await account.push(pushed.cursor);
-    }
-    if (pushed?.ok && pushed.cursor) setPushCursor(pushed.cursor);
-
-    const ok = pulled?.ok && pushed?.ok;
-    const waiting = db.countUnsynced(getPushCursor());
-    setSync({
-      waiting,
-      lastPushAt: getPushCursor(),
-      lastPullAt: getPullCursor(),
-      busy: false,
-      note: ok
-        ? waiting
-          ? "Some of it went up. The rest follows shortly."
-          : "Everything is up to date."
-        : (pulled?.message || pushed?.message || "Couldn't reach TechDesk just now. It will try again on its own."),
     });
   }
+
+  // Passive only: reads the same cursors useAccountSync's own background
+  // runs already moved, on the same heartbeat, plus the instant a record
+  // changes locally. Nothing here calls account.pull/push itself -- there is
+  // exactly one place that does, and it isn't a settings screen.
+  useEffect(() => {
+    if (!status?.signedIn) return undefined;
+    refreshSync();
+    const heartbeat = setInterval(refreshSync, 5000);
+    window.addEventListener(CHANGED_EVENT, refreshSync);
+    return () => {
+      clearInterval(heartbeat);
+      window.removeEventListener(CHANGED_EVENT, refreshSync);
+    };
+  }, [status?.signedIn]);
 
   function switchModal(next) {
     setOpenModal(next);
@@ -244,15 +217,6 @@ export default function AccountTab() {
                 ? "Nothing waiting."
                 : `${sync.waiting} record${sync.waiting === 1 ? "" : "s"} waiting to go up.`}
             </div>
-            <button
-              onClick={syncNow}
-              disabled={sync.busy}
-              className={`mt-3 flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold ${t.pillBg} disabled:opacity-60`}
-            >
-              <RefreshCw className={`w-4 h-4 ${sync.busy ? "animate-spin" : ""}`} />
-              {sync.busy ? "Syncing…" : "Sync now"}
-            </button>
-            {sync.note && <p className={`text-xs mt-2 ${t.textMuted}`}>{sync.note}</p>}
           </div>
 
           <div className="mt-4 flex flex-wrap gap-3">

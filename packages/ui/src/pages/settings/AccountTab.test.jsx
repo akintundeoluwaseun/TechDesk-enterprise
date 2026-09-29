@@ -28,12 +28,13 @@ vi.mock("../../lib/account", () => ({
 
 vi.mock("../../lib/db", () => ({
   db: { countUnsynced: vi.fn(() => 0), getSettings: vi.fn(() => ({})) },
+  CHANGED_EVENT: "techdesk:changed",
 }));
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("a signed-in device", () => {
-  it("shows sync status and a way to sync now", async () => {
+  it("shows sync status, with nothing to press -- syncing runs on its own", async () => {
     const { account } = await import("../../lib/account");
     account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
 
@@ -41,7 +42,10 @@ describe("a signed-in device", () => {
 
     await screen.findByText("Signed in");
     expect(screen.getByText("shop@example.com")).toBeInTheDocument();
-    expect(screen.getByText("Sync now")).toBeInTheDocument();
+    expect(screen.getByText("Nothing sent yet")).toBeInTheDocument();
+    expect(screen.getByText("Nothing waiting.")).toBeInTheDocument();
+    expect(screen.queryByText("Sync now")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /sync/i })).not.toBeInTheDocument();
   });
 
   it("offers a way to sign in to a different business without a detour through the teaser card", async () => {
