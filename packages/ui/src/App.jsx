@@ -13,7 +13,7 @@ import { findOtherEditions, getMergeDecision, hasLocalRecords } from "./lib/edit
 import { getAccountGateDecision } from "./lib/account";
 import Splash from "./components/Splash";
 import LoginScreen from "./pages/LoginScreen";
-import AccountGateScreen from "./pages/AccountGateScreen";
+import OnboardingScreen from "./pages/OnboardingScreen";
 import Sidebar from "./components/Sidebar";
 import MobileNav from "./components/MobileNav";
 import MobileAppBar from "./components/MobileAppBar";
@@ -122,7 +122,7 @@ function useFirstRunAccountGate() {
 function Root() {
   const { user } = useAuth();
   const [showGate, dismissGate] = useFirstRunAccountGate();
-  if (showGate) return <AccountGateScreen onDone={dismissGate} />;
+  if (showGate) return <OnboardingScreen onDone={dismissGate} />;
   if (!user) return <LoginScreen />;
   return <Shell />;
 }

@@ -26,6 +26,17 @@ export function useTheme() {
   return ctx;
 }
 
+/**
+ * Forces dark tokens on everything under it, regardless of the shop's own
+ * light/dark setting -- for onboarding, which runs once before that setting
+ * means anything to a shop that has never opened the app. Nested inside the
+ * real ThemeProvider, not instead of it: toggleDark here is a no-op rather
+ * than missing, so a child that calls it does nothing instead of throwing.
+ */
+export function ForceDark({ children }) {
+  return <ThemeContext.Provider value={{ dark: true, toggleDark: () => {} }}>{children}</ThemeContext.Provider>;
+}
+
 // Shared token map so every page reads colors the same way -- a plain,
 // solid look. Every surface is one flat color and a hairline border; nothing
 // here is translucent, blurred or gradient, and none of it depends on a
