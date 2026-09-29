@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { account, getPushCursor, setPushCursor, getPullCursor, setPullCursor } from "./account";
+import { account, getPushCursor, setPushCursor, getPullCursor, setPullCursor, leaveRemovedShop } from "./account";
 import { CHANGED_EVENT } from "./db";
 
 // Same cadence as useHqSync, for the same reason: a heartbeat that is
@@ -7,6 +7,9 @@ import { CHANGED_EVENT } from "./db";
 // another device a few seconds later should find it there.
 const HEARTBEAT_MS = 5 * 1000;
 const AFTER_CHANGE_MS = 800;
+// A worker's device asks whether it still belongs to the shop this often,
+// not every heartbeat -- being removed is rare, and a few minutes' lag is fine.
+const MEMBERSHIP_MS = 5 * 60 * 1000;
 
 /**
  * Keeps a signed-in account's devices in sync with each other, in the
@@ -28,6 +31,7 @@ export function useAccountSync() {
     let heartbeat = null;
     let debounce = null;
     let running = false;
+    let membershipCheckedAt = 0;
 
     async function runOnce() {
       if (cancelled || running) return;
@@ -38,6 +42,19 @@ export function useAccountSync() {
 
       running = true;
       try {
+        if (status.role === "worker" && Date.now() - membershipCheckedAt > MEMBERSHIP_MS) {
+          const m = await account.checkMembership();
+          if (m?.ok) membershipCheckedAt = Date.now();
+          if (m?.ok && m.member === false) {
+            // Removed by the shop: sign out, clear this device's copy of the
+            // shop's records, and start again as a fresh device.
+            cancelled = true;
+            await leaveRemovedShop();
+            window.location.reload();
+            return;
+          }
+        }
+
         // The cursor moves after EACH batch that lands, not once at the end
         // of the whole run -- a big first sync can take many batches, and a
         // connection that drops partway through must not throw away the

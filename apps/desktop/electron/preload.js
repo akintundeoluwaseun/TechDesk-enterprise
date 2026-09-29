@@ -38,4 +38,5 @@ contextBridge.exposeInMainWorld("techdesk", {
   accountInviteRedeem: (payload) => ipcRenderer.invoke("techdesk:account-invite-redeem", payload),
   accountWorkersList: (payload) => ipcRenderer.invoke("techdesk:account-workers-list", payload),
   accountWorkersRevoke: (payload) => ipcRenderer.invoke("techdesk:account-workers-revoke", payload),
+  accountMembership: (payload) => ipcRenderer.invoke("techdesk:account-membership", payload),
 });

@@ -4,5 +4,5 @@ export {
   account,
   getPushCursor, setPushCursor, getPullCursor, setPullCursor,
   getAccountGateDecision, setAccountGateDecision,
-  getCachedAccountStatus,
+  getCachedAccountStatus, leaveRemovedShop, takeRemovedNotice,
 } from "@techdesk/core";

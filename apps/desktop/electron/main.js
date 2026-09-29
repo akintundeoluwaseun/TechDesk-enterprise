@@ -1542,8 +1542,11 @@ const ACCOUNT_PULL_LIMIT = 400;
 
 ipcMain.handle("techdesk:account-pull", async (event, payload) => {
   const { url, key, sinceCursor } = payload || {};
-  const parts = ["order=updated_at.asc", `limit=${ACCOUNT_PULL_LIMIT}`];
-  if (sinceCursor) parts.push(`updated_at=gt.${encodeURIComponent(sinceCursor)}`);
+  // synced_at is stamped by the server when a row lands, so the cursor means
+  // "arrived since I last looked" -- updated_at is the editing device's own
+  // clock, and an edit made offline and uploaded later would sit behind it.
+  const parts = ["order=synced_at.asc", `limit=${ACCOUNT_PULL_LIMIT}`];
+  if (sinceCursor) parts.push(`synced_at=gt.${encodeURIComponent(sinceCursor)}`);
   const res = await accountRestFetch(url, key, `/account_records?${parts.join("&")}`);
   if (!res.ok) return res;
   const rows = res.data || [];
@@ -1651,6 +1654,17 @@ ipcMain.handle("techdesk:account-workers-revoke", async (event, payload) => {
   return accountRestFetch(url, key, `/account_workers?worker_user_id=eq.${encodeURIComponent(workerId)}`, {
     method: "DELETE",
   });
+});
+
+// A worker's device asking whether it still belongs to the shop -- see
+// checkMembership in accountLocal.js. Only their own row is readable to them.
+ipcMain.handle("techdesk:account-membership", async (event, payload) => {
+  const { url, key } = payload || {};
+  const s = readAccountState();
+  if (!s.accessToken || s.role !== "worker") return { ok: true, member: true };
+  const res = await accountRestFetch(url, key, "/account_workers?select=name,pages");
+  if (!res.ok) return { ok: false };
+  return { ok: true, member: Array.isArray(res.data) && res.data.length > 0 };
 });
 
 // ---- Automatic local backups ----

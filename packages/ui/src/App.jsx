@@ -11,7 +11,7 @@ import { useAccountSync } from "./lib/useAccountSync";
 import { useSystemAlerts } from "./lib/useSystemAlerts";
 import { setAuthorName } from "@techdesk/core";
 import { findOtherEditions, getMergeDecision, hasLocalRecords } from "./lib/editionData";
-import { getAccountGateDecision } from "./lib/account";
+import { getAccountGateDecision, takeRemovedNotice } from "./lib/account";
 import Splash from "./components/Splash";
 import LoginScreen from "./pages/LoginScreen";
 import OnboardingScreen from "./pages/OnboardingScreen";
@@ -228,7 +228,37 @@ function useFirstRunAccountGate() {
   return [show, () => setShow(false)];
 }
 
+// Shown once, on the launch after the shop removed this worker's device and
+// it cleared itself (useAccountSync) -- otherwise it would simply come back
+// as a blank new install with no word of why.
+function RemovedNotice() {
+  const [show, setShow] = useState(() => takeRemovedNotice());
+  if (!show) return null;
+  return (
+    <div role="alert" className="fixed inset-x-0 top-0 z-[2147483001] flex justify-center p-3">
+      <div className="max-w-md w-full rounded-2xl bg-neutral-900/95 text-white px-4 py-3 shadow-xl flex gap-3 items-start">
+        <p className="text-sm leading-snug flex-1">
+          <strong className="block">You were removed from the shop</strong>
+          The shop owner removed this device, so its copy of the shop's records was cleared. Ask them for a new code to join again.
+        </p>
+        <button type="button" onClick={() => setShow(false)} className="text-sm font-semibold underline underline-offset-2">
+          OK
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function Root() {
+  return (
+    <>
+      <RemovedNotice />
+      <RootScreen />
+    </>
+  );
+}
+
+function RootScreen() {
   const { user } = useAuth();
   const [showGate, dismissGate] = useFirstRunAccountGate();
   if (showGate) {

@@ -117,7 +117,7 @@ export const accountBridge = {
       ok: true,
       applied,
       more: Boolean(res.more),
-      cursor: rows.length ? rows[rows.length - 1].updated_at : sinceCursor,
+      cursor: rows.length ? rows[rows.length - 1].synced_at ?? rows[rows.length - 1].updated_at : sinceCursor,
     };
   },
 
@@ -146,6 +146,12 @@ export const accountBridge = {
   async listWorkers() {
     if (!hasHostBridge()) return { ok: false, message: "This needs the installed desktop app." };
     return hostBridge().accountWorkersList({ url: SUPABASE_URL, key: PUBLISHABLE_KEY });
+  },
+
+  /** A worker's device asking whether it still belongs to the shop. */
+  async checkMembership() {
+    if (!hasHostBridge() || !hostBridge().accountMembership) return { ok: false };
+    return hostBridge().accountMembership({ url: SUPABASE_URL, key: PUBLISHABLE_KEY });
   },
 
   /** Owner only: revokes one worker's membership. */

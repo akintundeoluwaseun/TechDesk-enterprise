@@ -152,8 +152,12 @@ async function pushRows(rows) {
 }
 
 async function pullRows(sinceCursor) {
-  const parts = ["order=updated_at.asc", `limit=${PULL_LIMIT}`];
-  if (sinceCursor) parts.push(`updated_at=gt.${encodeURIComponent(sinceCursor)}`);
+  // synced_at is stamped by the server when a row lands (migration 0032), so
+  // the cursor means "arrived since I last looked". updated_at is the editing
+  // device's clock: an edit made offline and uploaded later sat behind a
+  // cursor that had already moved past it, and was never pulled.
+  const parts = ["order=synced_at.asc", `limit=${PULL_LIMIT}`];
+  if (sinceCursor) parts.push(`synced_at=gt.${encodeURIComponent(sinceCursor)}`);
   const res = await restFetch(`/account_records?${parts.join("&")}`);
   if (!res.ok) return res;
   return { ok: true, rows: res.data || [] };
@@ -362,7 +366,7 @@ export const accountLocal = {
       ok: true,
       applied,
       more: rows.length >= PULL_LIMIT,
-      cursor: rows.length ? rows[rows.length - 1].updated_at : sinceCursor,
+      cursor: rows.length ? rows[rows.length - 1].synced_at ?? rows[rows.length - 1].updated_at : sinceCursor,
     };
   },
 
@@ -410,6 +414,22 @@ export const accountLocal = {
       pages: res.pages,
     });
     return { ok: true, workerName: res.workerName };
+  },
+
+  /**
+   * A worker's device asking whether it still belongs to the shop. Removing
+   * a worker deletes their account_workers row; the session itself stays
+   * valid, so nothing else ever tells the device -- sync just quietly stops.
+   * Their own row is the only one row-level security lets them read: none
+   * back means they were removed. Anything but a clean answer (offline, a
+   * server error) is "don't know", never "removed".
+   */
+  async checkMembership() {
+    const s = readState();
+    if (!s.accessToken || s.role !== "worker") return { ok: true, member: true };
+    const res = await restFetch("/account_workers?select=name,pages");
+    if (!res.ok) return { ok: false };
+    return { ok: true, member: Array.isArray(res.data) && res.data.length > 0 };
   },
 
   /**

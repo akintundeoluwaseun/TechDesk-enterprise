@@ -13,6 +13,7 @@ import { hasHostBridge } from "./bridge";
 import { storage } from "./storage";
 import { accountBridge } from "./accountBridge";
 import { accountLocal } from "./accountLocal";
+import { db } from "./db";
 
 function impl() {
   return hasHostBridge() ? accountBridge : accountLocal;
@@ -54,6 +55,9 @@ export const account = {
   listWorkers: (...args) => impl().listWorkers(...args),
   /** Owner only: revokes one worker's membership. */
   revokeWorker: (...args) => impl().revokeWorker(...args),
+
+  /** A worker's device: does the shop still have them? See accountLocal. */
+  checkMembership: (...args) => impl().checkMembership(...args),
 
   /** Forgets the session on this device. A different account signing in
    * later must not inherit these cursors -- it would silently skip
@@ -124,4 +128,25 @@ function cacheStatus(status) {
 }
 function clearCachedStatus() {
   storage.removeItem(KEY_STATUS_CACHE);
+}
+
+// A worker the shop removed. Their session still works -- removal only
+// deletes the membership -- so without this the device went on showing the
+// shop's sales, customers and stock to someone who no longer works there,
+// long after sync had quietly stopped. The shop's records live on in the
+// shop's own account; this device's copy was only ever a mirror of it.
+const KEY_REMOVED_NOTICE = "techdesk_worker_removed_notice";
+
+export async function leaveRemovedShop() {
+  await account.signOut();
+  db.eraseAllData();
+  storage.removeItem(KEY_GATE_DECISION);
+  storage.setItem(KEY_REMOVED_NOTICE, "1");
+}
+
+/** True once, on the first launch after leaveRemovedShop(). */
+export function takeRemovedNotice() {
+  if (!storage.getItem(KEY_REMOVED_NOTICE)) return false;
+  storage.removeItem(KEY_REMOVED_NOTICE);
+  return true;
 }
