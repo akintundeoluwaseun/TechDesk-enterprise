@@ -10,7 +10,7 @@
 // another. Everything that points at the product points here.
 export const SITE_ORIGIN = "https://techdesk-one.vercel.app";
 
-/** A page on the site, e.g. sitePage("plans.html"). */
+/** A page on the site, e.g. sitePage("download.html"). */
 export function sitePage(page = "") {
   return page ? `${SITE_ORIGIN}/${page.replace(/^\//, "")}` : SITE_ORIGIN;
 }

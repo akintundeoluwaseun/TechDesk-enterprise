@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import { X, ShieldCheck, Phone, Mail, Globe, Check, CreditCard, ChevronRight, ArrowLeft } from "lucide-react";
+import { X, ShieldCheck, Phone, Mail, Check, CreditCard, ChevronRight, ArrowLeft } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useLicense } from "../lib/LicenseContext";
 import { useSettings } from "../lib/SettingsContext";
-import { CAPABILITIES, TIERS, TIER_META, isUpgrade, tierRank, sitePage, siteLabel } from "@techdesk/editions";
+import { CAPABILITIES, TIERS, TIER_META, isUpgrade, tierRank } from "@techdesk/editions";
 import { checkout } from "@techdesk/core";
 import { addedBy } from "../lib/featureLabels";
 import { payWithFlutterwave } from "../lib/flutterwave";
@@ -351,15 +351,7 @@ export default function ActivationModal({ onClose }) {
             : "Paid already and it hasn't unlocked, or need help?"}
         </div>
         <div className="flex flex-col gap-2">
-          <a
-            href={sitePage("plans.html")}
-            target="_blank"
-            rel="noreferrer"
-            className={`flex items-center gap-2 text-sm font-medium ${t.textPrimary}`}
-          >
-            <Globe className="w-4 h-4" /> {siteLabel("plans.html")}
-          </a>
-          <a href="tel:+2348076911614" className={`flex items-center gap-2 text-sm ${t.textSecondary}`}>
+          <a href="tel:+2348076911614" className={`flex items-center gap-2 text-sm font-medium ${t.textPrimary}`}>
             <Phone className="w-4 h-4" /> +234 807 691 1614
           </a>
           <a href="mailto:techdeskapp@gmail.com" className={`flex items-center gap-2 text-sm ${t.textSecondary}`}>
