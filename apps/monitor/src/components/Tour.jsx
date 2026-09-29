@@ -131,22 +131,22 @@ export default function Tour({ onDone }) {
       {rect ? (
         <div
           className="absolute rounded-3xl transition-all duration-300 ease-out pointer-events-none"
-          style={{ ...rect, boxShadow: "0 0 0 9999px rgba(3,5,9,0.78), 0 0 0 2px rgba(125,211,252,0.7), 0 0 40px 6px rgba(56,189,248,0.35)" }}
+          style={{ ...rect, boxShadow: "0 0 0 9999px rgba(0,0,0,0.62), 0 0 0 2px rgba(255,255,255,0.95), 0 0 30px 4px rgba(255,255,255,0.18)" }}
         />
       ) : (
-        <div className="absolute inset-0 bg-[#030509]/80 backdrop-blur-sm m-fade" />
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm m-fade" />
       )}
       {/* Clicks anywhere but the card move nothing: the tour stays in charge. */}
       <div className="absolute inset-0" onClick={(e) => e.stopPropagation()} />
 
       <div
         key={i}
-        className="absolute m-pop rounded-3xl border border-white/10 bg-[#12151c]/95 backdrop-blur-xl p-5 shadow-raised"
+        className="absolute m-pop rounded-3xl border border-line bg-card backdrop-blur-xl p-5 shadow-raised"
         style={cardStyle}
       >
         {Icon && (
-          <div className="w-12 h-12 mb-4 rounded-2xl grid place-items-center bg-gradient-to-br from-indigo-500 to-sky-400 shadow-glow">
-            <Icon className="text-white" size={22} />
+          <div className="w-12 h-12 mb-4 rounded-2xl grid place-items-center bg-ink">
+            <Icon className="text-ground" size={22} />
           </div>
         )}
         <div className="flex items-start gap-3">
@@ -159,14 +159,14 @@ export default function Tour({ onDone }) {
         <div className="flex items-center justify-between mt-5">
           <div className="flex gap-1.5" aria-hidden="true">
             {steps.map((_, n) => (
-              <span key={n} className={`h-1.5 rounded-full transition-all ${n === i ? "w-5 bg-sky-400" : "w-1.5 bg-white/20"}`} />
+              <span key={n} className={`h-1.5 rounded-full transition-all ${n === i ? "w-5 bg-ink" : "w-1.5 bg-ink/20"}`} />
             ))}
           </div>
           <div className="flex items-center gap-2">
             {i > 0 && i < steps.length - 1 && (
               <button onClick={finish} className="px-3 py-2 text-sm text-ink-faint hover:text-ink">Skip</button>
             )}
-            <button onClick={next} className="px-4 py-2 rounded-full bg-white text-[#0a0c10] text-sm font-semibold flex items-center gap-1.5">
+            <button onClick={next} className="px-4 py-2 rounded-full bg-ink text-ground text-sm font-semibold flex items-center gap-1.5">
               {i === 0 ? "Show me" : i === steps.length - 1 ? "Done" : "Next"} <ArrowRight size={15} />
             </button>
           </div>

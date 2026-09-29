@@ -3,7 +3,7 @@ import { Monitor, RefreshCw } from "lucide-react";
 import { api } from "./api";
 import { session } from "./session";
 import { notifyNewActivity, notifyNewSales, notifyReminders, requestPermission } from "./notify";
-import BottomNav, { SideNav } from "./components/BottomNav";
+import BottomNav, { SideNav, ThemeButton } from "./components/BottomNav";
 import { Backdrop } from "./components/ui";
 import Tour, { tourDone } from "./components/Tour";
 import LoginScreen from "./screens/LoginScreen";
@@ -89,8 +89,8 @@ export default function App() {
   if (token === undefined) {
     return (
       <div className="min-h-screen grid place-items-center">
-        <div className="w-14 h-14 rounded-2xl grid place-items-center bg-gradient-to-br from-indigo-500 to-sky-400 shadow-glow animate-pulse">
-          <Monitor className="text-white" size={26} />
+        <div className="w-14 h-14 rounded-2xl grid place-items-center bg-ink animate-pulse">
+          <Monitor className="text-ground" size={26} />
         </div>
       </div>
     );
@@ -163,17 +163,18 @@ export default function App() {
       <div className="relative z-10 lg:pl-64">
         <div className="mx-auto w-full max-w-md lg:max-w-6xl lg:px-6">
           <header className="flex items-center gap-3 px-4 pt-5 pb-4 lg:hidden">
-            <div className="w-10 h-10 rounded-xl grid place-items-center bg-gradient-to-br from-indigo-500 to-sky-400 shadow-glow">
-              <Monitor className="text-white" size={20} />
+            <div className="w-10 h-10 rounded-xl grid place-items-center bg-ink">
+              <Monitor className="text-ground" size={20} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-bold leading-tight">TechDesk</div>
               <div className="text-xs text-ink-faint truncate">{data?.business?.name || "HQ Monitoring"}</div>
             </div>
+            <ThemeButton className="w-10 h-10 rounded-full bg-card border border-line grid place-items-center text-ink-soft" />
             <button
               onClick={() => load(token)}
               aria-label="Refresh"
-              className="w-10 h-10 rounded-full bg-card border border-white/[0.08] grid place-items-center text-ink-soft"
+              className="w-10 h-10 rounded-full bg-card border border-line grid place-items-center text-ink-soft"
             >
               <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
             </button>
@@ -181,7 +182,7 @@ export default function App() {
           <div className="hidden lg:block h-8" />
 
           {error && (
-            <p className="mx-4 mb-3 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs">
+            <p className="mx-4 mb-3 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-300 text-xs">
               {error} Showing the last update.
             </p>
           )}

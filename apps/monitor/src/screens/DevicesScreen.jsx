@@ -22,7 +22,7 @@ export default function DevicesScreen({ data, onOpenBranch }) {
             <Card key={b.id} className="overflow-hidden">
               <button
                 onClick={() => onOpenBranch(b.id)}
-                className="w-full flex items-center gap-3 p-4 text-left hover:bg-white/[0.03] transition-colors"
+                className="w-full flex items-center gap-3 p-4 text-left hover:bg-ink/[0.04] transition-colors"
               >
                 <IconBubble tone="blue"><Building2 size={18} /></IconBubble>
                 <div className="flex-1 min-w-0">
@@ -39,7 +39,7 @@ export default function DevicesScreen({ data, onOpenBranch }) {
                   "fine". A shop that had just disconnected a device looked
                   here and saw no difference. */}
               {(b.devices || []).length === 0 && (
-                <div className="border-t border-white/[0.06] px-4 py-3 bg-white/[0.02] flex items-center gap-3">
+                <div className="border-t border-line px-4 py-3 bg-ink/[0.03] flex items-center gap-3">
                   <Unplug className="text-ink-faint shrink-0" size={16} />
                   <div className="text-sm text-ink-faint">
                     Nothing connected here. Connect TechDesk on the shop's computer or phone.
@@ -48,9 +48,9 @@ export default function DevicesScreen({ data, onOpenBranch }) {
               )}
 
               {(b.devices || []).length > 0 && (
-                <div className="border-t border-white/[0.06] divide-y divide-white/[0.06]">
+                <div className="border-t border-line divide-y divide-line">
                   {b.devices.map((d) => (
-                    <div key={d.id} className="flex items-center gap-3 px-4 py-3 bg-white/[0.02]">
+                    <div key={d.id} className="flex items-center gap-3 px-4 py-3 bg-ink/[0.03]">
                       <Monitor className="text-ink-faint shrink-0" size={16} />
                       <div className="flex-1 min-w-0">
                         <div className="text-sm">

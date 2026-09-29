@@ -45,10 +45,10 @@ export default function LoginScreen({ onSignedIn }) {
     <div className="min-h-screen flex flex-col justify-center items-center px-6 py-10">
       <div className="w-full max-w-sm">
       <div className="flex flex-col items-center mb-8">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-400 grid place-items-center shadow-glow mb-4 m-pop">
-          <Monitor className="text-white" size={30} />
+        <div className="w-16 h-16 rounded-2xl bg-ink grid place-items-center shadow-raised-sm mb-4 m-pop">
+          <Monitor className="text-ground" size={30} />
         </div>
-        <h1 className="text-2xl font-bold">TechDesk <span className="m-shine">Monitor</span></h1>
+        <h1 className="text-2xl font-bold">TechDesk <span>Monitor</span></h1>
         <p className="text-sm text-ink-soft mt-1">Your branches, on your phone.</p>
       </div>
 
@@ -77,17 +77,17 @@ export default function LoginScreen({ onSignedIn }) {
                 href={sitePage("hq.html")}
                 target="_blank"
                 rel="noreferrer"
-                className="text-sky-300 font-medium"
+                className="text-ink font-semibold"
               >
                 Set up your HQ first
               </a>
               .
             </p>
-            {error && <p className="text-sm text-rose-400 mb-3">{error}</p>}
+            {error && <p className="text-sm text-rose-600 dark:text-rose-400 mb-3">{error}</p>}
             <button
               type="submit"
               disabled={busy}
-              className={`w-full py-3.5 rounded-2xl bg-white text-[#0a0c10] font-semibold flex items-center justify-center gap-2 ${
+              className={`w-full py-3.5 rounded-2xl bg-ink text-ground font-semibold flex items-center justify-center gap-2 ${
                 busy ? "opacity-60" : ""
               }`}
             >
@@ -112,7 +112,7 @@ export default function LoginScreen({ onSignedIn }) {
                 href={sitePage("hq.html")}
                 target="_blank"
                 rel="noreferrer"
-                className="text-sky-300 font-medium"
+                className="text-ink font-semibold"
               >
                 {siteLabel("hq.html")}
               </a>
@@ -129,11 +129,11 @@ export default function LoginScreen({ onSignedIn }) {
               onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               autoFocus
             />
-            {error && <p className="text-sm text-rose-400 mt-3">{error}</p>}
+            {error && <p className="text-sm text-rose-600 dark:text-rose-400 mt-3">{error}</p>}
             <button
               type="submit"
               disabled={busy}
-              className={`w-full mt-5 py-3.5 rounded-2xl bg-white text-[#0a0c10] font-semibold ${
+              className={`w-full mt-5 py-3.5 rounded-2xl bg-ink text-ground font-semibold ${
                 busy ? "opacity-60" : ""
               }`}
             >

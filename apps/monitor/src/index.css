@@ -2,12 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: dark; }
+/* The TechDesk app's own neutrals, as r g b so Tailwind can add opacity. */
+:root {
+  color-scheme: light;
+  --ground: 229 229 229;    /* neutral-200 */
+  --card: 245 245 245;      /* neutral-100 */
+  --sunk: 250 250 250;      /* neutral-50  */
+  --side: 245 245 245;      /* neutral-100 */
+  --line: 212 212 212;      /* neutral-300 */
+  --ink: 23 23 23;          /* neutral-900 */
+  --ink-soft: 64 64 64;     /* neutral-700 */
+  --ink-faint: 115 115 115; /* neutral-500 */
+  --glow-a: rgba(99, 102, 241, 0.10);
+  --glow-b: rgba(14, 165, 233, 0.09);
+}
+:root.dark {
+  color-scheme: dark;
+  --ground: 23 23 23;       /* neutral-900 */
+  --card: 38 38 38;         /* neutral-800 */
+  --sunk: 23 23 23;         /* neutral-900 */
+  --side: 10 10 10;         /* neutral-950 */
+  --line: 64 64 64;         /* neutral-700 */
+  --ink: 255 255 255;
+  --ink-soft: 212 212 212;  /* neutral-300 */
+  --ink-faint: 163 163 163; /* neutral-400 */
+  --glow-a: rgba(99, 102, 241, 0.16);
+  --glow-b: rgba(14, 165, 233, 0.12);
+}
 
 body {
   margin: 0;
-  background: #0a0c10;
-  color: #f2f4f8;
+  background: rgb(var(--ground));
+  color: rgb(var(--ink));
+  transition: background-color 0.25s ease, color 0.25s ease;
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   /* Below the status bar and above the gesture bar on Android. */

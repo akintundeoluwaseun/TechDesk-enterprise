@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { requestPermission } from "../notify";
-import { Building2, Coins, LogOut, Phone, ShieldCheck, Sparkles, BellRing, BellOff } from "lucide-react";
+import { Building2, Coins, LogOut, Phone, ShieldCheck, Sparkles, BellRing, BellOff, Sun, Moon } from "lucide-react";
+import { useTheme, setTheme } from "../theme";
 import { Card, IconBubble } from "../components/ui";
 import { CURRENCIES, currencyCode, setCurrency, money } from "../currency";
 
@@ -13,6 +14,7 @@ export default function SettingsScreen({ data, onSignOut, onTour }) {
   // Not a switch: Monitor always notifies. This only says whether the phone
   // or browser lets it, and asks again if it hasn't been allowed yet.
   const [allowed, setAllowed] = useState(null);
+  const [theme] = useTheme();
   useEffect(() => {
     requestPermission().then(setAllowed).catch(() => setAllowed(false));
   }, []);
@@ -37,11 +39,32 @@ export default function SettingsScreen({ data, onSignOut, onTour }) {
         </div>
       </Card>
 
+      <Card className="p-5 mb-4 lg:mb-0">
+        <div className="flex items-center gap-3 mb-3">
+          {theme === "dark" ? <Moon className="text-ink-soft" size={18} /> : <Sun className="text-amber-500" size={18} />}
+          <h2 className="font-semibold">Appearance</h2>
+        </div>
+        <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-sunk border border-line">
+          {[["light", "Light", Sun], ["dark", "Dark", Moon]].map(([key, label, Icon]) => (
+            <button
+              key={key}
+              onClick={() => setTheme(key)}
+              aria-pressed={theme === key}
+              className={`flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-colors ${
+                theme === key ? "bg-card text-ink shadow-raised-sm border border-line" : "text-ink-faint hover:text-ink"
+              }`}
+            >
+              <Icon size={15} /> {label}
+            </button>
+          ))}
+        </div>
+      </Card>
+
       <button
         onClick={onTour}
-        className="w-full mb-4 lg:mb-0 p-5 rounded-xl2 text-left flex items-center gap-4 border border-sky-400/20 bg-gradient-to-br from-indigo-500/15 to-sky-500/10 hover:from-indigo-500/25 transition-colors"
+        className="w-full mb-4 lg:mb-0 p-5 rounded-xl2 text-left flex items-center gap-4 bg-card border border-line hover:bg-sunk transition-colors"
       >
-        <span className="grid place-items-center w-11 h-11 shrink-0 rounded-2xl bg-gradient-to-br from-indigo-500 to-sky-400 text-white shadow-glow">
+        <span className="grid place-items-center w-11 h-11 shrink-0 rounded-2xl bg-ink text-ground">
           <Sparkles size={19} />
         </span>
         <span className="min-w-0">
@@ -75,7 +98,7 @@ export default function SettingsScreen({ data, onSignOut, onTour }) {
             setCurrency(e.target.value);
             setCurrencyState(e.target.value);
           }}
-          className="w-full rounded-xl px-3 py-2.5 text-sm bg-sunk border border-white/[0.08] text-ink outline-none"
+          className="w-full rounded-xl px-3 py-2.5 text-sm bg-sunk border border-line text-ink outline-none"
         >
           {CURRENCIES.map((c) => (
             <option key={c.code} value={c.code}>
@@ -112,7 +135,7 @@ export default function SettingsScreen({ data, onSignOut, onTour }) {
 
       <button
         onClick={onSignOut}
-        className="w-full lg:w-auto lg:px-8 mt-4 py-3.5 rounded-2xl bg-card border border-rose-500/20 text-rose-400 font-semibold flex items-center justify-center gap-2 hover:bg-rose-500/10"
+        className="w-full lg:w-auto lg:px-8 mt-4 py-3.5 rounded-2xl bg-card border border-rose-500/20 text-rose-600 dark:text-rose-400 font-semibold flex items-center justify-center gap-2 hover:bg-rose-500/10"
       >
         <LogOut size={17} /> Sign out
       </button>

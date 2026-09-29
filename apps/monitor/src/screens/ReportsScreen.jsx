@@ -27,7 +27,7 @@ export default function ReportsScreen({ data }) {
           detail="Once a branch connects and starts selling, its numbers show up here."
         />
       ) : (
-        <Card className="divide-y divide-white/[0.06]">
+        <Card className="divide-y divide-line">
           {branches.map((b) => (
             <div key={b.id} className="flex items-center gap-3 p-4">
               <IconBubble tone="blue"><FileText size={17} /></IconBubble>
@@ -37,8 +37,8 @@ export default function ReportsScreen({ data }) {
                   {(b.devices || []).filter((d) => d.online).length} of {(b.devices || []).length} online
                 </div>
               </div>
-              <div className="w-24 lg:w-40 h-2 rounded-full bg-white/[0.06] overflow-hidden hidden sm:block" aria-hidden="true">
-                <div className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-sky-400" style={{ width: `${Math.round(((b.salesToday || 0) / Math.max(1, ...branches.map((x) => x.salesToday || 0))) * 100)}%` }} />
+              <div className="w-24 lg:w-40 h-2 rounded-full bg-ink/[0.07] overflow-hidden hidden sm:block" aria-hidden="true">
+                <div className="h-full rounded-full bg-ink/70" style={{ width: `${Math.round(((b.salesToday || 0) / Math.max(1, ...branches.map((x) => x.salesToday || 0))) * 100)}%` }} />
               </div>
               <div className="text-lg font-bold tabular-nums w-10 text-right">{b.salesToday ?? 0}</div>
             </div>
