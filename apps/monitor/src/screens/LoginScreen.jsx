@@ -42,7 +42,8 @@ export default function LoginScreen({ onSignedIn }) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col justify-center px-6 py-10">
+    <div className="min-h-screen flex flex-col justify-center items-center px-6 py-10">
+      <div className="w-full max-w-sm">
       <div className="flex flex-col items-center mb-8">
         <div className="w-16 h-16 rounded-2xl bg-blue-500 grid place-items-center shadow-raised mb-4">
           <Monitor className="text-white" size={30} />
@@ -152,6 +153,7 @@ export default function LoginScreen({ onSignedIn }) {
           </form>
         )}
       </Card>
+      </div>
     </div>
   );
 }

@@ -11,9 +11,18 @@ const TABS = [
 export default function BottomNav({ tab, onChange }) {
   return (
     <nav
-      className="fixed left-3 right-3 z-20 bg-card rounded-xl2 shadow-raised flex"
-      // Above Android's gesture bar, not under it.
-      style={{ bottom: `calc(12px + env(safe-area-inset-bottom))` }}
+      className="fixed z-20 bg-card rounded-xl2 shadow-raised flex"
+      style={{
+        // Above Android's gesture bar, not under it.
+        bottom: `calc(12px + env(safe-area-inset-bottom))`,
+        // `fixed` is relative to the viewport, not to the app's own
+        // phone-width column, so it has to be told that column's width and
+        // centered by hand -- otherwise it stretches edge to edge on a wide
+        // browser while everything above it stays narrow.
+        left: "50%",
+        transform: "translateX(-50%)",
+        width: "min(calc(100% - 24px), 424px)",
+      }}
     >
       {TABS.map(({ key, label, Icon }) => {
         const active = tab === key;

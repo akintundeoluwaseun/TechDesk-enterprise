@@ -117,36 +117,42 @@ export default function App() {
   );
 
   return (
-    <div className="min-h-screen">
-      <header className="flex items-center gap-3 px-4 pt-5 pb-4">
-        <div className="w-10 h-10 rounded-xl bg-blue-500 grid place-items-center shadow-raised-sm">
-          <Monitor className="text-white" size={20} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="font-bold leading-tight">TechDesk</div>
-          <div className="text-xs text-ink-faint">HQ Monitoring</div>
-        </div>
-        <button
-          onClick={() => load(token)}
-          aria-label="Refresh"
-          className="w-10 h-10 rounded-full bg-card shadow-raised-sm grid place-items-center text-ink-soft"
-        >
-          <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
-        </button>
-      </header>
+    // This is a phone app, and reads as one only at phone width: opened in a
+    // wider browser (a tablet, a desktop window, a laptop's own screen) it
+    // stays pinned to a phone-width column instead of stretching every stat
+    // tile and list row out into mostly-empty acreage.
+    <div className="min-h-screen flex justify-center">
+      <div className="w-full max-w-md min-h-screen">
+        <header className="flex items-center gap-3 px-4 pt-5 pb-4">
+          <div className="w-10 h-10 rounded-xl bg-blue-500 grid place-items-center shadow-raised-sm">
+            <Monitor className="text-white" size={20} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="font-bold leading-tight">TechDesk</div>
+            <div className="text-xs text-ink-faint">HQ Monitoring</div>
+          </div>
+          <button
+            onClick={() => load(token)}
+            aria-label="Refresh"
+            className="w-10 h-10 rounded-full bg-card shadow-raised-sm grid place-items-center text-ink-soft"
+          >
+            <RefreshCw size={17} className={refreshing ? "animate-spin" : ""} />
+          </button>
+        </header>
 
-      {error && (
-        <p className="mx-4 mb-3 px-3 py-2 rounded-xl bg-amber-50 text-amber-700 text-xs">
-          {error} Showing the last update.
-        </p>
-      )}
+        {error && (
+          <p className="mx-4 mb-3 px-3 py-2 rounded-xl bg-amber-50 text-amber-700 text-xs">
+            {error} Showing the last update.
+          </p>
+        )}
 
-      {/* Clears the floating nav, plus the gesture bar underneath it. */}
-      <main style={{ paddingBottom: `calc(112px + env(safe-area-inset-bottom))` }}>
-        {screen}
-      </main>
+        {/* Clears the floating nav, plus the gesture bar underneath it. */}
+        <main style={{ paddingBottom: `calc(112px + env(safe-area-inset-bottom))` }}>
+          {screen}
+        </main>
 
-      {!branch && <BottomNav tab={tab} onChange={setTab} />}
+        {!branch && <BottomNav tab={tab} onChange={setTab} />}
+      </div>
     </div>
   );
 }
