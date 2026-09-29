@@ -5,8 +5,8 @@ import { Card } from "../components/ui";
 import { sitePage, siteLabel } from "@techdesk/editions";
 
 export default function LoginScreen({ onSignedIn }) {
-  const [step, setStep] = useState("phone");
-  const [phone, setPhone] = useState("");
+  const [step, setStep] = useState("identifier");
+  const [identifier, setIdentifier] = useState("");
   const [code, setCode] = useState("");
   const [sentTo, setSentTo] = useState("");
   const [otpId, setOtpId] = useState(null);
@@ -19,12 +19,13 @@ export default function LoginScreen({ onSignedIn }) {
   async function askForCode(e) {
     e.preventDefault();
     setError("");
-    if (!phone.trim()) return setError("Enter your phone number.");
+    const value = identifier.trim();
+    if (!value) return setError("Enter your email or phone number.");
     setBusy(true);
-    const res = await api.loginStart(phone.trim());
+    const res = await api.loginStart(value);
     setBusy(false);
     if (!res.ok) return setError(res.message || "That didn't work. Try again.");
-    setSentTo(res.phone || phone);
+    setSentTo(res.email || res.phone || value);
     setOtpId(res.otpId || null);
     setStep("code");
   }
@@ -34,7 +35,7 @@ export default function LoginScreen({ onSignedIn }) {
     setError("");
     if (!/^\d{6}$/.test(code.trim())) return setError("The code is 6 digits.");
     setBusy(true);
-    const res = await api.loginVerify(phone.trim(), code.trim(), otpId);
+    const res = await api.loginVerify(identifier.trim(), code.trim(), otpId);
     setBusy(false);
     if (!res.ok) return setError(res.message || "That didn't work. Try again.");
     onSignedIn(res.token);
@@ -51,24 +52,25 @@ export default function LoginScreen({ onSignedIn }) {
       </div>
 
       <Card className="p-6">
-        {step === "phone" ? (
+        {step === "identifier" ? (
           <form onSubmit={askForCode}>
             <label className="block mb-4">
               <span className="flex items-center gap-1.5 text-xs font-semibold text-ink-soft mb-2">
-                <Phone size={13} /> Your HQ phone number
+                <Phone size={13} /> Your HQ email or phone number
               </span>
               <input
+                id="hq-identifier"
                 className={field}
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                placeholder="08012345678"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                type="text"
+                autoComplete="email tel"
+                placeholder="hq@shop.com or 08012345678"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
               />
             </label>
             <p className="text-xs text-ink-faint mb-4 leading-relaxed">
-              The number you registered your business with. We&rsquo;ll text you a code.
+              Whichever you registered your business with. An email code is
+              free and instant; a phone number gets a text.
               Haven&rsquo;t registered yet?{" "}
               <a
                 href={sitePage("hq.html")}
@@ -94,16 +96,16 @@ export default function LoginScreen({ onSignedIn }) {
         ) : (
           <form onSubmit={signIn}>
             <p className="text-sm text-ink-soft mb-3 leading-relaxed">
-              We texted a 6-digit code to <b className="text-ink">{sentTo}</b>.
+              We sent a 6-digit code to <b className="text-ink">{sentTo}</b>.
             </p>
-            {/* The server answers the same way whether or not that number runs
-                a business, so that a stranger cannot find out by typing
-                numbers in. Which means "no code arrived" has two causes, and
+            {/* The server answers the same way whether or not that identifier
+                runs a business, so that a stranger cannot find out by typing
+                things in. Which means "no code arrived" has two causes, and
                 the second one is the common one for a new owner: there is no
-                HQ on that number yet. Saying so here costs nothing and saves
-                the wait. */}
+                HQ on that email or number yet. Saying so here costs nothing
+                and saves the wait. */}
             <p className="text-xs text-ink-faint mb-5 leading-relaxed">
-              No code after a minute? The number has to be registered as HQ
+              No code after a minute? It has to be registered as HQ
               first &mdash; set that up at{" "}
               <a
                 href={sitePage("hq.html")}
@@ -139,13 +141,13 @@ export default function LoginScreen({ onSignedIn }) {
             <button
               type="button"
               onClick={() => {
-                setStep("phone");
+                setStep("identifier");
                 setCode("");
                 setError("");
               }}
               className="w-full mt-3 py-3 rounded-2xl text-ink-soft text-sm font-medium"
             >
-              Use a different number
+              Use a different email or number
             </button>
           </form>
         )}

@@ -67,10 +67,35 @@ const errs = [];
   await p.goto("http://127.0.0.1:4180/");
   await p.waitForTimeout(900);
   await p.screenshot({ path: "mon-login.png" });
-  await p.fill('input[type="tel"]', "08012345678");
+  await p.fill('#hq-identifier', "08012345678");
   await p.locator('button[type="submit"]').click();
   await p.waitForTimeout(600);
   await p.screenshot({ path: "mon-login-code.png" });
+  await p.close();
+}
+// login by email -- the HQ that signed up with no phone on file at all
+// needs a real way back in, not just the field that assumes a phone exists
+{
+  const p = await b.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
+  p.on("pageerror", (e) => errs.push(String(e)));
+  let sentBody = null;
+  await p.route("**/functions/v1/hq-login-start", (r) => {
+    sentBody = JSON.parse(r.request().postData() || "{}");
+    r.fulfill({ status: 200, contentType: "application/json",
+      body: JSON.stringify({ ok: true, email: "o***n@example.com" }) });
+  });
+  await p.goto("http://127.0.0.1:4180/");
+  await p.waitForTimeout(900);
+  await p.fill('#hq-identifier', "owner@example.com");
+  await p.locator('button[type="submit"]').click();
+  await p.waitForTimeout(600);
+  if (!sentBody || sentBody.identityEmail !== "owner@example.com" || "phone" in sentBody) {
+    errs.push(`login-by-email sent the wrong body: ${JSON.stringify(sentBody)}`);
+  }
+  const sentToText = await p.locator("b.text-ink").textContent().catch(() => null);
+  if (sentToText !== "o***n@example.com") {
+    errs.push(`login-by-email did not show the masked email back, got: ${sentToText}`);
+  }
   await p.close();
 }
 {

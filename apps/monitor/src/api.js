@@ -31,10 +31,22 @@ async function post(fn, body) {
 }
 
 export const api = {
-  loginStart: (phone) => post("hq-login-start", { phone }),
+  // identifier is whatever the owner typed -- an email or a phone number.
+  // Which one it is decides which field the server sees; it is never sent
+  // as both, so a login-by-email HQ (no phone on file at all) has a real
+  // code path back in, not just the one that assumes a phone exists.
+  loginStart: (identifier) =>
+    identifier.includes("@")
+      ? post("hq-login-start", { identityEmail: identifier })
+      : post("hq-login-start", { phone: identifier }),
   // otpId is the provider's id for the code that was just sent. Passing it
   // back lets the check work even on a backend that has not stored it.
-  loginVerify: (phone, code, otpId) => post("hq-login-verify", { phone, code, otpId: otpId || null }),
+  // Meaningless (and omitted) for an email login, which is always checked
+  // against the stored hash.
+  loginVerify: (identifier, code, otpId) =>
+    identifier.includes("@")
+      ? post("hq-login-verify", { identityEmail: identifier, code })
+      : post("hq-login-verify", { phone: identifier, code, otpId: otpId || null }),
   summary: (token) => post("hq-data", { token, action: "summary" }),
   branch: (token, branchId, kind, limit) =>
     post("hq-data", { token, action: "branch", branchId, kind, limit }),
