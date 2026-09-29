@@ -151,4 +151,19 @@ describe("Sales and Repairs are grouped by period", () => {
     expect(screen.getByText("INV-3")).toBeInTheDocument();
     expect(screen.queryByText("INV-1")).toBe(null);
   });
+
+  it("a quiet week still opens on the newest work, not a page of shut headings", () => {
+    localStorage.setItem("techdesk_repairs", JSON.stringify(REPAIRS.slice(2)));
+    render(
+      <MemoryRouter>
+        <ThemeProvider><SettingsProvider><LicenseProvider><AuthProvider><HelpProvider>
+          <RepairsPage />
+        </HelpProvider></AuthProvider></LicenseProvider></SettingsProvider></ThemeProvider>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("TCK-3")).toBeInTheDocument();
+    expect(screen.queryByText("TCK-4")).toBe(null);
+    fireEvent.click(screen.getByText("This Month"));
+    expect(screen.queryByText("TCK-3")).toBe(null);
+  });
 });

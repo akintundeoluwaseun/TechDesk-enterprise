@@ -68,7 +68,10 @@ export default function SalesPage() {
   // page actually came to look at. This month and older stay shut until
   // asked for, rather than a long scroll of cards from three months ago
   // sitting open above nothing.
-  const [openGroups, setOpenGroups] = useState(() => new Set(["today", "week"]));
+  // Stored as the groups the shop has flipped from how they start, so the
+  // newest group can start open even when it is "This Month" -- a quiet week
+  // otherwise opened on a page of shut headers that looked empty.
+  const [flippedGroups, setFlippedGroups] = useState(() => new Set());
 
   // Today first. The line here said "340 total transactions", which is a
   // number that only goes up and tells a shop nothing about their day.
@@ -85,8 +88,10 @@ export default function SalesPage() {
   const isSearching = search.trim().length > 0;
   const groups = groupByPeriod(filtered);
 
+  const startsOpen = (key, index) => key === "today" || key === "week" || index === 0;
+
   function toggleGroup(key) {
-    setOpenGroups((prev) => {
+    setFlippedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -309,12 +314,12 @@ export default function SalesPage() {
         <div className="td-stagger flex flex-col gap-3">{filtered.map(renderSaleCard)}</div>
       ) : (
         <div>
-          {groups.map((g) => (
+          {groups.map((g, i) => (
             <PeriodGroup
               key={g.key}
               label={g.label}
               count={g.items.length}
-              open={openGroups.has(g.key)}
+              open={startsOpen(g.key, i) !== flippedGroups.has(g.key)}
               onToggle={() => toggleGroup(g.key)}
             >
               {g.items.map(renderSaleCard)}

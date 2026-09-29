@@ -42,7 +42,10 @@ export default function RepairsPage() {
   const [expanded, setExpanded] = useState(null);
   // Today and this week open on arrival, same reasoning as Sales: that's
   // what anyone opening the page actually came to look at.
-  const [openGroups, setOpenGroups] = useState(() => new Set(["today", "week"]));
+  // Stored as the groups the shop has flipped from how they start, so the
+  // newest group can start open even when it is "This Month" -- a quiet week
+  // otherwise opened on a page of shut headers that looked empty.
+  const [flippedGroups, setFlippedGroups] = useState(() => new Set());
   const { isAdmin } = useAuth();
 
   // Today first. This page had no summary at all, so the only way to find
@@ -69,8 +72,10 @@ export default function RepairsPage() {
   const isSearching = search.trim().length > 0;
   const groups = groupByPeriod(filtered);
 
+  const startsOpen = (key, index) => key === "today" || key === "week" || index === 0;
+
   function toggleGroup(key) {
-    setOpenGroups((prev) => {
+    setFlippedGroups((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
@@ -233,7 +238,7 @@ export default function RepairsPage() {
         title={labels.navRepairs}
         subtitle={
           [
-            `${summary.inToday} in today`,
+            `${summary.inToday} booked in today`,
             `${summary.open} still open`,
             summary.ready ? `${summary.ready} waiting to be collected` : null,
             // What the shop has not been paid for. Kept with whoever runs the
@@ -283,12 +288,12 @@ export default function RepairsPage() {
         <div className="td-stagger flex flex-col gap-3">{filtered.map(renderRepairCard)}</div>
       ) : (
         <div>
-          {groups.map((g) => (
+          {groups.map((g, i) => (
             <PeriodGroup
               key={g.key}
               label={g.label}
               count={g.items.length}
-              open={openGroups.has(g.key)}
+              open={startsOpen(g.key, i) !== flippedGroups.has(g.key)}
               onToggle={() => toggleGroup(g.key)}
             >
               {g.items.map(renderRepairCard)}
