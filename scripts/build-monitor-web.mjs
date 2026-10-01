@@ -7,7 +7,7 @@
 //
 // It goes out INSIDE the web app's build, at /monitor/, rather than as a
 // second site. One deploy, one domain, nothing new to set up: the owner opens
-// techdesk-one.vercel.app/monitor and adds it to their home screen. Its own
+// techdeskweb.vercel.app/monitor and adds it to their home screen. Its own
 // manifest and icons are in apps/monitor/public, so what they get is Monitor,
 // not a second copy of TechDesk.
 //

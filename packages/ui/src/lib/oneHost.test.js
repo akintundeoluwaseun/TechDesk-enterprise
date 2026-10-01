@@ -57,7 +57,7 @@ describe("the product has one address", () => {
   });
 
   it("is the site that actually resolves", () => {
-    expect(SITE_ORIGIN).toBe("https://techdesk-one.vercel.app");
+    expect(SITE_ORIGIN).toBe("https://www.techdesk.space");
   });
 
   it("is written down in exactly one file", () => {

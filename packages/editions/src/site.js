@@ -8,7 +8,7 @@
 //
 // A URL nobody can type twice cannot be wrong in one place and right in
 // another. Everything that points at the product points here.
-export const SITE_ORIGIN = "https://techdesk-one.vercel.app";
+export const SITE_ORIGIN = "https://www.techdesk.space";
 
 /** A page on the site, e.g. sitePage("download.html"). */
 export function sitePage(page = "") {
