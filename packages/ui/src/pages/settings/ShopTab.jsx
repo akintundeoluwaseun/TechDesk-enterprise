@@ -127,6 +127,23 @@ export default function ShopTab() {
         </div>
 
         <div className="mb-4">
+          <label htmlFor="shop-tagline" className={label}>
+            What your shop does
+          </label>
+          <input
+            id="shop-tagline"
+            value={settings.tagline || ""}
+            onChange={(e) => set("tagline", e.target.value)}
+            maxLength={60}
+            placeholder="Repair · Sales · Accessories"
+            className={field}
+          />
+          <p className={`text-xs mt-2 ${t.textMuted}`}>
+            Shown under your shop name in the app and on receipts.
+          </p>
+        </div>
+
+        <div className="mb-4">
           <label htmlFor="shop-phone" className={label}>
             Phone
           </label>

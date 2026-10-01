@@ -8,6 +8,10 @@ import {
   ArrowRight,
   ArrowLeft,
   Smartphone,
+  Bell,
+  Users,
+  Building2,
+  WifiOff,
 } from "lucide-react";
 import { ForceDark, useThemeTokens } from "../lib/ThemeContext";
 import AccountGateScreen from "./AccountGateScreen";
@@ -19,7 +23,7 @@ import AccountGateScreen from "./AccountGateScreen";
 //
 // All motion is plain CSS keyframes (ObStyles below): no animation library
 // to ship for a screen that runs once per install.
-const STEP_COUNT = 3;
+const STEP_COUNT = 5;
 const SLIDE_MS = 4200;
 const EASE = "cubic-bezier(.2,.8,.2,1)";
 const SPRING = "cubic-bezier(.3,1.45,.5,1)";
@@ -450,6 +454,119 @@ function QuickInfo({ onNext, onBack }) {
   );
 }
 
+// ---------------------------------------------------- reminders and growth
+
+const ALERTS = [
+  { dot: "bg-emerald-400", title: "Ade made a sale", text: `${naira(12500)} · 2 × Screen guard`, at: 300 },
+  { dot: "bg-amber-400", title: "Mr Bello hasn't paid", text: `${naira(15000)} owed since Monday`, at: 1300 },
+  { dot: "bg-sky-400", title: "Mrs Okafor's laptop is ready", text: "Not collected yet · TCK-0117", at: 2300 },
+];
+
+function RemindersDemo() {
+  const phase = usePhase(ALERTS.map((a) => a.at));
+  return (
+    <div className="h-full flex flex-col justify-center gap-3 px-1">
+      {ALERTS.map((a, i) =>
+        phase > i ? (
+          <div
+            key={a.title}
+            className="flex items-start gap-3 rounded-2xl bg-white/[0.07] border border-white/10 p-3"
+            style={{ animation: `obNotify .55s ${SPRING} both` }}
+          >
+            <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center shrink-0 relative">
+              <Bell className="w-4 h-4 text-white" />
+              <span className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ${a.dot}`} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-[13px] font-semibold text-white">{a.title}</div>
+              <div className="text-[11px] text-neutral-400 truncate">{a.text}</div>
+            </div>
+          </div>
+        ) : (
+          <div key={a.title} className="h-[62px]" />
+        ),
+      )}
+    </div>
+  );
+}
+
+const BRANCHES = ["Ikeja", "Yaba", "Lekki"];
+
+function GrowthDemo() {
+  const phase = usePhase([400, 1100, 1800, 2600]);
+  return (
+    <div className="h-full flex flex-col justify-between">
+      <div
+        className="mx-auto flex items-center gap-2 rounded-2xl bg-white text-neutral-900 px-4 py-2.5 shadow-xl"
+        style={{ animation: `obPop .6s ${SPRING} both` }}
+      >
+        <Building2 className="w-4 h-4" />
+        <span className="text-[13px] font-bold">Head office</span>
+        <span className="text-[11px] font-semibold text-emerald-600 tabular-nums">{naira(Math.min(3, Math.max(0, phase - 1)) * 165000)}</span>
+      </div>
+      <div className="relative flex justify-between px-2">
+        {BRANCHES.map((b, i) => (
+          <div key={b} className="flex flex-col items-center gap-2 w-[30%]">
+            <span
+              className="w-0.5 h-8 rounded bg-gradient-to-t from-sky-400/0 to-sky-400"
+              style={{ opacity: phase > i + 1 ? 1 : 0.15, transition: "opacity .5s" }}
+            />
+            <div
+              className="w-full rounded-xl bg-white/[0.07] border border-white/10 py-2 text-center"
+              style={{ animation: `obRise .5s ${EASE} ${0.1 + i * 0.12}s both` }}
+            >
+              <div className="text-[12px] font-semibold text-white">{b}</div>
+              <div className="text-[10px] text-neutral-400 flex items-center justify-center gap-1">
+                <Users className="w-3 h-3" /> {i + 2} staff
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div
+        className="mx-auto flex items-center gap-1.5 text-[11px] text-neutral-300 rounded-full bg-white/[0.06] px-3 py-1.5"
+        style={{ animation: `obFade .5s ease-out 2.4s both` }}
+      >
+        <WifiOff className="w-3.5 h-3.5" /> Works offline · catches up when you're back
+      </div>
+    </div>
+  );
+}
+
+function StoryPage({ title, subtitle, Demo, headline, text, onNext, onBack }) {
+  return (
+    <div className="min-h-screen w-full flex flex-col items-center justify-center px-6 py-16">
+      <div className="w-full max-w-sm">
+        <h1 className="text-2xl font-bold text-center text-white" style={{ animation: `obRise .6s ${EASE} both` }}>
+          {title}
+        </h1>
+        <p className="text-sm text-neutral-400 text-center mt-1.5 mb-6" style={{ animation: `obRise .6s ${EASE} .1s both` }}>
+          {subtitle}
+        </p>
+        <div
+          className="relative h-[250px] rounded-3xl border border-white/10 bg-white/[0.04] overflow-hidden p-5 mb-4"
+          style={{ boxShadow: "0 30px 80px -30px rgba(14,165,233,.45)", animation: `obPop .6s ${EASE} .15s both` }}
+        >
+          <Demo />
+        </div>
+        <div className="text-center mb-8 min-h-[60px]" style={{ animation: "obFade .5s ease-out .3s both" }}>
+          <div className="text-white font-semibold">{headline}</div>
+          <div className="text-sm text-neutral-400 mt-1">{text}</div>
+        </div>
+        <button
+          onClick={onNext}
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl font-semibold bg-white text-black shadow-[0_12px_40px_-14px_rgba(255,255,255,.5)] active:scale-[.98] transition-transform"
+        >
+          Next <ArrowRight className="w-4 h-4" />
+        </button>
+        <button onClick={onBack} className="w-full mt-3 py-2 text-sm text-neutral-400 hover:text-white transition-colors">
+          Back
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ------------------------------------------------------------------- shell
 
 function ObStyles() {
@@ -470,6 +587,7 @@ function ObStyles() {
       @keyframes obShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
       @keyframes obGrow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
       @keyframes obBar { from { width: 0; } to { width: 100%; } }
+      @keyframes obNotify { from { opacity: 0; transform: translateY(-18px) scale(.94); } to { opacity: 1; transform: none; } }
       @keyframes obDrift1 { to { transform: translate(90px, 70px) scale(1.12); } }
       @keyframes obDrift2 { to { transform: translate(-80px, -60px) scale(1.08); } }
       @keyframes obDrift3 { to { transform: translate(-110px, 40px) scale(1.2); } }
@@ -506,11 +624,33 @@ function Onboarding({ onDone }) {
       >
         {step === 0 && <Welcome onNext={() => go(1)} />}
         {step === 1 && <QuickInfo onNext={() => go(2)} onBack={() => go(0)} />}
-        {step === 2 && <AccountGateScreen onDone={onDone} transparent />}
+        {step === 2 && (
+          <StoryPage
+            title="Never lose track of money"
+            subtitle="TechDesk tells you, so you don't have to remember."
+            Demo={RemindersDemo}
+            headline="Who sold what, who owes, who hasn't collected"
+            text="A reminder every 5 hours until they pay or pick it up."
+            onNext={() => go(3)}
+            onBack={() => go(1)}
+          />
+        )}
+        {step === 3 && (
+          <StoryPage
+            title="Grow without losing control"
+            subtitle="Your staff, your branches, one picture."
+            Demo={GrowthDemo}
+            headline="Staff logins and head office"
+            text="Each worker sees only what you allow. Every branch adds up at head office, even when the internet drops."
+            onNext={() => go(4)}
+            onBack={() => go(2)}
+          />
+        )}
+        {step === 4 && <AccountGateScreen onDone={onDone} transparent />}
       </div>
-      {step === 2 && (
+      {step === 4 && (
         <button
-          onClick={() => go(1)}
+          onClick={() => go(3)}
           className="fixed top-5 left-5 z-20 flex items-center gap-1 text-sm text-neutral-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Back

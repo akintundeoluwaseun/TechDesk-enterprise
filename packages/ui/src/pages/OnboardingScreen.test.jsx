@@ -5,7 +5,7 @@ import { ThemeProvider } from "../lib/ThemeContext";
 import { AuthProvider } from "../lib/AuthContext";
 import OnboardingScreen from "./OnboardingScreen";
 
-// First run: three steps before the choice AccountGateScreen already asks,
+// First run: four animated steps before the choice AccountGateScreen already asks,
 // not straight onto that choice, and not straight onto the dashboard.
 
 function show(onDone = () => {}) {
@@ -16,7 +16,14 @@ function show(onDone = () => {}) {
   );
 }
 
-describe("first run walks through three steps, not straight to the dashboard", () => {
+function toGate() {
+  fireEvent.click(screen.getByText("Get Started"));
+  fireEvent.click(screen.getByText("Next"));
+  fireEvent.click(screen.getByText("Next"));
+  fireEvent.click(screen.getByText("Next"));
+}
+
+describe("first run walks through its steps, not straight to the dashboard", () => {
   beforeEach(() => localStorage.clear());
 
   it("opens on Welcome", () => {
@@ -43,10 +50,20 @@ describe("first run walks through three steps, not straight to the dashboard", (
     expect(screen.getByRole("tab", { name: /repairs/i })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("Next reaches the new-business / join-existing question", () => {
+  it("Next walks through reminders, then staff and branches", () => {
     show();
     fireEvent.click(screen.getByText("Get Started"));
     fireEvent.click(screen.getByText("Next"));
+    expect(screen.getByText("Never lose track of money")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Next"));
+    expect(screen.getByText("Grow without losing control")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Back"));
+    expect(screen.getByText("Never lose track of money")).toBeInTheDocument();
+  });
+
+  it("then reaches the new-business / join-existing question", () => {
+    show();
+    toGate();
     // AccountGateScreen's own screen -- unmodified, just reached a different way.
     expect(screen.getByText("Set up your business")).toBeInTheDocument();
     expect(screen.getByText("Sign in to your business")).toBeInTheDocument();
@@ -60,12 +77,11 @@ describe("first run walks through three steps, not straight to the dashboard", (
     expect(screen.getByRole("heading", { name: /welcome to techdesk/i })).toBeInTheDocument();
   });
 
-  it("Back on the last step returns to the showcase, not out of onboarding", () => {
+  it("Back on the last step returns to the step before it, not out of onboarding", () => {
     show();
-    fireEvent.click(screen.getByText("Get Started"));
-    fireEvent.click(screen.getByText("Next"));
+    toGate();
     fireEvent.click(screen.getByText("Back"));
-    expect(screen.getByText("Everything your shop needs")).toBeInTheDocument();
+    expect(screen.getByText("Grow without losing control")).toBeInTheDocument();
   });
 
   it("finishing on the last step (continuing locally) still calls onDone", () => {
@@ -73,8 +89,7 @@ describe("first run walks through three steps, not straight to the dashboard", (
     show(() => {
       done = true;
     });
-    fireEvent.click(screen.getByText("Get Started"));
-    fireEvent.click(screen.getByText("Next"));
+    toGate();
     fireEvent.click(screen.getByText("Continue locally, no account"));
     expect(done).toBe(true);
   });
@@ -83,17 +98,16 @@ describe("first run walks through three steps, not straight to the dashboard", (
     const { getAccountGateDecision } = await import("../lib/account");
     expect(getAccountGateDecision()).toBeFalsy();
     show();
-    fireEvent.click(screen.getByText("Get Started"));
-    fireEvent.click(screen.getByText("Next"));
+    toGate();
     fireEvent.click(screen.getByText("Continue locally, no account"));
     // App.jsx only shows onboarding while this is empty (and the device has
     // no records of its own), so once it's set the app opens straight in.
     expect(getAccountGateDecision()).toBe("local");
   });
 
-  it("shows all three steps as dots throughout", () => {
+  it("shows all five steps as dots throughout", () => {
     const { container } = show();
-    expect(container.querySelectorAll(".fixed.top-6 span").length).toBe(3);
+    expect(container.querySelectorAll(".fixed.top-6 span").length).toBe(5);
   });
 
   it("is dark regardless of the shop's own saved theme -- there's no shop settings yet", () => {
