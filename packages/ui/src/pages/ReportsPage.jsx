@@ -65,6 +65,7 @@ export default function ReportsPage() {
               <FileSpreadsheet className="w-4 h-4" /> Export CSV
             </button>
             <button
+              data-tour="report-download"
               onClick={handleDownload}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
             >
@@ -74,7 +75,7 @@ export default function ReportsPage() {
         }
       />
 
-      <div className="flex items-center gap-2 mb-6">
+      <div data-tour="report-period" className="flex items-center gap-2 mb-6">
         {FILTERS.map((f) => (
           <button
             key={f.key}

@@ -227,8 +227,10 @@ export default function ShopTab() {
         onOpen={() => setOpenSection("appearance")}
       />
 
-      <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Receipts</h2>
-      <ReceiptsTab />
+      <div data-tour="receipts">
+        <h2 className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Receipts</h2>
+        <ReceiptsTab />
+      </div>
 
       {openSection === "businessType" && (
         <SettingsModal

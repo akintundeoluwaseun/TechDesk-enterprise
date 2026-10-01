@@ -144,6 +144,7 @@ export default function InventoryPage() {
         action={
           <div className="flex items-center gap-2">
             <button
+              data-tour="page-export"
               onClick={handleExportCsv}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
             >
@@ -168,6 +169,7 @@ export default function InventoryPage() {
       <div className={`flex items-center gap-2 rounded-full px-4 py-3 mb-4 ${t.cardBg}`}>
         <Search className={`w-4 h-4 ${t.textMuted}`} />
         <input
+          data-tour="page-search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search products..."
@@ -177,7 +179,7 @@ export default function InventoryPage() {
 
       {/* Stock status, category and sort together -- the counts that used to
           sit on the old tab strip are kept in the option labels. */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+      <div data-tour="inventory-filters" className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         <div className="relative">
           <select
             value={tab}

@@ -32,6 +32,7 @@ import { hasUnseenUpdate, markUpdatesSeen, onOpenWhatsNew } from "./lib/whatsNew
 import { isTourPending, markTourDone, markTourPending } from "./lib/tour";
 import { useHqSync } from "./lib/useHqSync";
 import { onTourRequest } from "./lib/setupTours";
+import { pageTourKey, pageTourSeen, markPageTourSeen, pageTourSteps, resetPageTours } from "./lib/pageTours";
 import { saleSetupSteps, repairTicketSteps } from "./lib/setupTourSteps";
 
 const DashboardPage = lazy(() => import("./pages/DashboardPage"));
@@ -153,6 +154,25 @@ function Shell() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [user]
   );
+  // The first time each page (or Settings tab) is opened: a short tour of
+  // how to use it. Never on top of another tour or window, and never while
+  // the welcome tour is still to come.
+  useEffect(() => {
+    if (touring || miniTour || showActivation || whatsNew || announcement || mergeEditions.length > 0) return undefined;
+    const key = pageTourKey(location.pathname, location.search);
+    if (!key || pageTourSeen(key)) return undefined;
+    const id = setTimeout(() => {
+      const desktop = window.matchMedia?.("(min-width: 768px)").matches ?? true;
+      const steps = pageTourSteps(key, { desktop }).filter(
+        (s) => !s.target || document.querySelector(`[data-tour="${s.target}"]`),
+      );
+      if (!steps.length) return;
+      markPageTourSeen(key);
+      setMiniTour({ key: `page-${key}`, steps, finale: null, done: () => {} });
+    }, 900);
+    return () => clearTimeout(id);
+  }, [location.pathname, location.search, touring, miniTour, showActivation, whatsNew, announcement, mergeEditions.length]);
+
   function finishMiniTour() {
     const t = miniTour;
     setMiniTour(null);
@@ -207,6 +227,8 @@ function Shell() {
           <TutorialModal
             onClose={dismissHelp}
             onStartTour={() => {
+              // A replay also brings back each page's own quick tour.
+              resetPageTours();
               dismissHelp(false);
               setTouring(true);
             }}

@@ -152,7 +152,7 @@ export default function RepairsPage() {
               </span>
             )}
           </div>
-          <div className="flex items-center gap-4">
+          <div data-tour="repair-actions" className="flex items-center gap-4">
             <button data-tour={`ticket-${r.id}`} onClick={() => generateRepairTicketPdf(r)} className={t.textSecondary} title={TICKET_ACTION}>
               <FileText className="w-[18px] h-[18px]" />
             </button>
@@ -178,7 +178,7 @@ export default function RepairsPage() {
           {r.customerName} &middot; {r.customerPhone} &middot; {formatTime(r.createdAt)}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div data-tour="repair-status" className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <div>
             <label className={`text-xs font-medium block mb-1.5 ${t.textPrimary}`}>{labels.ticketSingular} status</label>
             <select
@@ -251,6 +251,7 @@ export default function RepairsPage() {
         action={
           <div className="flex items-center gap-3">
             <button
+              data-tour="blank-ticket"
               onClick={() => generateBlankRepairFormPdf()}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
             >
@@ -272,6 +273,7 @@ export default function RepairsPage() {
       <div className={`flex items-center gap-2 rounded-full px-4 py-3 mb-6 ${t.cardBg}`}>
         <Search className={`w-4 h-4 ${t.textMuted}`} />
         <input
+          data-tour="page-search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder={`Search ticket, customer, phone, ${labels.itemLabel.toLowerCase()} or ${labels.problemLabel.toLowerCase()}`}

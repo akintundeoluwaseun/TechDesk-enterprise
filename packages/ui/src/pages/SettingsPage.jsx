@@ -85,6 +85,7 @@ export default function SettingsPage() {
         {TABS.map((x) => (
           <button
             key={x.key}
+            data-tour={`settings-tab-${x.key}`}
             onClick={() => selectTab(x.key)}
             className={`px-4 md:px-5 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
               tab === x.key ? `${t.cardBg} ${t.textPrimary}` : t.textSecondary
@@ -96,6 +97,7 @@ export default function SettingsPage() {
       </div>
       </div>
 
+      <div data-tour="settings-panel">
       <React.Suspense fallback={null}>
         {active.feature ? (
           <UpgradeLock feature={active.feature} title={active.title} what={active.what}>
@@ -105,6 +107,7 @@ export default function SettingsPage() {
           <Active />
         )}
       </React.Suspense>
+      </div>
     </div>
   );
 }

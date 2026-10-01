@@ -72,6 +72,7 @@ export default function CustomersPage() {
         }
         action={
           <button
+            data-tour="new-customer"
             onClick={() => {
               setEditing(null);
               setShowModal(true);
@@ -88,6 +89,7 @@ export default function CustomersPage() {
       <div className={`flex items-center gap-2 rounded-full px-4 py-3 mb-6 ${t.cardBg}`}>
         <Search className={`w-4 h-4 ${t.textMuted}`} />
         <input
+          data-tour="page-search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search name, phone, email or address"

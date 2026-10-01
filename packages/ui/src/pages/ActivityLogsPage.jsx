@@ -112,6 +112,7 @@ export default function ActivityLogsPage() {
       <div className="flex items-center gap-2 sm:gap-3 mb-6 flex-wrap">
         <div className={`flex-1 min-w-[180px] flex items-center gap-2 rounded-full px-4 py-3 ${t.cardBg}`}>
           <input
+          data-tour="page-search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search action, user, description..."

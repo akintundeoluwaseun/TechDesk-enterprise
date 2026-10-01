@@ -182,7 +182,7 @@ export default function SalesPage() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+        <div data-tour="sale-status" className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
           <select
             value={sale.paymentStatus}
             onChange={(e) => updateStatus(sale.id, "paymentStatus", e.target.value)}
@@ -211,7 +211,7 @@ export default function SalesPage() {
             circles the size of a fingertip is a guessing game, and the
             two that send a customer their receipt looked the same as
             the one that deletes the sale. */}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div data-tour="sale-actions" className="flex items-center gap-2 flex-wrap">
           {/* Print stays on the free plan -- a shop that cannot hand a
               customer a receipt is not a shop -- ten a month, stamped
               "TechDesk" (PrintButton). Saving the file and sending it are
@@ -298,6 +298,7 @@ export default function SalesPage() {
       <div className={`flex items-center gap-2 rounded-full px-4 py-3 mb-6 ${t.cardBg}`}>
         <Search className={`w-4 h-4 ${t.textMuted}`} />
         <input
+          data-tour="page-search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by invoice or customer..."
