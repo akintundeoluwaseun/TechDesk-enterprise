@@ -54,6 +54,7 @@ export { notificationFeed, isUnread, unreadCount, timeAgo } from "./notification
 export { searchDestinations, DESTINATIONS } from "./destinations";
 export { rowsToCsv } from "./csv";
 export { checkout } from "./checkout";
+export { readAppControl, saveAppControl, featureOn, pausedResult, FEATURES } from "./appControl";
 export { pdfSafe } from "./pdfSafe";
 export * from "./currency";
 export { DEFAULT_LABELS, BUSINESS_PRESETS } from "./businessPresets";

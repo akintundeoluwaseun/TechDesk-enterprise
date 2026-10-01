@@ -14,6 +14,7 @@ import { storage } from "./storage";
 import { accountBridge } from "./accountBridge";
 import { accountLocal } from "./accountLocal";
 import { db } from "./db";
+import { whenOn } from "./appControl";
 
 function impl() {
   return hasHostBridge() ? accountBridge : accountLocal;
@@ -35,8 +36,9 @@ export const account = {
   },
   signUp: (...args) => impl().signUp(...args),
   signIn: (...args) => impl().signIn(...args),
-  push: (...args) => impl().push(...args),
-  pull: (...args) => impl().pull(...args),
+  // The console's "Cloud sync" switch: off, and both quietly answer "not now".
+  push: whenOn("sync", (...args) => impl().push(...args)),
+  pull: whenOn("sync", (...args) => impl().pull(...args)),
 
   /** The code from a signup confirmation email, typed in rather than a link
    * clicked -- see accountLocal.js for why. */
@@ -46,10 +48,10 @@ export const account = {
   confirmPasswordReset: (...args) => impl().confirmPasswordReset(...args),
 
   /** Owner only: issues the code a worker's device redeems below. */
-  inviteStart: (...args) => impl().inviteStart(...args),
+  inviteStart: whenOn("invites", (...args) => impl().inviteStart(...args)),
   /** A worker's device, joining with the shop's email, that code, and their
    * own name -- never the shop's password. */
-  workerJoin: (...args) => impl().workerJoin(...args),
+  workerJoin: whenOn("invites", (...args) => impl().workerJoin(...args)),
 
   /** Owner only: every worker currently connected to this account. */
   listWorkers: (...args) => impl().listWorkers(...args),

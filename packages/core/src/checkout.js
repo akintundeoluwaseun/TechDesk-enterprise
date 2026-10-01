@@ -18,6 +18,8 @@
 // LicenseContext's verifyCode(). This only gets a shop from "I paid" to
 // "here is the code", nothing more.
 
+import { featureOn, pausedResult } from "./appControl";
+
 const SUPABASE_URL = "https://wuwerzyydtvargvqjufb.supabase.co";
 const PUBLISHABLE_KEY = "sb_publishable_aiiQjedgBx4Tq-NX_jIGtw_ekAYgxV_";
 
@@ -48,8 +50,9 @@ export const checkout = {
    * checkout widget needs to open, never the price the caller asked for --
    * that would let it be edited before it reaches the server.
    */
-  async startOrder({ pin, tier, product = "plan", quantity, hqIdentity, contact }) {
-    return fnFetch("activation-order", { pin, tier, product, quantity, hqIdentity, contact });
+  async startOrder({ pin, tier, product = "plan", quantity, hqIdentity, contact, promo }) {
+    if (!featureOn("upgrade")) return pausedResult("upgrade");
+    return fnFetch("activation-order", { pin, tier, product, quantity, hqIdentity, contact, promo: promo || undefined });
   },
 
   /**
@@ -78,6 +81,7 @@ export const checkout = {
    * the whole unlock. {ok, tier, expiresAt, trial} or {ok:false, reason}.
    */
   async trialUnlock(pin, tier) {
+    if (!featureOn("upgrade")) return pausedResult("upgrade");
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/trial_unlock`, {
         method: "POST",
@@ -89,6 +93,22 @@ export const checkout = {
       return data && typeof data === "object" ? data : { ok: false, reason: "server_error" };
     } catch {
       return { ok: false, reason: "offline" };
+    }
+  },
+
+  /** Whether a promo code is good right now, and for how much off: {valid, code, percent}. */
+  async promoCheck(code) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/promo_check`, {
+        method: "POST",
+        headers: { apikey: PUBLISHABLE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_code: String(code || "") }),
+      });
+      if (!res.ok) return { valid: false, error: "server_error" };
+      const data = await res.json();
+      return data && typeof data === "object" ? data : { valid: false };
+    } catch {
+      return { valid: false, error: "offline" };
     }
   },
 

@@ -17,6 +17,7 @@
 import { hasHostBridge } from "./bridge";
 import { hqBridge } from "./hqBridge";
 import { hqLocal } from "./hqLocal";
+import { whenOn } from "./appControl";
 
 function impl() {
   return hasHostBridge() ? hqBridge : hqLocal;
@@ -29,8 +30,10 @@ export const hq = {
   available: () => true,
 
   status: (...args) => impl().status(...args),
-  connectStart: (...args) => impl().connectStart(...args),
-  connectVerify: (...args) => impl().connectVerify(...args),
+  // New connections follow the console's "Head office links" switch;
+  // branches already connected keep syncing either way.
+  connectStart: whenOn("hq", (...args) => impl().connectStart(...args)),
+  connectVerify: whenOn("hq", (...args) => impl().connectVerify(...args)),
   sync: (...args) => impl().sync(...args),
   disconnect: (...args) => impl().disconnect(...args),
 

@@ -118,6 +118,9 @@ export default function ActivationModal({ onClose }) {
   //   failed      something else went wrong; paying again means starting over
   const [payStep, setPayStep] = useState("idle");
   const [payEmail, setPayEmail] = useState(() => (settings?.email || "").trim());
+  // A promo code from the owner (console → Money → Promo codes). The server
+  // works out the discount; this only passes on what was typed.
+  const [promo, setPromo] = useState("");
   const [payError, setPayError] = useState("");
   const [payTxRef, setPayTxRef] = useState(null);
 
@@ -221,7 +224,9 @@ export default function ActivationModal({ onClose }) {
     const res = await checkout.trialUnlock?.(pin, chosenTier);
     if (!res?.ok) {
       setPayError(
-        res?.reason === "offline"
+        res?.reason === "paused"
+          ? res.message
+          : res?.reason === "offline"
           ? "Couldn't reach TechDesk. Check your internet and try again."
           : res?.reason === "payments_live"
             ? "Free testing has ended. Upgrading now takes a payment."
@@ -256,6 +261,7 @@ export default function ActivationModal({ onClose }) {
           tier: chosenTier,
           product: renewing ? "plan" : productFor(chosenTier),
           contact: trimmedEmail,
+          promo: promo.trim() || undefined,
         });
     if (!order.ok) {
       setPayError(order.message || "Couldn't start that order. Try again.");
@@ -511,6 +517,22 @@ export default function ActivationModal({ onClose }) {
                   autoComplete="email"
                   className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none mb-3 ${t.inputBg}`}
                 />
+                {!branchForm && (
+                  <>
+                    <label htmlFor="pay-promo" className={`text-sm font-medium block mb-1.5 ${t.textPrimary}`}>
+                      Promo code <span className={`font-normal ${t.textMuted}`}>(optional)</span>
+                    </label>
+                    <input
+                      id="pay-promo"
+                      type="text"
+                      value={promo}
+                      onChange={(e) => { setPromo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 20)); setPayError(""); }}
+                      placeholder="e.g. LAUNCH20"
+                      autoComplete="off"
+                      className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none mb-3 tracking-wider ${t.inputBg}`}
+                    />
+                  </>
+                )}
                 {payError && <p className="text-xs text-red-500 mb-3">{payError}</p>}
                 <div className="flex gap-2">
                   <button

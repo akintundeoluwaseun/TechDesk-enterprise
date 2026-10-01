@@ -27,7 +27,8 @@ import Toaster from "./components/Toaster";
 import AmbientGlow from "./components/AmbientGlow";
 import WhatsNewModal from "./components/WhatsNewModal";
 import AnnouncementModal from "./components/AnnouncementModal";
-import { useAnnouncementCheck, markAnnouncementSeen, unseenAnnouncements } from "./lib/announcements";
+import { useAnnouncementCheck, markAnnouncementSeen, unseenAnnouncements, appPlatform, appVersion } from "./lib/announcements";
+import { useAppControl, updateLink } from "./lib/appControl";
 import { hasUnseenUpdate, markUpdatesSeen, onOpenWhatsNew } from "./lib/whatsNew";
 import { isTourPending, markTourDone, markTourPending } from "./lib/tour";
 import { useHqSync } from "./lib/useHqSync";
@@ -271,10 +272,61 @@ function RemovedNotice() {
   );
 }
 
+// What the owner's console says for every app at once: a version too old to
+// keep using, and a maintenance notice. Above everything, on every screen,
+// the sign-in screen included.
+function AppControlLayer() {
+  const control = useAppControl();
+  const notice = control?.maintenance?.message || "";
+  const [hidden, setHidden] = useState(() => {
+    try { return sessionStorage.getItem("techdesk_maintenance_hidden") || ""; } catch { return ""; }
+  });
+  function hide() {
+    setHidden(notice);
+    try { sessionStorage.setItem("techdesk_maintenance_hidden", notice); } catch { /* private mode */ }
+  }
+
+  if (control?.updateRequired) {
+    const web = appPlatform() === "web";
+    return (
+      <div role="alertdialog" aria-modal="true" aria-labelledby="td-update-title" className="fixed inset-0 z-[2147483002] flex items-center justify-center bg-neutral-950/95 p-6">
+        <div className="max-w-sm w-full rounded-2xl bg-white text-neutral-900 p-6 text-center shadow-2xl">
+          <img src="./icon-192.png" alt="" className="w-14 h-14 rounded-2xl mx-auto mb-4" onError={(e) => { e.currentTarget.style.display = "none"; }} />
+          <h2 id="td-update-title" className="text-lg font-bold mb-2">Please update TechDesk</h2>
+          <p className="text-sm text-neutral-600 mb-5">
+            This version ({appVersion()}) is too old to keep using{control.minVersion ? `. Version ${control.minVersion} or newer is needed` : ""}.
+            Your records are safe on this device and will be there after the update.
+          </p>
+          {web ? (
+            <button type="button" onClick={() => window.location.reload()} className="w-full py-3 rounded-xl bg-neutral-900 text-white font-semibold">
+              Reload to update
+            </button>
+          ) : (
+            <a href={updateLink()} target="_blank" rel="noopener noreferrer" className="block w-full py-3 rounded-xl bg-neutral-900 text-white font-semibold">
+              Download the update
+            </a>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (!notice || hidden === notice) return null;
+  return (
+    <div role="status" className="fixed inset-x-0 top-0 z-[2147483000] flex justify-center p-2 pointer-events-none">
+      <div className="pointer-events-auto max-w-xl w-full rounded-xl bg-amber-400 text-amber-950 px-4 py-2.5 shadow-lg flex gap-3 items-center">
+        <p className="text-sm leading-snug flex-1"><strong>Heads up:</strong> {notice}</p>
+        <button type="button" onClick={hide} className="text-sm font-semibold underline underline-offset-2 shrink-0">OK</button>
+      </div>
+    </div>
+  );
+}
+
 function Root() {
   return (
     <>
       <RemovedNotice />
+      <AppControlLayer />
       <RootScreen />
     </>
   );
