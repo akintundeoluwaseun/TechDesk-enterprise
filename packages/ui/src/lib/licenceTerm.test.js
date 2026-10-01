@@ -59,3 +59,22 @@ describe("yearly plans", () => {
     expect(licenceActive({ found: false }, NOW)).toBe(false);
   });
 });
+
+describe("free test upgrades (payments still off)", () => {
+  const now = Date.parse("2026-10-01T12:00:00Z");
+  const trial = (tier, expiresAt) => ({ found: true, trial: true, tier, expiresAt });
+
+  it("a running trial licence gives its plan with no code at all", () => {
+    expect(effectiveTier({ bought: "free", unlocks: [], licence: trial("enterprise", "2027-10-01T00:00:00Z"), now })).toBe("enterprise");
+  });
+
+  it("ends the moment the owner turns payments on (the licence ends)", () => {
+    expect(effectiveTier({ bought: "free", unlocks: [], licence: trial("enterprise", "2026-10-01T11:00:00Z"), now })).toBe("free");
+  });
+
+  it("never takes away a plan unlocked with a code", () => {
+    const unlocks = [{ tier: "business", at: "2026-09-01T00:00:00Z", code: "x" }];
+    expect(effectiveTier({ bought: "business", unlocks, licence: trial("enterprise", "2026-10-01T11:00:00Z"), now })).toBe("business");
+    expect(effectiveTier({ bought: "business", unlocks, licence: trial("enterprise", "2027-10-01T00:00:00Z"), now })).toBe("enterprise");
+  });
+});

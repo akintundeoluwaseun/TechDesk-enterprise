@@ -208,6 +208,35 @@ export default function ActivationModal({ onClose }) {
     await applyClaimedCode(res.code, res.tier, txRef, res.expiresAt);
   }
 
+  // Payments still off: the owner is testing, and Upgrade is free (0034).
+  const testing = licence?.paymentsLive === false;
+  const [trialNote, setTrialNote] = useState("");
+  async function upgradeFree() {
+    setPayError("");
+    if (!pin) {
+      setPayError("Still preparing this device. Wait a moment and try again.");
+      return;
+    }
+    setPayStep("paying");
+    const res = await checkout.trialUnlock?.(pin, chosenTier);
+    if (!res?.ok) {
+      setPayError(
+        res?.reason === "offline"
+          ? "Couldn't reach TechDesk. Check your internet and try again."
+          : res?.reason === "payments_live"
+            ? "Free testing has ended. Upgrading now takes a payment."
+            : "Couldn't upgrade just now. Try again.",
+      );
+      setPayStep("idle");
+      await refreshLicence?.();
+      return;
+    }
+    await refreshLicence?.();
+    setTrialNote(`You're on ${TIER_META[res.tier]?.label || res.tier}, free while TechDesk is being tested.`);
+    setPayStep("idle");
+    setChosenTier(null);
+  }
+
   async function startPayment() {
     setPayError("");
     if (!pin) {
@@ -307,8 +336,14 @@ export default function ActivationModal({ onClose }) {
                   Upgrade to {candidateMeta.label}
                 </span>
                 <span className={`block text-xs font-semibold mt-0.5 ${t.textSecondary}`}>
-                  {naira(priceFor(candidate))}
-                  {productFor(candidate) === "upgrade" ? " for the rest of your plan year" : " a year"}
+                  {testing ? (
+                    "Free while we test"
+                  ) : (
+                    <>
+                      {naira(priceFor(candidate))}
+                      {productFor(candidate) === "upgrade" ? " for the rest of your plan year" : " a year"}
+                    </>
+                  )}
                 </span>
                 {preview && (
                   <span className={`block text-xs mt-0.5 truncate ${t.textMuted}`}>{preview}</span>
@@ -319,7 +354,7 @@ export default function ActivationModal({ onClose }) {
           );
         })}
 
-        {!chosenTier && !branchForm && renewTier && (
+        {!chosenTier && !branchForm && renewTier && !testing && (
           <button
             onClick={() => pick(renewTier, { renew: true })}
             className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
@@ -334,7 +369,13 @@ export default function ActivationModal({ onClose }) {
           </button>
         )}
 
-        {!chosenTier && tier === "enterprise" && !branchForm && (
+        {!chosenTier && tier === "enterprise" && testing && (
+          <p className={`text-xs mb-3 ${t.textMuted}`}>
+            Head-office branches are unlimited while TechDesk is being tested.
+          </p>
+        )}
+
+        {!chosenTier && tier === "enterprise" && !branchForm && !testing && (
           <button
             onClick={() => { setBranchForm(true); resetPay(); }}
             className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
@@ -417,15 +458,35 @@ export default function ActivationModal({ onClose }) {
                   ))}
                 </ul>
                 <p className={`text-xs mt-3 ${t.textMuted}`}>
-                  {productFor(chosenTier) === "upgrade" && !renewing
-                    ? `${naira(priceFor(chosenTier))} for the rest of your Business year, then ${naira(prices.enterprise?.amount)} a year.`
-                    : `${naira(prices[chosenTier]?.amount)} a year.`}{" "}
+                  {testing
+                    ? "Free while TechDesk is being tested."
+                    : productFor(chosenTier) === "upgrade" && !renewing
+                      ? `${naira(priceFor(chosenTier))} for the rest of your Business year, then ${naira(prices.enterprise?.amount)} a year.`
+                      : `${naira(prices[chosenTier]?.amount)} a year.`}{" "}
                   Your records stay exactly where they are &mdash; nothing to download, nothing to reinstall.
                 </p>
               </div>
             )}
 
-            {chosenTier && payStep === "idle" && (
+            {chosenTier && testing && !renewing && (payStep === "idle" || payStep === "paying") && (
+              <>
+                <button
+                  onClick={upgradeFree}
+                  disabled={payStep === "paying"}
+                  className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold mb-2 disabled:opacity-60 ${
+                    t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
+                  }`}
+                >
+                  <Check className="w-4 h-4" /> {payStep === "paying" ? "Upgrading…" : "Upgrade free while we test"}
+                </button>
+                <p className={`text-xs mb-4 text-center ${t.textMuted}`}>
+                  No payment is taken during testing. Paid plans start later.
+                </p>
+                {payError && <p className="text-xs text-red-500 mb-3">{payError}</p>}
+              </>
+            )}
+
+            {chosenTier && !testing && payStep === "idle" && (
               <button
                 onClick={() => setPayStep("email")}
                 className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold mb-4 ${
@@ -501,6 +562,7 @@ export default function ActivationModal({ onClose }) {
         )}
 
         {note && <p className={`text-sm text-emerald-600 mb-4`}>{note}</p>}
+        {trialNote && !chosenTier && <p className={`text-sm text-emerald-600 mb-4`}>{trialNote}</p>}
 
         {/* Only once there is a progression to show, and only on the plans
             screen -- a single tier's own page is not the place to recap the

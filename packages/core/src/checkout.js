@@ -71,6 +71,27 @@ export const checkout = {
     }
   },
 
+  /**
+   * While payments are off (the owner is still testing), Upgrade is free: the
+   * server gives this PIN a trial licence for the plan, which the owner's
+   * switch ends when payments go live. No code comes back -- the licence is
+   * the whole unlock. {ok, tier, expiresAt, trial} or {ok:false, reason}.
+   */
+  async trialUnlock(pin, tier) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/trial_unlock`, {
+        method: "POST",
+        headers: { apikey: PUBLISHABLE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_pin: String(pin), p_tier: tier }),
+      });
+      if (!res.ok) return { ok: false, reason: "server_error" };
+      const data = await res.json();
+      return data && typeof data === "object" ? data : { ok: false, reason: "server_error" };
+    } catch {
+      return { ok: false, reason: "offline" };
+    }
+  },
+
   /** Today's prices, from the server -- never hard-coded where a shop pays. */
   async prices() {
     try {

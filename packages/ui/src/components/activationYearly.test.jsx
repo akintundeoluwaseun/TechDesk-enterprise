@@ -8,8 +8,9 @@ import { SettingsProvider } from "../lib/SettingsContext";
 // for Enterprise, an Enterprise shop can buy extra head-office branches, and
 // the prices shown are the server's.
 
-const state = vi.hoisted(() => ({ tier: "business", upgrade: null }));
-const { verifyCode, startOrder, claimCode, payWithFlutterwave, prices } = vi.hoisted(() => ({
+const state = vi.hoisted(() => ({ tier: "business", upgrade: null, paymentsLive: true }));
+const { verifyCode, startOrder, claimCode, payWithFlutterwave, prices, trialUnlock } = vi.hoisted(() => ({
+  trialUnlock: vi.fn(),
   verifyCode: vi.fn(),
   startOrder: vi.fn(),
   claimCode: vi.fn(),
@@ -25,14 +26,14 @@ vi.mock("../lib/LicenseContext", async (importOriginal) => ({
     boughtTier: state.tier,
     unlocks: [],
     verifyCode,
-    licence: { found: true, tier: state.tier, expiresAt: "2027-09-30T00:00:00Z", upgrade: state.upgrade },
+    licence: { found: true, tier: state.tier, expiresAt: "2027-09-30T00:00:00Z", upgrade: state.upgrade, paymentsLive: state.paymentsLive },
     refreshLicence: async () => null,
   }),
 }));
 
 vi.mock("@techdesk/core", async (importOriginal) => ({
   ...(await importOriginal()),
-  checkout: { available: () => true, startOrder, claimCode, prices },
+  checkout: { available: () => true, startOrder, claimCode, prices, trialUnlock },
 }));
 
 vi.mock("../lib/flutterwave", () => ({ payWithFlutterwave }));
@@ -51,12 +52,30 @@ function open() {
 }
 
 beforeEach(() => {
-  [verifyCode, startOrder, claimCode, payWithFlutterwave, prices].forEach((f) => f.mockReset());
+  [verifyCode, startOrder, claimCode, payWithFlutterwave, prices, trialUnlock].forEach((f) => f.mockReset());
   prices.mockResolvedValue({
     business: { amount: 10000 }, enterprise: { amount: 20000 },
     upgrade_enterprise: { amount: 10000 }, branch: { amount: 5000 },
   });
   payWithFlutterwave.mockResolvedValue({ attempted: true });
+});
+
+describe("while payments are off", () => {
+  it("Upgrade is free: no payment, the server's trial licence instead", async () => {
+    state.tier = "free";
+    state.paymentsLive = false;
+    trialUnlock.mockResolvedValue({ ok: true, tier: "enterprise", trial: true });
+    open();
+    expect(screen.getAllByText(/Free while we test/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /Upgrade to TechDesk Enterprise/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Upgrade free while we test/i }));
+    await waitFor(() => expect(trialUnlock).toHaveBeenCalledWith("482913", "enterprise"));
+    expect(startOrder).not.toHaveBeenCalled();
+    expect(payWithFlutterwave).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByText(/free while TechDesk is being tested/)).toBeTruthy());
+    state.paymentsLive = true;
+    state.tier = "business";
+  });
 });
 
 describe("yearly plans", () => {

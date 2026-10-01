@@ -39,6 +39,17 @@ export function licenceActive(licence, now = Date.now()) {
  *   licence  the cached answer from licence_status: {found, tier, expiresAt, checkedAt}
  */
 export function effectiveTier({ bought, unlocks = [], licence = null, now = Date.now() }) {
+  const fromCodes = tierFromCodes({ bought, unlocks, licence, now });
+  // A free test upgrade (payments still off): the server's trial licence is
+  // the whole unlock, and it counts only while it runs. The owner switching
+  // payments on ends it; codes the device holds are untouched by that.
+  if (licence?.trial && isTier(licence.tier) && licenceActive(licence, now)) {
+    return higher(fromCodes, licence.tier);
+  }
+  return fromCodes;
+}
+
+function tierFromCodes({ bought, unlocks, licence, now }) {
   if (!isTier(bought) || bought === FREE_TIER) return FREE_TIER;
   // Activated before there was any history to record -- the old flag. Those
   // shops paid for good.
@@ -57,7 +68,7 @@ export function effectiveTier({ bought, unlocks = [], licence = null, now = Date
       continue;
     }
 
-    if (licence?.found) {
+    if (licence?.found && !licence.trial) {
       // The server has a record. It decides, up to what the code proves.
       if (active) best = higher(best, isUpgrade(licence.tier, u.tier) ? licence.tier : u.tier);
       continue;
