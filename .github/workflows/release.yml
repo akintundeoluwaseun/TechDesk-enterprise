@@ -17,7 +17,30 @@ permissions:
   contents: read
 
 jobs:
+  # The release is made once, here, before any installer is built. Left to
+  # electron-builder, all three runners look for it at the same moment,
+  # find nothing, and all try to create it: the first wins and the others
+  # stop with "already_exists" -- which is how 4.4.2 and 4.6.0 shipped with
+  # no Mac installers. Now they only ever find it and upload.
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create the release for this version
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          V=$(node -p "require('./apps/desktop/package.json').version")
+          code=$(curl -s -o out.json -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/akintundeoluwaseun/TechDesk-releases-/releases \
+            -d "{\"tag_name\":\"v$V\",\"name\":\"$V\"}")
+          echo "v$V: HTTP $code"
+          # 201 made it; 422 means it was already there (a re-run). Anything else is a real failure.
+          if [ "$code" != "201" ] && ! { [ "$code" = "422" ] && grep -q already_exists out.json; }; then cat out.json; exit 1; fi
+
   build:
+    needs: release
     strategy:
       fail-fast: false
       matrix:
