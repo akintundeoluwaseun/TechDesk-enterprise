@@ -154,7 +154,9 @@ jobs:
           # store share it, so ANDROID_KEY_PASSWORD is deliberately not read
           # -- a second copy of the same value is a second chance to mistype
           # it, and it buys nothing.
-          ./gradlew assembleRelease \
+          # bundleRelease: the .aab Google Play takes (Play only accepts
+          # bundles). Same key, so it can be the Play "upload key".
+          ./gradlew assembleRelease bundleRelease \
             -Pandroid.injected.signing.store.file="$KEYSTORE" \
             -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$ALIAS" \
@@ -228,3 +230,23 @@ jobs:
         with:
           name: techdesk-apk
           path: ${{ steps.apk.outputs.path }}
+
+      # For the Play Console only: kept as a private download on this run
+      # (Actions -> this run -> Artifacts), not on the public releases page.
+      - name: Name the Play Store bundle
+        id: aab
+        if: steps.keystore.outputs.signed == 'true'
+        working-directory: apps/mobile
+        run: |
+          SRC=$(find android/app/build/outputs/bundle -name "*.aab" | head -1)
+          if [ -z "$SRC" ]; then echo "::error::No .aab was built."; exit 1; fi
+          DEST="TechDesk-${{ steps.apk.outputs.version }}-play.aab"
+          cp "$SRC" "$DEST"
+          echo "path=apps/mobile/$DEST" >> "$GITHUB_OUTPUT"
+          ls -la "$DEST"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.keystore.outputs.signed == 'true'
+        with:
+          name: techdesk-play-bundle
+          path: ${{ steps.aab.outputs.path }}

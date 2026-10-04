@@ -8,6 +8,7 @@ import DeveloperTab from "./DeveloperTab";
 import UpgradeLock from "../../components/UpgradeLock";
 import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
 import { useAuth } from "../../lib/AuthContext";
+import { SITE_ORIGIN } from "@techdesk/editions";
 
 const MODES = {
   signin: "signin",
@@ -233,6 +234,15 @@ export default function AccountTab() {
               <LogIn className="w-4 h-4" /> Sign in to a different business
             </button>
           </div>
+          <p className={`mt-4 text-xs ${t.textMuted} flex flex-wrap gap-x-4 gap-y-1`}>
+            {!isWorker && (
+              <a href={`${SITE_ORIGIN}/delete-account`} target="_blank" rel="noopener noreferrer" className="text-red-500 underline underline-offset-2">
+                Delete my account
+              </a>
+            )}
+            <a href={`${SITE_ORIGIN}/privacy`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Privacy policy</a>
+            <a href={`${SITE_ORIGIN}/terms`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Terms</a>
+          </p>
         </div>
       </div>
   ) : (

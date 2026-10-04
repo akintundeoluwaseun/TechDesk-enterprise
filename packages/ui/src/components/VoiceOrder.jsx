@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square } from "lucide-react";
 import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn } from "@techdesk/core";
 import { useThemeTokens } from "../lib/ThemeContext";
+import { SITE_ORIGIN } from "@techdesk/editions";
 import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { money } from "../lib/currency";
@@ -420,7 +421,7 @@ export default function VoiceOrder() {
             <li>• Hold the mic and say what happened: <i>“Sell two chargers to Chidi, he paid transfer. Add ten iPhone 11 batteries.”</i></li>
             <li>• You check everything before it's saved. Nothing is saved on its own.</li>
             <li>• Hold the button while you talk and let go to send, or tap once to start and again to finish.</li>
-            <li>• Your voice note and your product names are sent to Google's Gemini AI to understand them. Google may use them to improve its products. Your customers, prices and sales are not sent.</li>
+            <li>• Your voice note and your product names are sent to Google's Gemini AI to understand them. Google may use them to improve its products. Your customers, prices and sales are not sent. <a href={`${SITE_ORIGIN}/privacy`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Privacy policy</a></li>
           </ul>
           <button type="button" onClick={() => { voiceOrder.giveVoiceConsent(); setPhase("idle"); }}
             className={`w-full py-3 rounded-xl font-semibold ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}>
