@@ -1,7 +1,7 @@
 {
   "name": "techdesk",
   "productName": "TechDesk",
-  "version": "4.3.0",
+  "version": "4.4.0",
   "description": "The shop, on the computer at the counter. Free to use; Business and Enterprise unlock in place.",
   "homepage": "https://www.techdesk.space",
   "author": {
@@ -62,7 +62,10 @@
       "target": [
         "dmg",
         "zip"
-      ]
+      ],
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "TechDesk uses the microphone for voice orders: you say what happened and check it before it's saved."
+      }
     },
     "linux": {
       "target": [

@@ -9,13 +9,14 @@ import { storage } from "./storage";
 
 const KEY = "techdesk_app_control";
 
-export const FEATURES = ["sync", "invites", "upgrade", "hq"];
+export const FEATURES = ["sync", "invites", "upgrade", "hq", "ai"];
 
 const PAUSED = {
   sync: "Sync is paused for a short while. Everything you do is saved on this device and syncs when it's back.",
   invites: "Adding workers is paused for a short while. Please try again later.",
   upgrade: "Upgrades are paused for a short while. Please try again later.",
   hq: "Connecting to a head office is paused for a short while. Please try again later.",
+  ai: "Voice orders are paused for a short while. Please use the buttons for now.",
 };
 
 export function readAppControl() {

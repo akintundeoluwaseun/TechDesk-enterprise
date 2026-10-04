@@ -29,6 +29,7 @@ import WhatsNewModal from "./components/WhatsNewModal";
 import AnnouncementModal from "./components/AnnouncementModal";
 import { useAnnouncementCheck, markAnnouncementSeen, unseenAnnouncements, appPlatform, appVersion } from "./lib/announcements";
 import { useAppControl, updateLink } from "./lib/appControl";
+import VoiceOrder, { VOICE_SAVED_EVENT } from "./components/VoiceOrder";
 import { hasUnseenUpdate, markUpdatesSeen, onOpenWhatsNew } from "./lib/whatsNew";
 import { isTourPending, markTourDone, markTourPending } from "./lib/tour";
 import { useHqSync } from "./lib/useHqSync";
@@ -82,6 +83,13 @@ function Shell() {
   const location = useLocation();
   const { open: helpOpen, dismiss: dismissHelp } = useHelp();
   const [showActivation, setShowActivation] = useState(false);
+  // A voice order saved (or undone) behind the page: show it straight away.
+  const [voiceTick, setVoiceTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setVoiceTick((n) => n + 1);
+    window.addEventListener(VOICE_SAVED_EVENT, bump);
+    return () => window.removeEventListener(VOICE_SAVED_EVENT, bump);
+  }, []);
   // A locked control anywhere in the app can open this, without every page
   // having to be handed a callback it does not otherwise care about.
   useEffect(() => onOpenUpgrade(() => setShowActivation(true)), []);
@@ -189,7 +197,7 @@ function Shell() {
         <MobileAppBar onOpenActivation={() => setShowActivation(true)} />
         <Suspense fallback={null}>
           {/* Keyed on the page, so every move between pages plays the entrance. */}
-          <div key={location.pathname} className="td-page">
+          <div key={`${location.pathname}#${voiceTick}`} className="td-page">
           <Routes>
             <Route path="/" element={<Guard path="/"><DashboardPage /></Guard>} />
             <Route path="/sales" element={<Guard path="/sales"><SalesPage /></Guard>} />
@@ -205,6 +213,7 @@ function Shell() {
         </Suspense>
       </div>
       <Toaster />
+      <VoiceOrder />
       {showActivation && <ActivationModal onClose={() => setShowActivation(false)} />}
       {mergeEditions.length > 0 ? (
         <DataMergeModal editions={mergeEditions} onClose={dismissMerge} />

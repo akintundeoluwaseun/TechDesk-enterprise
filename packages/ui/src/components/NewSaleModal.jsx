@@ -221,6 +221,8 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
         productId: i.productId,
         name: i.name,
         price: i.price,
+        // Carried through, or the report falls back to today's cost.
+        costPrice: Number(i.costPrice || 0),
         qty: i.qty,
         imei: i.imei || "",
         fromInventory: i.fromInventory,

@@ -55,6 +55,7 @@ export { searchDestinations, DESTINATIONS } from "./destinations";
 export { rowsToCsv } from "./csv";
 export { checkout } from "./checkout";
 export { readAppControl, saveAppControl, featureOn, pausedResult, FEATURES } from "./appControl";
+export { voiceOrder, matchProduct, matchCustomer, matchRepair, PAYMENT_METHODS as VOICE_PAYMENT_METHODS } from "./voiceOrder";
 export { pdfSafe } from "./pdfSafe";
 export * from "./currency";
 export { DEFAULT_LABELS, BUSINESS_PRESETS } from "./businessPresets";
