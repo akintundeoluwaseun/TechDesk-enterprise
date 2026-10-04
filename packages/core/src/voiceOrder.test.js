@@ -79,14 +79,14 @@ describe("drafts: what the shop checks before saving", () => {
     expect(issues(sale)).toEqual([
       'Which product is "iphone battery"?',
       'Price for iphone battery?',
-      '"PS5 controller" isn\'t in your stock. Pick a product or add it first.',
       'Price for PS5 controller?',
       "Which Aisha?",
     ]);
+    expect(sale.items[1].oneOff).toBe(true);
     expect(issues(stock)).toEqual(["Selling price for Infinix Hot 40 screen?"]);
     expect(issues(status)).toEqual(["Couldn't find that repair."]);
     expect(q.include).toBe(false);
-    expect(issues(q)).toEqual(["Questions aren't answered by voice yet."]);
+    expect(q.answer.title).toMatch(/can't answer/);
   });
 
   it("won't sell more than the shelf holds", () => {
@@ -139,7 +139,7 @@ describe("saving, and undoing", () => {
     const drafts = resolve([
       { type: "payment", customerName: "Chidi", amountPaid: 10000 },
       { type: "sale", items: [{ product: "charger", qty: 1 }] },
-      { type: "sale", items: [{ product: "PS5 controller", qty: 1 }] },
+      { type: "sale", items: [{ product: "iphone battery", qty: 1 }] },
     ]);
     // Chidi owes on a sale and on a repair: it asks which, rather than guessing.
     expect(issues(drafts[0])).toEqual(["Which one is being paid?"]);
@@ -182,5 +182,23 @@ describe("talking to the server", () => {
   it("is offline when nothing answers", async () => {
     expect(await isOnline({ fetchImpl: async () => { throw new Error("no route"); } })).toBe(false);
     expect(await isOnline({ fetchImpl: async () => ({ ok: true }) })).toBe(true);
+  });
+});
+
+describe("things the shop sells that aren't in its stock", () => {
+  beforeEach(() => storage.clear());
+
+  it("sells them as a one-off item once a price is given, without touching stock", () => {
+    seed();
+    const [d] = resolve([{ type: "sale", customerName: "Chidi", items: [{ product: "Phone pouch", qty: 2 }] }]);
+    expect(issues(d)).toEqual(["Price for Phone pouch?"]);
+    d.items[0].price = 1500;
+    expect(issues(d)).toEqual([]);
+    const stockBefore = db.getInventory().map((p) => p.stock).join();
+    apply([d]);
+    const sale = db.getSales()[0];
+    expect(sale.total).toBe(3000);
+    expect(sale.items[0]).toMatchObject({ name: "Phone pouch", productId: null, fromInventory: false });
+    expect(db.getInventory().map((p) => p.stock).join()).toBe(stockBefore);
   });
 });

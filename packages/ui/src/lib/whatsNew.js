@@ -9,6 +9,28 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-04b",
+    date: "4 October 2026",
+    title: "TechDesk 4.4.3: your shop assistant",
+    items: [
+      {
+        icon: "sparkles",
+        title: "Ask your shop anything",
+        text: "Tap the sparkle button and type or talk: \u201cWho owes me?\u201d, \u201cWhat's my profit this week?\u201d, \u201cWhat's running low?\u201d. The answer is worked out on your phone from your own records.",
+      },
+      {
+        icon: "zap",
+        title: "Sell things you don't stock",
+        text: "Say a product that isn't in your stock and TechDesk sells it as a one-off item: just add the price. Or pick the right product from your stock.",
+      },
+      {
+        icon: "zap",
+        title: "Practice first",
+        text: "Tap Practice in the assistant: five short tries teach you how to say things so it gets them right every time. Nothing is saved while you practise.",
+      },
+    ],
+  },
+  {
     id: "2026-10-04",
     date: "4 October 2026",
     title: "TechDesk 4.4: voice orders",

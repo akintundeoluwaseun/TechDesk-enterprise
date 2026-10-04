@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square } from "lucide-react";
+import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Sparkles } from "lucide-react";
 import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn } from "@techdesk/core";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { SITE_ORIGIN } from "@techdesk/editions";
@@ -7,6 +7,7 @@ import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { money } from "../lib/currency";
 import { toast } from "../lib/toast";
+import { db } from "../lib/db";
 import { canRecord, startRecording, blobToWavBase64, MAX_SECONDS } from "../lib/voiceRecorder";
 
 // Voice orders: hold the mic, say what happened, check it, save it.
@@ -72,7 +73,24 @@ function TextField({ label, value, onChange, t }) {
   );
 }
 
-function DraftCard({ d, update, settings, t, allowed }) {
+function AnswerCard({ a, t, settings }) {
+  return (
+    <div className={`rounded-2xl p-3 ${t.insetBg}`}>
+      <div className={`text-xs font-bold uppercase tracking-wider ${t.textMuted}`}>{a.title}</div>
+      {a.lines.length === 0 && <p className={`text-sm mt-1 whitespace-pre-line ${t.textSecondary}`}>{a.empty}</p>}
+      <div className="mt-1 divide-y divide-neutral-500/15">
+        {a.lines.map((l, i) => (
+          <div key={i} className="flex justify-between gap-3 py-1.5 text-sm">
+            <span className={`min-w-0 ${t.textSecondary}`}>{l.label}</span>
+            <span className={`font-semibold tabular-nums shrink-0 ${t.textPrimary}`}>{l.money ? money(l.value, settings) : l.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DraftCard({ d, update, settings, t, allowed, practice }) {
   const problems = voiceOrder.issues(d);
   const set = (patch) => update({ ...d, ...patch });
   const ready = problems.length === 0;
@@ -110,13 +128,20 @@ function DraftCard({ d, update, settings, t, allowed }) {
           return (
             <div key={idx} className={`mt-2 rounded-xl p-2 ${t.insetBg}`}>
               <div className={`text-sm font-medium ${t.textPrimary}`}>{it.productId ? it.name : `"${it.said}"`}</div>
+              {!it.productId && it.oneOff && (
+                <p className={`text-xs ${t.textMuted}`}>Not in your stock: sold as a one-off item. Stock isn't changed.</p>
+              )}
               {!it.productId && (
                 <Picker
                   t={t}
                   value=""
-                  placeholder={it.candidates.length ? "Which product?" : "Not in your stock. Pick a product"}
-                  options={(it.candidates.length ? it.candidates : []).map((c) => ({ value: c.id, label: `${c.name} · ${fmt(c.price)} · ${c.stock} left` }))}
+                  placeholder={it.oneOff ? "Or pick one of your products…" : "Which product?"}
+                  options={[
+                    ...it.candidates.map((c) => ({ value: c.id, label: `${c.name} · ${fmt(c.price)} · ${c.stock} left` })),
+                    ...(it.oneOff ? [] : [{ value: "__oneoff", label: `Sell "${it.said}" as a one-off item` }]),
+                  ]}
                   onChange={(v) => {
+                    if (v === "__oneoff") return setItem({ oneOff: true });
                     const c = it.candidates.find((x) => x.id === v);
                     if (c) setItem({ productId: c.id, name: c.name, price: it.price != null ? it.price : Number(c.price) || 0, stock: Number(c.stock || 0), costPrice: Number(c.costPrice || 0), candidates: [] });
                   }}
@@ -204,6 +229,8 @@ function DraftCard({ d, update, settings, t, allowed }) {
         <NumberField t={t} label="Amount paid" value={d.amount} onChange={(v) => set({ amount: v })} />
       </>
     );
+  } else if (d.question && d.answer) {
+    return <AnswerCard a={d.answer} t={t} settings={settings} />;
   } else {
     body = <p className={`text-sm ${t.textSecondary}`}>{d.note || "This part couldn't be turned into an action."}</p>;
   }
@@ -212,7 +239,7 @@ function DraftCard({ d, update, settings, t, allowed }) {
   return (
     <div className={`rounded-2xl p-3 border ${ready && d.include ? "border-emerald-500/40" : t.divider} ${d.include ? "" : "opacity-60"}`}>
       <div className="flex items-center gap-2 mb-1">
-        {actionable && (
+        {actionable && !practice && (
           <input type="checkbox" checked={d.include && can} disabled={!can} onChange={(e) => set({ include: e.target.checked })}
             className="w-5 h-5 accent-emerald-500" aria-label={`Include ${TITLE[d.type]}`} />
         )}
@@ -229,242 +256,461 @@ function DraftCard({ d, update, settings, t, allowed }) {
   );
 }
 
+// ------------------------------------------------------------- practice --
+const TIPS = [
+  "Say the customer's name and how many: “two chargers to Chidi”.",
+  "Say how they paid: cash, transfer or POS. If they still owe, say how much they paid.",
+  "Use your product names the way they're written in your stock.",
+  "Say amounts plainly: “eighteen thousand” or “18k”.",
+  "Several things at once? Pause and say “then” between them.",
+  "Hold the phone close and speak a little slower than normal.",
+];
+
+function practiceLessons(inventory, customers) {
+  const p1 = inventory[0]?.name || "screen guard";
+  const p2 = inventory[1]?.name || inventory[0]?.name || "phone charger";
+  const c1 = (customers[0]?.name || "Chidi").split(" ")[0];
+  const c2 = (customers[1]?.name || "Aisha").split(" ")[0];
+  return [
+    { title: "Make a sale", say: `Sell two ${p1} to ${c1}, he paid by transfer.`, expect: ["sale"] },
+    { title: "Add stock", say: `Add ten ${p2}, I bought them for eleven thousand each.`, expect: ["stock"] },
+    { title: "Book a repair", say: `New repair for ${c2}, Samsung A54 not charging, fifteen thousand.`, expect: ["repair"] },
+    { title: "Ask a question", say: "How much did I sell today?", expect: ["question"] },
+    { title: "Two things at once", say: `Sell one ${p1} to ${c1} cash, then add five ${p2}.`, expect: ["sale", "stock"] },
+  ];
+}
+
+const EXAMPLES = ["How much did I sell today?", "Who owes me?", "What's running low?", "Which repairs are ready but not collected?"];
+
+let msgSeq = 0;
+const mid = () => `m${Date.now().toString(36)}${(msgSeq++).toString(36)}`;
+
 export default function VoiceOrder() {
   const t = useThemeTokens();
   const { user } = useAuth();
   const { settings } = useSettings();
-  const [phase, setPhase] = useState("idle"); // idle | checking | offline | consent | recording | sending | review | error
-  const [seconds, setSeconds] = useState(0);
+  const [open, setOpen] = useState(false);
+  const [sheet, setSheet] = useState(null); // null | offline | consent | error
   const [error, setError] = useState("");
-  const [result, setResult] = useState(null);
-  const [drafts, setDrafts] = useState([]);
-  const [undo, setUndo] = useState(null);
+  const [busy, setBusy] = useState(false); // sending to the server
+  const [recording, setRecording] = useState(false);
+  const [seconds, setSeconds] = useState(0);
+  const [tapMode, setTapMode] = useState(false);
+  const [input, setInput] = useState("");
+  const [messages, setMessages] = useState([]);
+  const [practice, setPractice] = useState(null); // null | {step, results}
+  const [left, setLeft] = useState(null);
   const rec = useRef(null);
   const timer = useRef(null);
+  const holdTimer = useRef(null);
   const pressedAt = useRef(0);
-  const toggleMode = useRef(false);
-  const [tapMode, setTapMode] = useState(false);
+  const afterConsent = useRef(null);
+  const listEnd = useRef(null);
 
-  useEffect(() => () => { clearInterval(timer.current); rec.current?.cancel(); }, []);
-  useEffect(() => {
-    if (!undo) return undefined;
-    const id = setTimeout(() => setUndo(null), 10000);
-    return () => clearTimeout(id);
-  }, [undo]);
+  useEffect(() => () => { clearInterval(timer.current); clearTimeout(holdTimer.current); rec.current?.cancel(); }, []);
+  useEffect(() => { listEnd.current?.scrollIntoView?.({ block: "end" }); }, [messages, busy, practice]);
 
-  if (!featureOn("ai") || !canRecord()) return null;
-
+  if (!featureOn("ai")) return null;
+  const micOk = canRecord();
   const allowed = (type) => !PAGE_FOR[type] || canAccess(user, PAGE_FOR[type]);
+  const say = (m) => setMessages((list) => [...list, { id: mid(), ...m }]);
+  const updateMsg = (id, patch) => setMessages((list) => list.map((m) => (m.id === id ? { ...m, ...patch } : m)));
 
-  async function begin() {
-    setError("");
-    setPhase("checking");
+  /** Online and agreed to the notice; otherwise shows why and remembers what to do next. */
+  async function ready(next) {
     if (!(await voiceOrder.isOnline())) {
-      setPhase("offline");
+      afterConsent.current = null;
+      setSheet("offline");
       return false;
     }
     if (!voiceOrder.hasVoiceConsent()) {
-      setPhase("consent");
+      afterConsent.current = next;
+      setSheet("consent");
       return false;
     }
+    return true;
+  }
+
+  async function handleResult(res, { practiceStep } = {}) {
+    if (!res.ok) {
+      say({ role: "assistant", kind: "error", text: res.message });
+      if (res.error === "offline") setSheet("offline");
+      return;
+    }
+    if (typeof res.left === "number") setLeft(res.left);
+    if (res.transcript) say({ role: "user", text: res.transcript, heard: true });
+    const drafts = voiceOrder.resolve(res.actions).map((d) => (allowed(d.type) ? d : { ...d, include: false }));
+    if (practiceStep != null) {
+      const lesson = practice?.lessons?.[practiceStep];
+      const got = drafts.map((d) => d.type);
+      const passed = lesson ? lesson.expect.every((e) => got.includes(e)) : false;
+      setPractice((p) => p && { ...p, results: { ...p.results, [practiceStep]: passed } });
+      say({ role: "assistant", kind: "drafts", drafts, practice: true, passed });
+      return;
+    }
+    if (!drafts.length) {
+      say({ role: "assistant", kind: "error", text: "I didn't catch anything to do. Try “Sell two chargers to Chidi” or “Who owes me?”." });
+      return;
+    }
+    say({ role: "assistant", kind: "drafts", drafts });
+  }
+
+  async function sendText(text, opts) {
+    const clean = String(text || "").trim();
+    if (!clean || busy) return;
+    if (!(await ready(() => sendText(clean, opts)))) return;
+    setInput("");
+    say({ role: "user", text: clean });
+    setBusy(true);
+    try {
+      const res = await voiceOrder.send({ text: clean });
+      await handleResult({ ...res, transcript: "" }, opts);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startRec() {
+    if (!(await ready(() => startRec()))) return false;
     try {
       rec.current = await startRecording();
     } catch {
       setError("TechDesk couldn't use the microphone. Allow microphone access for TechDesk in your phone or computer settings, then try again.");
-      setPhase("error");
+      setSheet("error");
       return false;
     }
     setSeconds(0);
-    setPhase("recording");
+    setRecording(true);
     const started = Date.now();
     timer.current = setInterval(() => {
       const s = Math.floor((Date.now() - started) / 1000);
       setSeconds(s);
-      if (s >= MAX_SECONDS) finish();
+      if (s >= MAX_SECONDS) stopRec();
     }, 250);
     return true;
   }
 
-  async function finish() {
+  async function stopRec() {
     clearInterval(timer.current);
     const r = rec.current;
     rec.current = null;
-    toggleMode.current = false;
+    setRecording(false);
     setTapMode(false);
     if (!r) return;
-    setPhase("sending");
+    setBusy(true);
     try {
       const blob = await r.stop();
       const { audio, seconds: len } = await blobToWavBase64(blob);
       if (len < 0.8) {
-        setPhase("idle");
-        toast({ title: "Hold the button while you speak", tone: "info" });
+        say({ role: "assistant", kind: "error", text: "That was too short. Hold the mic while you speak, or tap once to start and again to finish." });
         return;
       }
       const res = await voiceOrder.send({ audio, mime: "audio/wav" });
-      if (!res.ok) {
-        setError(res.message);
-        setPhase(res.error === "offline" ? "offline" : "error");
-        return;
-      }
-      setResult(res);
-      setDrafts(voiceOrder.resolve(res.actions).map((d) => (allowed(d.type) ? d : { ...d, include: false })));
-      setPhase("review");
+      await handleResult(res, practice ? { practiceStep: practice.step } : undefined);
     } catch {
-      setError("Couldn't read that recording. Try again.");
-      setPhase("error");
+      say({ role: "assistant", kind: "error", text: "Couldn't read that recording. Try again." });
+    } finally {
+      setBusy(false);
     }
   }
 
-  function cancelRecording() {
+  function cancelRec() {
     clearInterval(timer.current);
     rec.current?.cancel();
     rec.current = null;
-    toggleMode.current = false;
+    setRecording(false);
     setTapMode(false);
-    setPhase("idle");
   }
 
-  async function onPointerDown(e) {
+  // The mic: hold to talk, or tap once to start and again to finish.
+  async function micDown(e) {
     e.preventDefault();
-    if (phase === "recording") return finish();
-    if (phase !== "idle") return undefined;
+    if (recording) return stopRec();
+    if (busy) return undefined;
     pressedAt.current = Date.now();
-    toggleMode.current = false;
-    const started = await begin();
-    // Let go before recording even started: treat it as a tap, and keep
-    // recording until the next tap.
-    if (started && !pressedAt.current) {
-      toggleMode.current = true;
-      setTapMode(true);
-    }
+    const started = await startRec();
+    if (started && !pressedAt.current) setTapMode(true);
     return undefined;
   }
-
-  function onPointerUp() {
+  function micUp() {
     const held = Date.now() - pressedAt.current;
     pressedAt.current = 0;
-    if (phase !== "recording" || toggleMode.current) return;
-    if (held < 400) {
-      toggleMode.current = true; // a quick tap: keep recording until tapped again
-      setTapMode(true);
-      return;
-    }
-    finish();
+    if (!rec.current || tapMode) return;
+    if (held < 400) { setTapMode(true); return; }
+    stopRec();
   }
 
-  function save() {
-    const out = voiceOrder.apply(drafts.filter((d) => allowed(d.type)), { actor: user?.name });
-    setPhase("idle");
-    setDrafts([]);
+  // The round button: a tap opens the assistant; holding it records straight away.
+  function fabDown(e) {
+    e.preventDefault();
+    if (recording) return stopRec();
+    clearTimeout(holdTimer.current);
+    pressedAt.current = Date.now();
+    holdTimer.current = setTimeout(async () => {
+      holdTimer.current = null;
+      setOpen(true);
+      if (!micOk) return;
+      // The button is gone once the panel opens, so the release is heard on
+      // the whole window. Let go before the mic was ready: carry on in tap mode.
+      let released = false;
+      const onRelease = () => {
+        released = true;
+        window.removeEventListener("pointerup", onRelease);
+        if (rec.current) stopRec();
+      };
+      window.addEventListener("pointerup", onRelease);
+      const started = await startRec();
+      if (!started) window.removeEventListener("pointerup", onRelease);
+      else if (released) setTapMode(true);
+    }, 350);
+    return undefined;
+  }
+  function fabUp() {
+    if (holdTimer.current) {
+      clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+      pressedAt.current = 0;
+      setOpen(true);
+      return;
+    }
+    micUp();
+  }
+
+  function save(msg) {
+    const out = voiceOrder.apply(msg.drafts.filter((d) => allowed(d.type)), { actor: user?.name });
     if (out.saved) {
-      setUndo(out.undo);
+      updateMsg(msg.id, { saved: out.saved, undo: out.undo });
       window.dispatchEvent(new CustomEvent(VOICE_SAVED_EVENT));
     }
   }
-
-  function doUndo() {
-    voiceOrder.runUndo(undo);
-    setUndo(null);
+  function undoMsg(msg) {
+    voiceOrder.runUndo(msg.undo);
+    updateMsg(msg.id, { undone: true, undo: null });
     window.dispatchEvent(new CustomEvent(VOICE_SAVED_EVENT));
     toast({ title: "Undone", tone: "info" });
   }
 
-  const ready = drafts.filter((d) => d.include && allowed(d.type) && voiceOrder.issues(d).length === 0);
-  const blocked = drafts.filter((d) => d.include && voiceOrder.issues(d).length > 0);
+  function startPractice() {
+    const lessons = practiceLessons(db.getInventory(), db.getCustomers());
+    setPractice({ step: 0, lessons, results: {} });
+    say({ role: "assistant", kind: "info", text: "Practice: say each sentence, then see what TechDesk understood. Nothing is saved while you practise." });
+  }
+
+  const primaryBtn = `rounded-xl font-semibold ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`;
+  const lesson = practice?.lessons?.[practice.step];
 
   return (
     <>
-      <button
-        type="button"
-        data-tour="voice-order"
-        onPointerDown={onPointerDown}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        onContextMenu={(e) => e.preventDefault()}
-        aria-label={phase === "recording" ? "Stop recording" : "Voice order: hold to talk"}
-        className={`fixed right-4 bottom-20 md:bottom-6 z-[45] w-14 h-14 rounded-full shadow-xl flex items-center justify-center select-none touch-none transition-transform active:scale-95 ${
-          phase === "recording" ? "bg-red-500 text-white animate-pulse" : "bg-gradient-to-br from-indigo-600 to-sky-500 text-white"
-        }`}
-      >
-        {phase === "sending" || phase === "checking" ? <Loader2 className="w-6 h-6 animate-spin" /> : phase === "recording" ? <Square className="w-5 h-5" /> : <Mic className="w-6 h-6" />}
-      </button>
-
-      {phase === "recording" && (
-        <div className="fixed right-20 bottom-[5.6rem] md:bottom-9 z-[45] rounded-full bg-neutral-900/95 text-white text-sm px-4 py-2 shadow-lg flex items-center gap-3" role="status">
-          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-          {tapMode ? "Listening… tap to finish" : "Listening… let go to send"} · {seconds}s
-          <button type="button" onClick={cancelRecording} className="underline underline-offset-2">Cancel</button>
-        </div>
-      )}
-      {phase === "sending" && (
-        <div className="fixed right-20 bottom-[5.6rem] md:bottom-9 z-[45] rounded-full bg-neutral-900/95 text-white text-sm px-4 py-2 shadow-lg" role="status">
-          Working it out…
-        </div>
+      {!open && (
+        <button
+          type="button"
+          data-tour="voice-order"
+          onPointerDown={fabDown}
+          onPointerUp={fabUp}
+          onPointerCancel={fabUp}
+          onContextMenu={(e) => e.preventDefault()}
+          aria-label={recording ? "Stop recording" : "TechDesk Assistant: tap to open, hold to talk"}
+          className={`fixed right-4 bottom-20 md:bottom-6 z-[45] w-14 h-14 rounded-full shadow-xl flex items-center justify-center select-none touch-none transition-transform active:scale-95 ${
+            recording ? "bg-red-500 text-white animate-pulse" : "bg-gradient-to-br from-indigo-600 to-sky-500 text-white"
+          }`}
+        >
+          {recording ? <Square className="w-5 h-5" /> : <Mic className="w-6 h-6" />}
+        </button>
       )}
 
-      {phase === "offline" && (
-        <Sheet t={t} onClose={() => setPhase("idle")} label="No internet">
+      {open && (
+        <div className="td-overlay fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 sm:p-6" role="dialog" aria-modal="true" aria-label="TechDesk Assistant">
+          <div className={`w-full sm:max-w-lg h-[92vh] sm:h-[85vh] flex flex-col rounded-t-2xl sm:rounded-2xl ${t.cardBg}`}>
+            <div className={`flex items-center gap-2 px-4 py-3 border-b ${t.divider}`}>
+              <span className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-600 to-sky-500 text-white flex items-center justify-center"><Sparkles className="w-4 h-4" /></span>
+              <div className="flex-1 min-w-0">
+                <div className={`font-semibold ${t.textPrimary}`}>TechDesk Assistant</div>
+                <div className={`text-xs ${t.textMuted}`}>{left != null ? `${Math.max(0, left)} left today on this device` : "Talk or type. You check everything before it's saved."}</div>
+              </div>
+              {!practice && <button type="button" onClick={startPractice} className={`text-xs font-semibold px-3 py-1.5 rounded-full ${t.pillBg}`}>Practice</button>}
+              <button type="button" onClick={() => { cancelRec(); setOpen(false); }} className={t.textMuted} aria-label="Close"><X className="w-5 h-5" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
+              {messages.length === 0 && !practice && (
+                <div className="space-y-3">
+                  <p className={`text-sm ${t.textSecondary}`}>Tell me what happened, or ask about your shop. For example:</p>
+                  <ul className={`text-sm space-y-1 ${t.textSecondary}`}>
+                    <li>• “Sell two chargers to Chidi, he paid transfer.”</li>
+                    <li>• “Add ten iPhone 11 batteries at eleven thousand each.”</li>
+                    <li>• “New repair for Aisha, Samsung A54 not charging, fifteen thousand.”</li>
+                    <li>• “Mark Chidi's iPhone as ready.” · “Aisha paid five thousand.”</li>
+                  </ul>
+                  <div className="flex flex-wrap gap-2">
+                    {EXAMPLES.map((q) => (
+                      <button key={q} type="button" onClick={() => sendText(q)} className={`text-xs px-3 py-1.5 rounded-full ${t.pillBg}`}>{q}</button>
+                    ))}
+                  </div>
+                  <button type="button" onClick={startPractice} className={`text-sm underline underline-offset-2 ${t.textSecondary}`}>New to this? Take the 2-minute practice →</button>
+                </div>
+              )}
+
+              {messages.map((m) => (
+                m.role === "user" ? (
+                  <div key={m.id} className="flex justify-end">
+                    <div className="max-w-[85%] rounded-2xl rounded-br-md px-3 py-2 text-sm bg-gradient-to-br from-indigo-600 to-sky-500 text-white">
+                      {m.heard && <span className="block text-[10px] uppercase tracking-wider opacity-75">Heard</span>}
+                      {m.text}
+                    </div>
+                  </div>
+                ) : m.kind === "drafts" ? (
+                  <div key={m.id} className="space-y-2">
+                    {m.practice && (
+                      <p className={`text-sm font-semibold ${m.passed ? "text-emerald-500" : "text-amber-500"}`}>
+                        {m.passed ? "✓ Understood. Nothing was saved, this is practice." : "Not quite. Check the tips, try again, or move on."}
+                      </p>
+                    )}
+                    {m.drafts.map((d, i) => (
+                      <DraftCard key={d.id} d={d} t={t} settings={settings} allowed={allowed} practice={m.practice}
+                        update={(nd) => !m.saved && updateMsg(m.id, { drafts: m.drafts.map((x, j) => (j === i ? nd : x)) })} />
+                    ))}
+                    {!m.practice && (() => {
+                      const savable = m.drafts.filter((d) => d.include && allowed(d.type) && voiceOrder.issues(d).length === 0);
+                      const blocked = m.drafts.filter((d) => d.include && voiceOrder.issues(d).length > 0);
+                      if (m.undone) return <p className={`text-xs ${t.textMuted}`}>Undone.</p>;
+                      if (m.saved) {
+                        return (
+                          <div className="flex items-center gap-3 text-sm">
+                            <span className="text-emerald-500 font-semibold">✓ Saved {m.saved}</span>
+                            {m.undo && <button type="button" onClick={() => undoMsg(m)} className={`flex items-center gap-1 px-3 py-1 rounded-full ${t.pillBg}`}><Undo2 className="w-3.5 h-3.5" /> Undo</button>}
+                          </div>
+                        );
+                      }
+                      if (!m.drafts.some((d) => !["question", "unknown"].includes(d.type))) return null;
+                      return (
+                        <>
+                          {blocked.length > 0 && <p className="text-xs text-amber-500">Fix the yellow notes, or untick those actions, to save.</p>}
+                          <button type="button" disabled={!savable.length || blocked.length > 0} onClick={() => save(m)} className={`w-full py-2.5 text-sm disabled:opacity-40 ${primaryBtn}`}>
+                            {savable.length ? `Save ${savable.length} ${savable.length === 1 ? "action" : "actions"}` : "Nothing ready to save"}
+                          </button>
+                        </>
+                      );
+                    })()}
+                  </div>
+                ) : (
+                  <div key={m.id} className={`max-w-[90%] rounded-2xl rounded-bl-md px-3 py-2 text-sm ${m.kind === "error" ? "bg-amber-500/15 text-amber-600 dark:text-amber-400" : t.insetBg + " " + t.textSecondary}`}>
+                    {m.text}
+                  </div>
+                )
+              ))}
+
+              {practice && (
+                <div className={`rounded-2xl p-3 border ${t.divider}`}>
+                  {lesson ? (
+                    <>
+                      <div className={`text-xs font-bold uppercase tracking-wider ${t.textMuted}`}>Practice {practice.step + 1} of {practice.lessons.length} · {lesson.title}</div>
+                      <p className={`text-base font-semibold mt-1 ${t.textPrimary}`}>Say: “{lesson.say}”</p>
+                      <p className={`text-xs mt-1 ${t.textMuted}`}>Hold the mic below and say it, or type it. Nothing is saved.</p>
+                      <div className="flex gap-2 mt-2">
+                        <button type="button" onClick={() => sendText(lesson.say, { practiceStep: practice.step })} className={`text-xs px-3 py-1.5 rounded-full ${t.pillBg}`}>Send it as text</button>
+                        <button type="button" onClick={() => setPractice((p) => ({ ...p, step: p.step + 1 }))} className={`text-xs px-3 py-1.5 rounded-full ${t.pillBg}`}>
+                          {practice.results[practice.step] != null ? "Next →" : "Skip"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className={`font-semibold ${t.textPrimary}`}>
+                        Practice done: {Object.values(practice.results).filter(Boolean).length} of {practice.lessons.length} understood
+                      </div>
+                      <ul className={`text-sm mt-2 space-y-1 ${t.textSecondary}`}>{TIPS.map((tip) => <li key={tip}>• {tip}</li>)}</ul>
+                      <button type="button" onClick={() => { setPractice(null); say({ role: "assistant", kind: "info", text: "Ready when you are. Tell me what happened, or ask a question." }); }} className={`w-full py-2.5 text-sm mt-3 ${primaryBtn}`}>Start using it</button>
+                    </>
+                  )}
+                  {lesson && practice.step === 0 && (
+                    <details className="mt-2">
+                      <summary className={`text-xs cursor-pointer ${t.textMuted}`}>Tips for being understood</summary>
+                      <ul className={`text-xs mt-1 space-y-1 ${t.textSecondary}`}>{TIPS.map((tip) => <li key={tip}>• {tip}</li>)}</ul>
+                    </details>
+                  )}
+                </div>
+              )}
+
+              {busy && <div className={`text-sm flex items-center gap-2 ${t.textMuted}`}><Loader2 className="w-4 h-4 animate-spin" /> Working it out…</div>}
+              <div ref={listEnd} />
+            </div>
+
+            <form
+              className={`flex items-center gap-2 px-3 py-3 border-t ${t.divider}`}
+              onSubmit={(e) => { e.preventDefault(); sendText(input, practice && lesson ? { practiceStep: practice.step } : undefined); }}
+            >
+              {recording ? (
+                <div className="flex-1 flex items-center gap-2 text-sm">
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className={t.textPrimary}>{tapMode ? "Listening… tap the mic to finish" : "Listening… let go to send"} · {seconds}s</span>
+                  <button type="button" onClick={cancelRec} className={`ml-auto text-xs underline ${t.textMuted}`}>Cancel</button>
+                </div>
+              ) : (
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Type, or hold the mic and talk…"
+                  aria-label="Message"
+                  className={`flex-1 min-w-0 rounded-full px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
+                />
+              )}
+              {!recording && input.trim() ? (
+                <button type="submit" disabled={busy} aria-label="Send" className="w-11 h-11 shrink-0 rounded-full bg-gradient-to-br from-indigo-600 to-sky-500 text-white flex items-center justify-center disabled:opacity-50">
+                  <Send className="w-5 h-5" />
+                </button>
+              ) : micOk ? (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onPointerDown={micDown}
+                  onPointerUp={micUp}
+                  onPointerCancel={micUp}
+                  onContextMenu={(e) => e.preventDefault()}
+                  aria-label={recording ? "Stop recording" : "Hold to talk"}
+                  className={`w-11 h-11 shrink-0 rounded-full flex items-center justify-center text-white select-none touch-none disabled:opacity-50 ${recording ? "bg-red-500 animate-pulse" : "bg-gradient-to-br from-indigo-600 to-sky-500"}`}
+                >
+                  {recording ? <Square className="w-4 h-4" /> : <Mic className="w-5 h-5" />}
+                </button>
+              ) : null}
+            </form>
+          </div>
+        </div>
+      )}
+
+      {sheet === "offline" && (
+        <Sheet t={t} onClose={() => setSheet(null)} label="No internet">
           <div className="text-center py-2">
             <Wifi className={`w-10 h-10 mx-auto mb-3 ${t.textMuted}`} />
             <h2 className={`text-lg font-bold mb-1 ${t.textPrimary}`}>Connect to the internet</h2>
-            <p className={`text-sm mb-5 ${t.textSecondary}`}>Voice orders need the internet. Everything else in TechDesk keeps working offline.</p>
-            <button type="button" onClick={() => begin()} className={`w-full py-3 rounded-xl font-semibold ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}>Try again</button>
+            <p className={`text-sm mb-5 ${t.textSecondary}`}>The assistant needs the internet. Everything else in TechDesk keeps working offline.</p>
+            <button type="button" onClick={async () => { if (await voiceOrder.isOnline()) setSheet(null); }} className={`w-full py-3 ${primaryBtn}`}>Try again</button>
           </div>
         </Sheet>
       )}
 
-      {phase === "consent" && (
-        <Sheet t={t} onClose={() => setPhase("idle")} label="About voice orders">
-          <h2 className={`text-lg font-bold mb-2 ${t.textPrimary}`}>Voice orders</h2>
+      {sheet === "consent" && (
+        <Sheet t={t} onClose={() => setSheet(null)} label="About the assistant">
+          <h2 className={`text-lg font-bold mb-2 ${t.textPrimary}`}>TechDesk Assistant</h2>
           <ul className={`text-sm space-y-2 mb-4 ${t.textSecondary}`}>
-            <li>• Hold the mic and say what happened: <i>“Sell two chargers to Chidi, he paid transfer. Add ten iPhone 11 batteries.”</i></li>
+            <li>• Say or type what happened: <i>“Sell two chargers to Chidi, he paid transfer. Add ten iPhone 11 batteries.”</i> Or ask: <i>“Who owes me?”</i></li>
             <li>• You check everything before it's saved. Nothing is saved on its own.</li>
-            <li>• Hold the button while you talk and let go to send, or tap once to start and again to finish.</li>
-            <li>• Your voice note and your product names are sent to Google's Gemini AI to understand them. Google may use them to improve its products. Your customers, prices and sales are not sent. <a href={`${SITE_ORIGIN}/privacy`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Privacy policy</a></li>
+            <li>• Hold the mic while you talk and let go to send, or tap once to start and again to finish.</li>
+            <li>• What you say or type, and your product names, are sent to Google's Gemini AI to understand them. Google may use them to improve its products. Your customers, prices and sales are not sent: answers are worked out on this device. <a href={`${SITE_ORIGIN}/privacy`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Privacy policy</a></li>
           </ul>
-          <button type="button" onClick={() => { voiceOrder.giveVoiceConsent(); setPhase("idle"); }}
-            className={`w-full py-3 rounded-xl font-semibold ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}>
+          <button type="button" onClick={() => { voiceOrder.giveVoiceConsent(); setSheet(null); const next = afterConsent.current; afterConsent.current = null; next?.(); }}
+            className={`w-full py-3 ${primaryBtn}`}>
             I understand, turn it on
           </button>
-          <button type="button" onClick={() => setPhase("idle")} className={`w-full py-2 mt-2 text-sm ${t.textMuted}`}>Not now</button>
+          <button type="button" onClick={() => setSheet(null)} className={`w-full py-2 mt-2 text-sm ${t.textMuted}`}>Not now</button>
         </Sheet>
       )}
 
-      {phase === "error" && (
-        <Sheet t={t} onClose={() => setPhase("idle")} label="Voice order problem">
+      {sheet === "error" && (
+        <Sheet t={t} onClose={() => setSheet(null)} label="Problem">
           <h2 className={`text-lg font-bold mb-2 ${t.textPrimary}`}>That didn't work</h2>
           <p className={`text-sm mb-4 ${t.textSecondary}`}>{error}</p>
-          <button type="button" onClick={() => setPhase("idle")} className={`w-full py-3 rounded-xl font-semibold ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}>OK</button>
+          <button type="button" onClick={() => setSheet(null)} className={`w-full py-3 ${primaryBtn}`}>OK</button>
         </Sheet>
-      )}
-
-      {phase === "review" && (
-        <Sheet t={t} onClose={() => { setPhase("idle"); setDrafts([]); }} label="Check before saving">
-          <h2 className={`text-lg font-bold ${t.textPrimary}`}>Check before saving</h2>
-          {result?.transcript && <p className={`text-xs mt-1 mb-3 italic ${t.textMuted}`}>“{result.transcript}”</p>}
-          <div className="space-y-3">
-            {drafts.length === 0 && <p className={`text-sm ${t.textSecondary}`}>Nothing to save was heard. Try again, and say it like “sell two chargers to Chidi”.</p>}
-            {drafts.map((d, i) => (
-              <DraftCard key={d.id} d={d} t={t} settings={settings} allowed={allowed} update={(nd) => setDrafts(drafts.map((x, j) => (j === i ? nd : x)))} />
-            ))}
-          </div>
-          {blocked.length > 0 && <p className="text-xs text-amber-500 mt-3">Fix the yellow notes, or untick those actions, to save.</p>}
-          <button type="button" disabled={!ready.length || blocked.length > 0} onClick={save}
-            className={`w-full py-3 rounded-xl font-semibold mt-4 disabled:opacity-40 ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}>
-            {ready.length ? `Save ${ready.length} ${ready.length === 1 ? "action" : "actions"}` : "Nothing ready to save"}
-          </button>
-          {typeof result?.left === "number" && <p className={`text-xs text-center mt-2 ${t.textMuted}`}>{Math.max(0, result.left)} voice orders left today on this device</p>}
-        </Sheet>
-      )}
-
-      {undo && (
-        <div className="fixed left-1/2 -translate-x-1/2 bottom-24 md:bottom-8 z-[75] rounded-full bg-neutral-900/95 text-white text-sm pl-4 pr-2 py-2 shadow-xl flex items-center gap-3" role="status">
-          Saved by voice
-          <button type="button" onClick={doUndo} className="flex items-center gap-1 rounded-full bg-white/15 px-3 py-1 font-semibold">
-            <Undo2 className="w-4 h-4" /> Undo
-          </button>
-        </div>
       )}
     </>
   );

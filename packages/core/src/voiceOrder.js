@@ -17,6 +17,8 @@ import { db } from "./db";
 import { storage } from "./storage";
 import { installId } from "./hqStore";
 import { featureOn, pausedResult } from "./appControl";
+import { answerQuestion } from "./assistantAnswers";
+import { repairOwed } from "./summary";
 
 const SUPABASE_URL = "https://wuwerzyydtvargvqjufb.supabase.co";
 const PUBLISHABLE_KEY = "sb_publishable_aiiQjedgBx4Tq-NX_jIGtw_ekAYgxV_";
@@ -187,6 +189,9 @@ export function resolve(actions, data = {}) {
           costPrice: p ? Number(p.costPrice || 0) : 0,
           stock: p ? Number(p.stock || 0) : null,
           candidates: p ? [] : m.candidates.map((c) => ({ id: c.id, name: c.name, price: c.price, costPrice: c.costPrice, stock: c.stock })),
+          // Not in stock at all: sold as a one-off item (no stock to draw
+          // down), unless the person picks one of their products instead.
+          oneOff: !p && m.candidates.length === 0,
         };
       });
       return {
@@ -238,9 +243,9 @@ export function resolve(actions, data = {}) {
           .filter((s) => (cust ? s.customerId === cust.id : false) || (a.customerName && words(s.customerName).includes(words(a.customerName)[0])))
           .map((s) => ({ kind: "sale", id: s.id, label: `${s.invoice} · ${s.customerName}`, owed: Number(s.total || 0) - Number(s.amountPaid || 0), at: s.createdAt })),
         ...repairs
-          .filter((r) => r.paymentStatus !== "Paid" && Number(r.repairCost || 0) > 0)
+          .filter((r) => repairOwed(r) > 0)
           .filter((r) => (cust ? r.customerId === cust.id : false) || (a.customerName && words(r.customerName).includes(words(a.customerName)[0])))
-          .map((r) => ({ kind: "repair", id: r.id, label: `${r.ticket} · ${r.customerName} · ${r.device}`, owed: Number(r.repairCost || 0), at: r.createdAt })),
+          .map((r) => ({ kind: "repair", id: r.id, label: `${r.ticket} · ${r.customerName} · ${r.device}`, owed: repairOwed(r), at: r.createdAt })),
       ].sort((x, y) => String(y.at).localeCompare(String(x.at)));
       return {
         ...base,
@@ -250,7 +255,10 @@ export function resolve(actions, data = {}) {
         customerName: cust?.name || a.customerName || "",
       };
     }
-    return { ...base, include: false, question: a.type === "question" };
+    if (a.type === "question") {
+      return { ...base, include: false, question: true, answer: answerQuestion(a, { sales, repairs, inventory, customers }) };
+    }
+    return { ...base, include: false };
   });
 }
 
@@ -260,8 +268,8 @@ export function issues(d) {
   if (d.type === "sale") {
     if (!d.items.length) out.push("No items were heard.");
     d.items.forEach((i) => {
-      if (!i.productId) out.push(i.candidates.length ? `Which product is "${i.said}"?` : `"${i.said}" isn't in your stock. Pick a product or add it first.`);
-      else if (i.stock != null && i.qty > i.stock) out.push(`Only ${i.stock} ${i.name} in stock.`);
+      if (!i.productId && !i.oneOff) out.push(`Which product is "${i.said}"?`);
+      else if (i.productId && i.stock != null && i.qty > i.stock) out.push(`Only ${i.stock} ${i.name} in stock.`);
       if (i.price == null || !(i.price >= 0)) out.push(`Price for ${i.name}?`);
     });
     if (!d.customer.id && d.customer.candidates.length) out.push(`Which ${d.customer.name}?`);
@@ -281,8 +289,8 @@ export function issues(d) {
     if (!d.target) out.push(d.candidates.length ? "Which one is being paid?" : `Nothing owed by ${d.customerName || "that customer"} was found.`);
     if (!(d.amount > 0)) out.push("How much was paid?");
     else if (d.target?.kind === "repair" && d.amount < d.target.owed) out.push("Part-payment on a repair: record it from the Repairs page.");
-  } else {
-    out.push(d.question ? "Questions aren't answered by voice yet." : "Couldn't tell what to do.");
+  } else if (!d.question) {
+    out.push("Couldn't tell what to do.");
   }
   return out;
 }
@@ -322,7 +330,7 @@ export function apply(drafts, { actor } = {}) {
         costPrice: Number(i.costPrice) || 0,
         qty: i.qty,
         imei: "",
-        fromInventory: true,
+        fromInventory: !!i.productId,
       }));
       const rec = db.createSale({
         items,
