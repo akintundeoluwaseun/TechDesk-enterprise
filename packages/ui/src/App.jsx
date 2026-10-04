@@ -30,6 +30,9 @@ import AnnouncementModal from "./components/AnnouncementModal";
 import { useAnnouncementCheck, markAnnouncementSeen, unseenAnnouncements, appPlatform, appVersion } from "./lib/announcements";
 import { useAppControl, updateLink } from "./lib/appControl";
 import VoiceOrder, { VOICE_SAVED_EVENT } from "./components/VoiceOrder";
+import MorningBrief from "./components/MorningBrief";
+import { onOpenBrief } from "./lib/brief";
+import { briefDue, markBriefSeen } from "@techdesk/core";
 import { hasUnseenUpdate, markUpdatesSeen, onOpenWhatsNew } from "./lib/whatsNew";
 import { isTourPending, markTourDone, markTourPending } from "./lib/tour";
 import { useHqSync } from "./lib/useHqSync";
@@ -126,6 +129,34 @@ function Shell() {
   const { user } = useAuth();
   useEffect(() => setAuthorName(user?.name), [user?.name]);
 
+  // The morning brief: once a day, on the first look before 2pm -- also when
+  // a phone brings the app back from the background, or a computer left on
+  // overnight is used again. Only for someone who sees sales or repairs.
+  const [brief, setBrief] = useState(false);
+  useEffect(() => onOpenBrief(() => setBrief(true)), []);
+  useEffect(() => {
+    const check = () => {
+      if (document.visibilityState === "hidden") return;
+      if (!(canAccess(user, "/sales") || canAccess(user, "/repairs"))) return;
+      try {
+        if (briefDue()) setBrief(true);
+      } catch {
+        // A brief that can't be worked out is not worth stopping the app for.
+      }
+    };
+    check();
+    document.addEventListener("visibilitychange", check);
+    window.addEventListener("focus", check);
+    return () => {
+      document.removeEventListener("visibilitychange", check);
+      window.removeEventListener("focus", check);
+    };
+  }, [user]);
+  function closeBrief() {
+    markBriefSeen();
+    setBrief(false);
+  }
+
   // One-off tours a page asks for at the moment they're useful: setting up
   // the receipts before the first sale, the ticket after the first repair.
   const navigate = useNavigate();
@@ -167,7 +198,7 @@ function Shell() {
   // how to use it. Never on top of another tour or window, and never while
   // the welcome tour is still to come.
   useEffect(() => {
-    if (touring || miniTour || showActivation || whatsNew || announcement || mergeEditions.length > 0) return undefined;
+    if (touring || miniTour || showActivation || whatsNew || announcement || brief || mergeEditions.length > 0) return undefined;
     const key = pageTourKey(location.pathname, location.search);
     if (!key || pageTourSeen(key)) return undefined;
     const id = setTimeout(() => {
@@ -180,7 +211,7 @@ function Shell() {
       setMiniTour({ key: `page-${key}`, steps, finale: null, done: () => {} });
     }, 900);
     return () => clearTimeout(id);
-  }, [location.pathname, location.search, touring, miniTour, showActivation, whatsNew, announcement, mergeEditions.length]);
+  }, [location.pathname, location.search, touring, miniTour, showActivation, whatsNew, announcement, brief, mergeEditions.length]);
 
   function finishMiniTour() {
     const t = miniTour;
@@ -232,6 +263,8 @@ function Shell() {
         <WhatsNewModal onClose={closeWhatsNew} />
       ) : announcement ? (
         <AnnouncementModal announcement={announcement} onClose={closeAnnouncement} />
+      ) : brief ? (
+        <MorningBrief onClose={closeBrief} />
       ) : (
         helpOpen && (
           <TutorialModal

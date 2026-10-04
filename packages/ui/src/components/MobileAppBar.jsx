@@ -21,8 +21,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   LogOut,
-  Sparkles,
-} from "lucide-react";
+  Sparkles, Sunrise } from "lucide-react";
 import { useTheme, useThemeTokens } from "../lib/ThemeContext";
 import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
@@ -36,6 +35,7 @@ import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { announcementFeedItems } from "../lib/announcements";
 import { db } from "../lib/db";
 import { openWhatsNew, useUnseenUpdate } from "../lib/whatsNew";
+import { openBrief } from "../lib/brief";
 
 // The phone's persistent header, and behind its menu button the whole app.
 //
@@ -362,6 +362,15 @@ export default function MobileAppBar({ onOpenActivation }) {
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
               >
                 <HelpCircle className="w-[18px] h-[18px] shrink-0" /> Help
+              </button>
+              <button
+                onClick={() => {
+                  setDrawer(false);
+                  openBrief();
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
+              >
+                <Sunrise className="w-[18px] h-[18px] shrink-0" /> Morning brief
               </button>
               <button
                 onClick={() => {

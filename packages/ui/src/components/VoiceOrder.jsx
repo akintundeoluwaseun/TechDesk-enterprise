@@ -10,6 +10,7 @@ import { toast } from "../lib/toast";
 import { db } from "../lib/db";
 import { canRecord, startRecording, blobToWavBase64, MAX_SECONDS } from "../lib/voiceRecorder";
 import { preparePhoto } from "../lib/photoPrep";
+import { openBrief } from "../lib/brief";
 
 // Voice orders: hold the mic, say what happened, check it, save it.
 //
@@ -414,6 +415,13 @@ export default function VoiceOrder() {
   async function sendText(text, opts) {
     const clean = String(text || "").trim();
     if (!clean || busy) return;
+    // The brief is worked out on the device: no need to ask the AI, or use up a turn.
+    if (!opts && /^(show |open |give me )?(my |the |today'?s |this morning'?s )*(morning )?(brief|briefing)\b/i.test(clean)) {
+      setInput("");
+      setOpen(false);
+      openBrief();
+      return;
+    }
     if (!(await ready(() => sendText(clean, opts)))) return;
     setInput("");
     say({ role: "user", text: clean });
@@ -631,6 +639,7 @@ export default function VoiceOrder() {
                     <li>• “Mark Chidi's iPhone as ready.” · “Aisha paid five thousand.”</li>
                   </ul>
                   <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => { setOpen(false); openBrief(); }} className={`text-xs px-3 py-1.5 rounded-full ${t.pillBg}`}>Today's brief</button>
                     {EXAMPLES.map((q) => (
                       <button key={q} type="button" onClick={() => sendText(q)} className={`text-xs px-3 py-1.5 rounded-full ${t.pillBg}`}>{q}</button>
                     ))}
