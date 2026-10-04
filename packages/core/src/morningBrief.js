@@ -10,7 +10,8 @@
 // opened from the menu any time.
 import { db } from "./db";
 import { storage } from "./storage";
-import { saleOwed, repairOwed, repairTotal, isOpenRepair } from "./summary";
+import { repairOwed, isOpenRepair } from "./summary";
+import { debtors } from "./moneyChaser";
 
 const DAY = 86400000;
 const SEEN_KEY = "techdesk_brief_seen";
@@ -76,26 +77,10 @@ export function buildBrief(data = {}, now = new Date()) {
   const week = takings(sales, repairs, inventory, monday, today + DAY);
   const lastWeekSoFar = takings(sales, repairs, inventory, monday - 7 * DAY, today + DAY - 7 * DAY);
 
-  // Who owes, by customer, oldest debt first within each.
-  const owedBy = new Map();
-  const addOwed = (r, amount, kind, since = t(r.createdAt)) => {
-    if (amount <= 0) return;
-    const name = nameOf(r) || "Walk-in customers";
-    const key = (r.customerId || name).toString().toLowerCase();
-    const e = owedBy.get(key) || { name, phone: r.customerPhone || "", amount: 0, since: Infinity, items: 0 };
-    e.amount += amount;
-    e.items += 1;
-    e.phone = e.phone || r.customerPhone || "";
-    e.since = Math.min(e.since, since ?? Infinity);
-    e.kind = kind;
-    owedBy.set(key, e);
-  };
-  sales.forEach((s) => addOwed(s, saleOwed(s), "sale"));
-  repairs.filter((r) => repairTotal(r) > 0 && !isOpenRepair(r)).forEach((r) => addOwed(r, repairOwed(r), "repair", t(r.readyAt) ?? t(r.updatedAt) ?? t(r.createdAt))); // owed from when the job was done
-  const owed = [...owedBy.values()]
-    .map((e) => ({ ...e, days: daysSince(e.since) }))
-    .sort((a, b) => b.amount - a.amount);
-  const owedTotal = owed.reduce((n, e) => n + e.amount, 0);
+  // Who owes: the money chaser's list, so both say the same thing.
+  const owed = debtors({ sales, repairs, customers: data.customers || db.getCustomers(), log: data.log }, now)
+    .map((d) => ({ ...d, items: d.items.length, debt: d }));
+  const owedTotal = owed.reduce((n, e) => n + e.total, 0);
 
   // Finished, not collected -- longest waiting first.
   const ready = repairs
@@ -129,10 +114,11 @@ export function buildBrief(data = {}, now = new Date()) {
   }));
   // Someone already being reminded to collect (and pay for) a repair isn't asked twice.
   const remind = new Set(todo.map((x) => x.name.toLowerCase()).filter(Boolean));
-  owed.filter((e) => e.days >= 3 && e.name !== "Walk-in customers" && !remind.has(e.name.toLowerCase())).slice(0, 3).forEach((e) => todo.push({
-    kind: "owed", page: "/sales", phone: e.phone, name: e.name, amount: e.amount,
-    text: `Ask ${firstName(e.name)} for the balance`, money: e.amount,
-    detail: `Owing ${e.days} days${e.items > 1 ? ` · ${e.items} unpaid` : ""}`,
+  // Only those due a reminder today: not someone who promised a date still ahead, or was asked today already.
+  owed.filter((e) => e.status === "due" && !remind.has(e.name.toLowerCase())).slice(0, 3).forEach((e) => todo.push({
+    kind: "owed", page: "/sales", phone: e.phone, name: e.name, amount: e.total, debt: e.debt,
+    text: `Ask ${firstName(e.name) || "them"} for the balance`, money: e.total,
+    detail: `${e.chase.broken ? "Promise missed · " : ""}Owing ${e.days} days${e.items > 1 ? ` · ${e.items} unpaid` : ""}${e.chase.count ? ` · asked ${e.chase.count}×` : ""}`,
   }));
   low.filter((p) => p.stock === 0 && p.sold30 > 0).slice(0, 2).forEach((p) => todo.push({
     kind: "restock", page: "/inventory", id: p.id, name: p.name,
@@ -150,7 +136,7 @@ export function buildBrief(data = {}, now = new Date()) {
     empty: !sales.length && !repairs.length,
     last: { label: lastLabel, date: dayKey(lastDate), ...last, change },
     week: { ...week, lastWeek: lastWeekSoFar.total },
-    owed: { total: owedTotal, people: owed.length, top: owed.slice(0, 5) },
+    owed: { total: owedTotal, people: owed.length, top: owed.slice(0, 5).map((e) => ({ name: e.name, phone: e.phone, amount: e.total, days: e.days })) },
     ready,
     slow,
     low: low.slice(0, 6),

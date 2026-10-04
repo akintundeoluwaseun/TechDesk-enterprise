@@ -15,7 +15,7 @@ import {
   ChevronRight,
   ShieldAlert,
   ShieldCheck,
-  Sparkles, Sunrise } from "lucide-react";
+  Sparkles, Sunrise, Wallet } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { IS_ANDROID_APP } from "../lib/platform";
 import { useAuth, canAccess } from "../lib/AuthContext";
@@ -24,6 +24,7 @@ import { useLicense } from "../lib/LicenseContext";
 import { tierLabel } from "../lib/tier";
 import { openWhatsNew, useUnseenUpdate } from "../lib/whatsNew";
 import { openBrief } from "../lib/brief";
+import { openChaser } from "../lib/chaser";
 
 const NAV_ITEMS_BASE = [
   { to: "/", label: "Dashboard", icon: LayoutGrid, end: true },
@@ -131,6 +132,18 @@ export default function Sidebar({ onOpenActivation }) {
       </div>
 
       <div className="flex flex-col gap-2">
+        {canAccess(user, "/sales") && (
+          <button
+            onClick={() => openChaser()}
+            title={collapsed ? "Money owed" : undefined}
+            className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium ${collapsed ? "justify-center" : ""} ${
+              t.dark ? "text-neutral-300 hover:bg-white/5" : "text-neutral-600 hover:bg-black/5"
+            }`}
+          >
+            <Wallet className="w-[18px] h-[18px] shrink-0" strokeWidth={2} />
+            {!collapsed && "Money owed"}
+          </button>
+        )}
         <button
           onClick={openBrief}
           title={collapsed ? "Morning brief" : undefined}

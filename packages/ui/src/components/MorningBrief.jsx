@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, Sunrise, TrendingUp, TrendingDown, MessageCircle, ArrowRight, Wrench, Wallet, PackageX, Clock, Share2 } from "lucide-react";
-import { buildBrief, briefText, briefOff, setBriefOff } from "@techdesk/core";
+import { buildBrief, briefText, briefOff, setBriefOff, chaseMessage, markChased } from "@techdesk/core";
+import { openChaser } from "../lib/chaser";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { useAuth, canAccess } from "../lib/AuthContext";
@@ -33,16 +34,6 @@ export function collectMessage(item, settings, fmt) {
     "",
     "Thank you!",
   ].filter((l) => l !== null).join("\n");
-}
-
-export function owedMessage(item, settings, fmt) {
-  const shop = settings.shopName || "our shop";
-  return [
-    `Hello${first(item.name) ? ` ${first(item.name)}` : ""},`,
-    "",
-    `A friendly reminder from ${shop}: a balance of ${fmt(item.amount)} is still outstanding.`,
-    "You can pay by transfer or when you next come in. Thank you!",
-  ].join("\n");
 }
 
 export default function MorningBrief({ onClose, now }) {
@@ -119,10 +110,10 @@ export default function MorningBrief({ onClose, now }) {
                 <div className={`text-lg font-bold tabular-nums ${t.textPrimary}`}>{fmt(b.week.total)}</div>
                 <div className={`text-xs ${t.textMuted}`}>{b.week.lastWeek > 0 ? `Same days last week: ${fmt(b.week.lastWeek)}` : `${b.week.sales} sales`}</div>
               </div>
-              <button type="button" onClick={() => go("/sales")} className={`text-left rounded-2xl p-3 ${t.insetBg}`}>
+              <button type="button" onClick={() => { onClose(); openChaser(); }} className={`text-left rounded-2xl p-3 ${t.insetBg}`}>
                 <div className={`text-xs ${t.textMuted}`}>Owed to you</div>
                 <div className={`text-lg font-bold tabular-nums ${b.owed.total > 0 ? "text-amber-500" : t.textPrimary}`}>{fmt(b.owed.total)}</div>
-                <div className={`text-xs ${t.textMuted}`}>{b.owed.people ? `${b.owed.people} customer${b.owed.people === 1 ? "" : "s"}` : "Nobody owes you"}</div>
+                <div className={`text-xs ${t.textMuted}`}>{b.owed.people ? `${b.owed.people} customer${b.owed.people === 1 ? "" : "s"} · chase them →` : "Nobody owes you"}</div>
               </button>
             </div>
           )}
@@ -148,12 +139,18 @@ export default function MorningBrief({ onClose, now }) {
                       </div>
                       {wa ? (
                         <button type="button" aria-label={`Message ${x.name} on WhatsApp`}
-                          onClick={() => openWhatsApp(x.phone, x.kind === "collect" ? collectMessage(x, settings, fmt) : owedMessage(x, settings, fmt))}
+                          onClick={() => {
+                            if (x.kind === "collect") return openWhatsApp(x.phone, collectMessage(x, settings, fmt));
+                            // The chaser's words: firmer each time, with how to pay, and remembered as asked.
+                            openWhatsApp(x.phone, chaseMessage(x.debt, { tone: x.debt.tone, lang: settings.chaseLang || "en", shop: settings.shopName, payTo: settings.payTo || "", money: fmt }));
+                            markChased(x.debt.key, x.debt.tone);
+                            return undefined;
+                          }}
                           className="shrink-0 flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-full bg-emerald-500 text-white">
                           <MessageCircle className="w-3.5 h-3.5" /> Message
                         </button>
                       ) : (
-                        <button type="button" aria-label="Open" onClick={() => go(x.page)} className={`shrink-0 p-1.5 rounded-full ${t.pillBg}`}>
+                        <button type="button" aria-label="Open" onClick={() => (x.kind === "owed" ? (onClose(), openChaser(x.debt.key)) : go(x.page))} className={`shrink-0 p-1.5 rounded-full ${t.pillBg}`}>
                           <ArrowRight className="w-4 h-4" />
                         </button>
                       )}

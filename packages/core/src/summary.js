@@ -114,7 +114,11 @@ export function repairOwed(repair) {
   // would over-state it -- and a shop chasing money would rather be told the
   // larger figure and find one already settled than the smaller and be short.
   if (repair?.paymentStatus === "Paid") return 0;
-  return repairTotal(repair);
+  // Part-payments recorded with an amount (the money chaser records them)
+  // say how much is left; older "Partial" jobs without one still read as
+  // the whole bill, for the reason above.
+  const paid = num(repair?.amountPaid);
+  return Math.max(0, repairTotal(repair) - paid);
 }
 
 /**

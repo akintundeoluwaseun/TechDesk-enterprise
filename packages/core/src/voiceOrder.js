@@ -285,7 +285,7 @@ export function resolve(actions, data = {}, { source = "voice", now = new Date()
     }
     if (a.type === "question") {
       if (source === "photo") return { ...base, type: "unknown", include: false };
-      return { ...base, include: false, question: true, answer: answerQuestion(a, { sales, repairs, inventory, customers }) };
+      return { ...base, include: false, question: true, intent: a.intent, answer: answerQuestion(a, { sales, repairs, inventory, customers }) };
     }
     return { ...base, include: false };
   });

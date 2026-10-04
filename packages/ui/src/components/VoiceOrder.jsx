@@ -11,6 +11,7 @@ import { db } from "../lib/db";
 import { canRecord, startRecording, blobToWavBase64, MAX_SECONDS } from "../lib/voiceRecorder";
 import { preparePhoto } from "../lib/photoPrep";
 import { openBrief } from "../lib/brief";
+import { openChaser } from "../lib/chaser";
 
 // Voice orders: hold the mic, say what happened, check it, save it.
 //
@@ -78,7 +79,7 @@ function TextField({ label, value, onChange, t }) {
   );
 }
 
-function AnswerCard({ a, t, settings }) {
+function AnswerCard({ a, t, settings, chase }) {
   return (
     <div className={`rounded-2xl p-3 ${t.insetBg}`}>
       <div className={`text-xs font-bold uppercase tracking-wider ${t.textMuted}`}>{a.title}</div>
@@ -91,6 +92,9 @@ function AnswerCard({ a, t, settings }) {
           </div>
         ))}
       </div>
+      {chase && a.lines.some((l) => l.money && l.value > 0) && (
+        <button type="button" onClick={chase} className="mt-2 w-full py-2 rounded-xl text-sm font-semibold bg-emerald-500 text-white">Chase them on WhatsApp →</button>
+      )}
     </div>
   );
 }
@@ -268,7 +272,8 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
       </>
     );
   } else if (d.question && d.answer) {
-    return <AnswerCard a={d.answer} t={t} settings={settings} />;
+    const chase = ["who_owes", "customer_balance"].includes(d.intent) && allowed("payment") ? () => openChaser() : null;
+    return <AnswerCard a={d.answer} t={t} settings={settings} chase={chase} />;
   } else {
     body = <p className={`text-sm ${t.textSecondary}`}>{d.note || "This part couldn't be turned into an action."}</p>;
   }

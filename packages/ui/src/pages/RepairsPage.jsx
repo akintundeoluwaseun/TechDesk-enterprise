@@ -147,7 +147,7 @@ export default function RepairsPage() {
               >
                 {money(repairTotal(r), settings)}
                 {r.paymentStatus === "Partial" && (
-                  <span className={t.textMuted}> &middot; part paid</span>
+                  <span className={t.textMuted}> &middot; {Number(r.amountPaid) > 0 ? `${money(Number(r.amountPaid), settings)} paid` : "part paid"}</span>
                 )}
               </span>
             )}
