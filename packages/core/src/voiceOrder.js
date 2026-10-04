@@ -11,6 +11,11 @@
 //                  through the same db calls the forms use, and each one
 //                  leaves an undo step behind.
 //
+// A photo of a page from the shop's old notebook goes the same way: the
+// picture instead of a recording. Its actions carry the date written on the
+// page, so the sale lands on the day it happened, and old sales don't take
+// from today's stock count unless the person says so.
+//
 // Totals are always worked out here from the shop's own prices -- never
 // taken from what the AI heard.
 import { db } from "./db";
@@ -52,8 +57,8 @@ export async function isOnline({ fetchImpl = typeof fetch !== "undefined" ? fetc
   }
 }
 
-/** Sends the voice note (base64 WAV) or typed text. Returns {ok, transcript, actions} or {ok:false, message}. */
-export async function send({ audio, mime = "audio/wav", text } = {}, { fetchImpl = typeof fetch !== "undefined" ? fetch : null } = {}) {
+/** Sends the voice note (base64 WAV), a notebook photo (base64 JPEG) or typed text. Returns {ok, transcript, actions} or {ok:false, message}. */
+export async function send({ audio, mime = "audio/wav", image, imageMime = "image/jpeg", text } = {}, { fetchImpl = typeof fetch !== "undefined" ? fetch : null } = {}) {
   if (!featureOn("ai")) return pausedResult("ai");
   if (!fetchImpl) return { ok: false, error: "offline", message: "Connect to the internet to use voice orders." };
   const products = db.getInventory().map((p) => p.name).filter(Boolean).slice(0, 400);
@@ -66,6 +71,8 @@ export async function send({ audio, mime = "audio/wav", text } = {}, { fetchImpl
         installId: installId(),
         audio,
         mime: audio ? mime : undefined,
+        image,
+        imageMime: image ? imageMime : undefined,
         text,
         products,
         today: new Date().toDateString(),
@@ -167,15 +174,30 @@ function customerField(action, customers) {
   };
 }
 
-/** Turns the AI's actions into drafts the shop can check and edit. */
-export function resolve(actions, data = {}) {
+const pad = (n) => String(n).padStart(2, "0");
+export const localDay = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+
+/** "YYYY-MM-DD" as a moment on that day (midday, so no timezone can tip it over). Today stays "now". */
+export function dayToISO(day, now = new Date()) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(day || ""));
+  if (!m || day >= localDay(now)) return null;
+  return new Date(+m[1], +m[2] - 1, +m[3], 12, 0, 0).toISOString();
+}
+
+/**
+ * Turns the AI's actions into drafts the shop can check and edit.
+ * `source` is "voice" (also typed) or "photo" (a notebook page).
+ */
+export function resolve(actions, data = {}, { source = "voice", now = new Date() } = {}) {
   const inventory = data.inventory || db.getInventory();
   const customers = data.customers || db.getCustomers();
   const repairs = data.repairs || db.getRepairs();
   const sales = data.sales || db.getSales();
 
   return (actions || []).map((a) => {
-    const base = { id: nextId(), type: a.type, include: true, note: a.note || null };
+    const today = localDay(now);
+    const date = typeof a.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(a.date) && a.date <= today ? a.date : source === "photo" ? today : null;
+    const base = { id: nextId(), type: a.type, include: true, note: a.note || null, source, date };
     if (a.type === "sale") {
       const items = (a.items || []).map((i) => {
         const m = matchProduct(i.product, inventory);
@@ -200,6 +222,9 @@ export function resolve(actions, data = {}) {
         items,
         paymentMethod: PAYMENT_METHODS.includes(a.paymentMethod) ? a.paymentMethod : "Cash",
         amountPaid: a.paidInFull === false && a.amountPaid != null ? Number(a.amountPaid) : null,
+        // From the notebook: these goods left the shelf long ago, and the
+        // stock count in TechDesk already reflects that.
+        takeFromStock: source !== "photo",
       };
     }
     if (a.type === "repair") {
@@ -209,6 +234,7 @@ export function resolve(actions, data = {}) {
         device: a.device || "",
         problem: a.problem || "",
         cost: a.cost != null ? Number(a.cost) : 0,
+        status: source === "photo" && REPAIR_STATUSES.includes(a.status) ? a.status : "received",
       };
     }
     if (a.type === "stock") {
@@ -218,7 +244,9 @@ export function resolve(actions, data = {}) {
         said: a.product,
         productId: m.product?.id || null,
         name: m.product?.name || a.product || "",
-        qty: Math.max(1, Math.round(Number(a.qty) || 1)),
+        qty: Math.max(0, Math.round(Number(a.qty) || 0)) || (a.stockCount ? 0 : 1),
+        // "Set to" when the page is a count of what's on the shelf; "add" when goods came in.
+        mode: m.product && a.stockCount === true ? "set" : "add",
         costPrice: a.costPrice != null ? Number(a.costPrice) : m.product ? Number(m.product.costPrice || 0) : null,
         price: a.price != null ? Number(a.price) : m.product ? Number(m.product.price || 0) : null,
         candidates: m.product ? [] : m.candidates.map((c) => ({ id: c.id, name: c.name })),
@@ -256,6 +284,7 @@ export function resolve(actions, data = {}) {
       };
     }
     if (a.type === "question") {
+      if (source === "photo") return { ...base, type: "unknown", include: false };
       return { ...base, include: false, question: true, answer: answerQuestion(a, { sales, repairs, inventory, customers }) };
     }
     return { ...base, include: false };
@@ -269,7 +298,7 @@ export function issues(d) {
     if (!d.items.length) out.push("No items were heard.");
     d.items.forEach((i) => {
       if (!i.productId && !i.oneOff) out.push(`Which product is "${i.said}"?`);
-      else if (i.productId && i.stock != null && i.qty > i.stock) out.push(`Only ${i.stock} ${i.name} in stock.`);
+      else if (d.takeFromStock !== false && i.productId && i.stock != null && i.qty > i.stock) out.push(`Only ${i.stock} ${i.name} in stock.`);
       if (i.price == null || !(i.price >= 0)) out.push(`Price for ${i.name}?`);
     });
     if (!d.customer.id && d.customer.candidates.length) out.push(`Which ${d.customer.name}?`);
@@ -282,6 +311,7 @@ export function issues(d) {
     if (!d.productId && d.candidates.length) out.push(`Is "${d.said}" one of your products, or new?`);
     if (!d.productId && !d.name) out.push("Product name?");
     if (!d.productId && !(d.price > 0)) out.push(`Selling price for ${d.name || "the new product"}?`);
+    if (d.mode !== "set" && !(d.qty > 0)) out.push("How many?");
   } else if (d.type === "repair_status") {
     if (!d.repairId) out.push(d.candidates.length ? "Which repair?" : "Couldn't find that repair.");
     if (!d.status) out.push("Which status?");
@@ -300,8 +330,9 @@ export function saleTotal(d) {
 }
 
 // -------------------------------------------------------------- apply ----
+let logSource = "voice";
 function log(type, message, refId, actor) {
-  db.logActivity({ type, message: `${message} (by voice)`, refId, actor });
+  db.logActivity({ type, message: `${message} (${logSource === "photo" ? "from a notebook photo" : "by voice"})`, refId, actor });
 }
 
 function customerFor(c) {
@@ -318,6 +349,9 @@ export function apply(drafts, { actor } = {}) {
   let saved = 0;
   for (const d of drafts) {
     if (!d.include || issues(d).length) continue;
+    logSource = d.source || "voice";
+    const createdAt = dayToISO(d.date);
+    const when = createdAt ? { createdAt } : {};
     if (d.type === "sale") {
       const customer = customerFor(d.customer);
       const total = saleTotal(d);
@@ -330,7 +364,7 @@ export function apply(drafts, { actor } = {}) {
         costPrice: Number(i.costPrice) || 0,
         qty: i.qty,
         imei: "",
-        fromInventory: !!i.productId,
+        fromInventory: !!i.productId && d.takeFromStock !== false,
       }));
       const rec = db.createSale({
         items,
@@ -346,6 +380,7 @@ export function apply(drafts, { actor } = {}) {
         paymentMethod: d.paymentMethod,
         paymentStatus: paid >= total && total > 0 ? "Paid" : "Pending",
         actor,
+        ...when,
       });
       log("sale", `New sale ${rec.invoice} created`, rec.id, actor);
       undo.unshift(() => {
@@ -363,11 +398,12 @@ export function apply(drafts, { actor } = {}) {
         imei: "",
         serial: "",
         problem: d.problem,
-        status: "received",
+        status: d.status || "received",
         repairCost: Number(d.cost) || 0,
         notes: "",
         parts: [],
         actor,
+        ...when,
       });
       log("repair", `New repair ticket ${rec.ticket} created`, rec.id, actor);
       undo.unshift(() => {
@@ -377,11 +413,11 @@ export function apply(drafts, { actor } = {}) {
     } else if (d.type === "stock") {
       if (d.productId) {
         const before = db.findInventoryItem(d.productId);
-        const patch = { stock: Number(before.stock || 0) + d.qty };
+        const patch = { stock: d.mode === "set" ? Math.max(0, Number(d.qty) || 0) : Number(before.stock || 0) + d.qty };
         if (d.costPrice != null) patch.costPrice = Number(d.costPrice);
         if (d.price != null && d.price > 0) patch.price = Number(d.price);
         db.updateInventoryItem(d.productId, patch);
-        log("inventory", `Added ${d.qty} × ${before.name} to stock`, d.productId, actor);
+        log("inventory", d.mode === "set" ? `Stock of ${before.name} set to ${patch.stock}` : `Added ${d.qty} × ${before.name} to stock`, d.productId, actor);
         undo.unshift(() => {
           db.updateInventoryItem(d.productId, { stock: before.stock, costPrice: before.costPrice, price: before.price });
           log("inventory", `Stock change for ${before.name} undone`, d.productId, actor);
@@ -434,6 +470,7 @@ export function apply(drafts, { actor } = {}) {
     }
     saved += 1;
   }
+  logSource = "voice";
   return { saved, undo };
 }
 
@@ -447,4 +484,4 @@ export function runUndo(undo) {
   }
 }
 
-export const voiceOrder = { send, resolve, issues, apply, runUndo, isOnline, saleTotal, hasVoiceConsent, giveVoiceConsent };
+export const voiceOrder = { localDay, dayToISO, send, resolve, issues, apply, runUndo, isOnline, saleTotal, hasVoiceConsent, giveVoiceConsent };

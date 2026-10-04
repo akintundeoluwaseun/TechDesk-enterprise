@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Sparkles } from "lucide-react";
+import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Sparkles, Camera, ImagePlus, NotebookPen } from "lucide-react";
 import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn } from "@techdesk/core";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { SITE_ORIGIN } from "@techdesk/editions";
@@ -9,6 +9,7 @@ import { money } from "../lib/currency";
 import { toast } from "../lib/toast";
 import { db } from "../lib/db";
 import { canRecord, startRecording, blobToWavBase64, MAX_SECONDS } from "../lib/voiceRecorder";
+import { preparePhoto } from "../lib/photoPrep";
 
 // Voice orders: hold the mic, say what happened, check it, save it.
 //
@@ -16,6 +17,9 @@ import { canRecord, startRecording, blobToWavBase64, MAX_SECONDS } from "../lib/
 // anything; offline, it says so and records nothing. Nothing is saved until
 // the person ticks the actions and taps Save, and Undo is there for 10
 // seconds after.
+//
+// The camera button reads a page of the shop's old paper notebook the same
+// way: each line becomes a card with the date written on the page.
 
 export const VOICE_SAVED_EVENT = "techdesk:voice-saved";
 
@@ -117,10 +121,20 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
       />
     );
 
+  const today = voiceOrder.localDay();
+  const dateField = (d.source === "photo" || d.date) && ["sale", "repair"].includes(d.type) && (
+    <label className={`text-xs ${t.textMuted} block mb-1`}>
+      Date
+      <input type="date" max={today} value={d.date || today} onChange={(e) => set({ date: e.target.value && e.target.value <= today ? e.target.value : today })}
+        className={`w-full rounded-xl px-3 py-2 text-sm mt-1 ${t.inputBg}`} />
+    </label>
+  );
+
   let body = null;
   if (d.type === "sale") {
     body = (
       <>
+        {dateField}
         <p className={`text-sm ${t.textSecondary}`}>{d.customer.name || "Walk-in"}</p>
         {customerPicker()}
         {d.items.map((it, idx) => {
@@ -164,11 +178,18 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
           <NumberField t={t} label="Amount paid (empty = all)" value={d.amountPaid} onChange={(v) => set({ amountPaid: v })} />
         </div>
         <p className={`text-sm font-semibold mt-2 ${t.textPrimary}`}>Total {fmt(voiceOrder.saleTotal(d))}</p>
+        {d.source === "photo" && d.items.some((i) => i.productId) && (
+          <label className={`flex items-start gap-2 text-xs mt-2 ${t.textSecondary}`}>
+            <input type="checkbox" checked={d.takeFromStock !== false} onChange={(e) => set({ takeFromStock: e.target.checked })} className="w-4 h-4 mt-px accent-emerald-500" />
+            <span>Also take these from my stock now. Leave this off for old sales: your stock count already left them out.</span>
+          </label>
+        )}
       </>
     );
   } else if (d.type === "repair") {
     body = (
       <>
+        {dateField}
         {customerPicker()}
         <div className="flex gap-2 flex-wrap">
           <TextField t={t} label="Customer" value={d.customer.name} onChange={(v) => set({ customer: { ...d.customer, name: v } })} />
@@ -179,6 +200,14 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
           <NumberField t={t} label="Cost" value={d.cost} onChange={(v) => set({ cost: v })} />
         </div>
         <TextField t={t} label="Fault" value={d.problem} onChange={(v) => set({ problem: v })} />
+        {d.source === "photo" && (
+          <label className={`text-xs ${t.textMuted} block mt-1`}>
+            Status
+            <select value={d.status || "received"} onChange={(e) => set({ status: e.target.value })} className={`w-full rounded-xl px-3 py-2 text-sm mt-1 ${t.inputBg}`}>
+              {["received", "in progress", "awaiting parts", "completed", "delivered"].map((x) => <option key={x}>{x}</option>)}
+            </select>
+          </label>
+        )}
       </>
     );
   } else if (d.type === "stock") {
@@ -194,8 +223,16 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
             onChange={(v) => (v === "__new" ? set({ candidates: [] }) : set({ productId: v, name: d.candidates.find((c) => c.id === v)?.name, candidates: [] }))}
           />
         )}
+        {d.productId && d.source === "photo" && (
+          <select value={d.mode || "add"} onChange={(e) => set({ mode: e.target.value })} aria-label="Add or set"
+            className={`w-full rounded-xl px-3 py-2 text-sm mt-1 ${t.inputBg}`}>
+            <option value="add">Goods came in: add to my stock</option>
+            <option value="set">A count of my shelf: set my stock to this</option>
+          </select>
+        )}
         <div className="flex gap-2 mt-1 flex-wrap">
-          <NumberField t={t} label="Add" value={d.qty} onChange={(v) => set({ qty: Math.max(1, Math.round(v || 1)) })} />
+          <NumberField t={t} label={d.mode === "set" ? "Set to" : "Add"} value={d.qty}
+            onChange={(v) => set({ qty: d.mode === "set" ? Math.max(0, Math.round(v || 0)) : Math.max(1, Math.round(v || 1)) })} />
           <NumberField t={t} label="Cost each" value={d.costPrice} onChange={(v) => set({ costPrice: v })} />
           <NumberField t={t} label="Selling price" value={d.price} onChange={(v) => set({ price: v })} />
         </div>
@@ -244,6 +281,7 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
             className="w-5 h-5 accent-emerald-500" aria-label={`Include ${TITLE[d.type]}`} />
         )}
         <span className={`text-xs font-bold uppercase tracking-wider ${t.textMuted}`}>{TITLE[d.type] || d.type}</span>
+        {d.source === "photo" && d.date && d.date !== today && <span className={`text-xs ${t.textMuted}`}>· {new Date(`${d.date}T12:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>}
         {ready && actionable && can && <Check className="w-4 h-4 text-emerald-500" />}
       </div>
       {body}
@@ -300,6 +338,10 @@ export default function VoiceOrder() {
   const [messages, setMessages] = useState([]);
   const [practice, setPractice] = useState(null); // null | {step, results}
   const [left, setLeft] = useState(null);
+  const [photoMenu, setPhotoMenu] = useState(false);
+  const [busyText, setBusyText] = useState("");
+  const camInput = useRef(null);
+  const pickInput = useRef(null);
   const rec = useRef(null);
   const timer = useRef(null);
   const holdTimer = useRef(null);
@@ -308,7 +350,12 @@ export default function VoiceOrder() {
   const listEnd = useRef(null);
 
   useEffect(() => () => { clearInterval(timer.current); clearTimeout(holdTimer.current); rec.current?.cancel(); }, []);
-  useEffect(() => { listEnd.current?.scrollIntoView?.({ block: "end" }); }, [messages, busy, practice]);
+  useEffect(() => {
+    // A page read from a photo can be a dozen cards: start at the top of them, where the "check each one" note is.
+    const last = messages[messages.length - 1];
+    const el = last?.photo && last.kind === "drafts" && !last.saved ? document.querySelector(`[data-msg="${last.id}"]`) : null;
+    (el || listEnd.current)?.scrollIntoView?.({ block: el ? "start" : "end" });
+  }, [messages.length, busy, practice]);
 
   if (!featureOn("ai")) return null;
   const micOk = canRecord();
@@ -331,21 +378,30 @@ export default function VoiceOrder() {
     return true;
   }
 
-  async function handleResult(res, { practiceStep } = {}) {
+  async function handleResult(res, { practiceStep, source } = {}) {
     if (!res.ok) {
       say({ role: "assistant", kind: "error", text: res.message });
       if (res.error === "offline") setSheet("offline");
       return;
     }
     if (typeof res.left === "number") setLeft(res.left);
-    if (res.transcript) say({ role: "user", text: res.transcript, heard: true });
-    const drafts = voiceOrder.resolve(res.actions).map((d) => (allowed(d.type) ? d : { ...d, include: false }));
+    if (res.transcript && source !== "photo") say({ role: "user", text: res.transcript, heard: true });
+    const drafts = voiceOrder.resolve(res.actions, {}, { source }).map((d) => (allowed(d.type) ? d : { ...d, include: false }));
     if (practiceStep != null) {
       const lesson = practice?.lessons?.[practiceStep];
       const got = drafts.map((d) => d.type);
       const passed = lesson ? lesson.expect.every((e) => got.includes(e)) : false;
       setPractice((p) => p && { ...p, results: { ...p.results, [practiceStep]: passed } });
       say({ role: "assistant", kind: "drafts", drafts, practice: true, passed });
+      return;
+    }
+    if (source === "photo") {
+      const usable = drafts.filter((d) => d.type !== "unknown").length;
+      if (!usable) {
+        say({ role: "assistant", kind: "error", text: "I couldn't read any sales, repairs or stock on that page. Lay it flat in good light, fill the photo with one page, and try again." });
+        return;
+      }
+      say({ role: "assistant", kind: "drafts", drafts, photo: true, pageText: res.transcript || "" });
       return;
     }
     if (!drafts.length) {
@@ -476,6 +532,39 @@ export default function VoiceOrder() {
     micUp();
   }
 
+  // The camera: a page of the old notebook, read into cards to check.
+  async function openPhoto() {
+    if (busy || recording) return;
+    if (!(await ready(() => setPhotoMenu(true)))) return;
+    setPhotoMenu(true);
+  }
+
+  async function onPhoto(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    setPhotoMenu(false);
+    if (!file) return;
+    setBusy(true);
+    setBusyText("Reading the page… this can take up to half a minute.");
+    try {
+      let prepared;
+      try {
+        prepared = await preparePhoto(file);
+      } catch {
+        say({ role: "assistant", kind: "error", text: "That file isn't a photo TechDesk can read. Use a JPEG or PNG picture of the page." });
+        return;
+      }
+      const hint = input.trim();
+      setInput("");
+      say({ role: "user", photo: prepared.preview, text: hint || "A page from my notebook" });
+      const res = await voiceOrder.send({ image: prepared.image, imageMime: prepared.mime, text: hint || undefined });
+      await handleResult(res, { source: "photo" });
+    } finally {
+      setBusy(false);
+      setBusyText("");
+    }
+  }
+
   function save(msg) {
     const out = voiceOrder.apply(msg.drafts.filter((d) => allowed(d.type)), { actor: user?.name });
     if (out.saved) {
@@ -546,6 +635,13 @@ export default function VoiceOrder() {
                       <button key={q} type="button" onClick={() => sendText(q)} className={`text-xs px-3 py-1.5 rounded-full ${t.pillBg}`}>{q}</button>
                     ))}
                   </div>
+                  <button type="button" onClick={openPhoto} className={`w-full flex items-center gap-3 rounded-2xl p-3 text-left border ${t.divider}`}>
+                    <span className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-indigo-600 to-sky-500 text-white flex items-center justify-center"><NotebookPen className="w-5 h-5" /></span>
+                    <span className="min-w-0">
+                      <span className={`block text-sm font-semibold ${t.textPrimary}`}>Bring in your old notebook</span>
+                      <span className={`block text-xs ${t.textMuted}`}>Snap a page of sales, repairs or stock. Each line becomes a record you check, on the date it was written.</span>
+                    </span>
+                  </button>
                   <button type="button" onClick={startPractice} className={`text-sm underline underline-offset-2 ${t.textSecondary}`}>New to this? Take the 2-minute practice →</button>
                 </div>
               )}
@@ -555,11 +651,33 @@ export default function VoiceOrder() {
                   <div key={m.id} className="flex justify-end">
                     <div className="max-w-[85%] rounded-2xl rounded-br-md px-3 py-2 text-sm bg-gradient-to-br from-indigo-600 to-sky-500 text-white">
                       {m.heard && <span className="block text-[10px] uppercase tracking-wider opacity-75">Heard</span>}
+                      {m.photo && <img src={m.photo} alt="Notebook page" className="rounded-xl mb-1.5 max-h-56 w-auto" />}
                       {m.text}
                     </div>
                   </div>
                 ) : m.kind === "drafts" ? (
-                  <div key={m.id} className="space-y-2">
+                  <div key={m.id} data-msg={m.id} className="space-y-2 scroll-mt-2">
+                    {m.photo && (() => {
+                      const actionable = m.drafts.filter((d) => !["question", "unknown"].includes(d.type));
+                      const allOn = actionable.every((d) => d.include);
+                      return (
+                        <div className={`rounded-2xl px-3 py-2 text-sm ${t.insetBg} ${t.textSecondary}`}>
+                          <p>I read <b className={t.textPrimary}>{actionable.length} {actionable.length === 1 ? "entry" : "entries"}</b> from your page. Handwriting can be misread: check each one, especially amounts and dates. Untick anything you've already entered.</p>
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {!m.saved && !m.undone && (
+                              <button type="button" onClick={() => updateMsg(m.id, { drafts: m.drafts.map((d) => (["question", "unknown"].includes(d.type) || !allowed(d.type) ? d : { ...d, include: !allOn })) })}
+                                className={`text-xs px-3 py-1 rounded-full ${t.pillBg}`}>{allOn ? "Untick all" : "Tick all"}</button>
+                            )}
+                            {m.pageText && (
+                              <details className="w-full">
+                                <summary className={`text-xs cursor-pointer ${t.textMuted}`}>What I read on the page</summary>
+                                <p className={`text-xs mt-1 whitespace-pre-line ${t.textSecondary}`}>{m.pageText}</p>
+                              </details>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                     {m.practice && (
                       <p className={`text-sm font-semibold ${m.passed ? "text-emerald-500" : "text-amber-500"}`}>
                         {m.passed ? "✓ Understood. Nothing was saved, this is practice." : "Not quite. Check the tips, try again, or move on."}
@@ -631,7 +749,7 @@ export default function VoiceOrder() {
                 </div>
               )}
 
-              {busy && <div className={`text-sm flex items-center gap-2 ${t.textMuted}`}><Loader2 className="w-4 h-4 animate-spin" /> Working it out…</div>}
+              {busy && <div className={`text-sm flex items-center gap-2 ${t.textMuted}`}><Loader2 className="w-4 h-4 animate-spin" /> {busyText || "Working it out…"}</div>}
               <div ref={listEnd} />
             </div>
 
@@ -646,6 +764,11 @@ export default function VoiceOrder() {
                   <button type="button" onClick={cancelRec} className={`ml-auto text-xs underline ${t.textMuted}`}>Cancel</button>
                 </div>
               ) : (
+                <>
+                <button type="button" onClick={openPhoto} disabled={busy || !!practice} aria-label="Photo of a notebook page"
+                  className={`w-11 h-11 shrink-0 rounded-full flex items-center justify-center disabled:opacity-40 ${t.pillBg}`}>
+                  <Camera className="w-5 h-5" />
+                </button>
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
@@ -653,6 +776,7 @@ export default function VoiceOrder() {
                   aria-label="Message"
                   className={`flex-1 min-w-0 rounded-full px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
                 />
+                </>
               )}
               {!recording && input.trim() ? (
                 <button type="submit" disabled={busy} aria-label="Send" className="w-11 h-11 shrink-0 rounded-full bg-gradient-to-br from-indigo-600 to-sky-500 text-white flex items-center justify-center disabled:opacity-50">
@@ -677,6 +801,28 @@ export default function VoiceOrder() {
         </div>
       )}
 
+      <input ref={camInput} type="file" accept="image/*" capture="environment" className="hidden" onChange={onPhoto} data-testid="photo-camera" />
+      <input ref={pickInput} type="file" accept="image/*" className="hidden" onChange={onPhoto} data-testid="photo-pick" />
+
+      {photoMenu && (
+        <Sheet t={t} onClose={() => setPhotoMenu(false)} label="Notebook photo">
+          <h2 className={`text-lg font-bold mb-1 ${t.textPrimary}`}>A page from your notebook</h2>
+          <ul className={`text-sm space-y-1 mb-4 ${t.textSecondary}`}>
+            <li>• One page at a time, lying flat, in good light.</li>
+            <li>• Fill the photo with the page, so the writing is big.</li>
+            <li>• Want to add a note, like “these are March sales”? Type it first, then take the photo.</li>
+          </ul>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => camInput.current?.click()} className={`py-3 flex flex-col items-center gap-1 ${primaryBtn}`}>
+              <Camera className="w-5 h-5" /> Take a photo
+            </button>
+            <button type="button" onClick={() => pickInput.current?.click()} className={`py-3 flex flex-col items-center gap-1 rounded-xl font-semibold ${t.pillBg}`}>
+              <ImagePlus className="w-5 h-5" /> Choose a photo
+            </button>
+          </div>
+        </Sheet>
+      )}
+
       {sheet === "offline" && (
         <Sheet t={t} onClose={() => setSheet(null)} label="No internet">
           <div className="text-center py-2">
@@ -695,7 +841,8 @@ export default function VoiceOrder() {
             <li>• Say or type what happened: <i>“Sell two chargers to Chidi, he paid transfer. Add ten iPhone 11 batteries.”</i> Or ask: <i>“Who owes me?”</i></li>
             <li>• You check everything before it's saved. Nothing is saved on its own.</li>
             <li>• Hold the mic while you talk and let go to send, or tap once to start and again to finish.</li>
-            <li>• What you say or type, and your product names, are sent to Google's Gemini AI to understand them. Google may use them to improve its products. Your customers, prices and sales are not sent: answers are worked out on this device. <a href={`${SITE_ORIGIN}/privacy`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Privacy policy</a></li>
+            <li>• Snap a page of your old notebook and each line becomes a record to check.</li>
+            <li>• What you say, type or photograph, and your product names, are sent to Google's Gemini AI to understand them. Google may use them to improve its products. Your saved customers, prices and sales are not sent: answers are worked out on this device. A notebook photo sends what's written on that page. <a href={`${SITE_ORIGIN}/privacy`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">Privacy policy</a></li>
           </ul>
           <button type="button" onClick={() => { voiceOrder.giveVoiceConsent(); setSheet(null); const next = afterConsent.current; afterConsent.current = null; next?.(); }}
             className={`w-full py-3 ${primaryBtn}`}>

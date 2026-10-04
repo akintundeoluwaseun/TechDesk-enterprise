@@ -85,6 +85,17 @@ jobs:
           grep -q RECORD_AUDIO "$M" || sed -i 's#</manifest>#    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />\n</manifest>#' "$M"
           grep -n "RECORD_AUDIO" "$M"
 
+      # Notebook photos: "Take a photo" hands over to the phone's camera app.
+      # Since Android 11 an app can only see the camera app if it says it
+      # wants it; without this the WebView quietly opens the gallery instead.
+      # No CAMERA permission is needed -- the camera app takes the picture.
+      - name: Let the assistant open the camera (notebook photos)
+        working-directory: apps/mobile
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          grep -q IMAGE_CAPTURE "$M" || sed -i 's#</manifest>#    <queries>\n        <intent>\n            <action android:name="android.media.action.IMAGE_CAPTURE" />\n        </intent>\n    </queries>\n</manifest>#' "$M"
+          grep -n "IMAGE_CAPTURE" "$M"
+
       # Every build so far shipped Capacitor's defaults -- versionCode 1,
       # versionName "1.0" -- because `cap add android` generates the project
       # fresh each time and nothing told it otherwise. Android decides whether

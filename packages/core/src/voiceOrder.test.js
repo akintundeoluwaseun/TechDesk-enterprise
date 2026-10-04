@@ -202,3 +202,86 @@ describe("things the shop sells that aren't in its stock", () => {
     expect(db.getInventory().map((p) => p.stock).join()).toBe(stockBefore);
   });
 });
+
+describe("a photo of the old notebook", () => {
+  beforeEach(() => storage.clear());
+  const now = new Date(2026, 9, 4, 15, 0, 0);
+
+  it("puts each sale on the day written on the page, without taking from today's stock", () => {
+    const s = seed();
+    const drafts = resolve([
+      { type: "sale", customerName: "Chidi", items: [{ product: "charger", qty: 2 }], paymentMethod: "Cash", date: "2026-03-15" },
+      { type: "sale", customerName: "Aisha Bello", items: [{ product: "iPhone 11 battery", qty: 5, price: 17000 }], paidInFull: false, amountPaid: 50000, date: "2026-03-16" },
+    ], {}, { source: "photo", now });
+    expect(drafts[0].takeFromStock).toBe(false);
+    // 5 batteries but only 3 on the shelf: fine for an old sale.
+    expect(issues(drafts[1])).toEqual([]);
+    const out = apply(drafts, { actor: "Admin" });
+    expect(out.saved).toBe(2);
+    const sales = db.getSales();
+    const march15 = sales.find((x) => x.total === 15000);
+    expect(new Date(march15.createdAt).getDate()).toBe(15);
+    expect(new Date(march15.createdAt).getMonth()).toBe(2);
+    expect(sales.find((x) => x.total === 85000).amountPaid).toBe(50000);
+    expect(db.findInventoryItem(s.charger.id).stock).toBe(25);
+    expect(db.findInventoryItem(s.bat11.id).stock).toBe(3);
+    expect(db.getActivity()[0].message).toMatch(/from a notebook photo/);
+    runUndo(out.undo);
+    expect(db.getSales()).toHaveLength(0);
+    expect(db.findInventoryItem(s.charger.id).stock).toBe(25);
+  });
+
+  it("takes from stock when the person ticks it", () => {
+    const s = seed();
+    const [d] = resolve([{ type: "sale", items: [{ product: "charger", qty: 2 }], date: "2026-03-15" }], {}, { source: "photo", now });
+    apply([{ ...d, takeFromStock: true }]);
+    expect(db.findInventoryItem(s.charger.id).stock).toBe(23);
+  });
+
+  it("sets the count for a stock count, adds for goods that came in, and undoes either", () => {
+    const s = seed();
+    const drafts = resolve([
+      { type: "stock", product: "charger", qty: 9, stockCount: true },
+      { type: "stock", product: "type-c cable", qty: 10, stockCount: false },
+    ], {}, { source: "photo", now });
+    expect(drafts.map((d) => d.mode)).toEqual(["set", "add"]);
+    const out = apply(drafts);
+    expect(db.findInventoryItem(s.charger.id).stock).toBe(9);
+    expect(db.findInventoryItem(s.cable.id).stock).toBe(50);
+    runUndo(out.undo);
+    expect(db.findInventoryItem(s.charger.id).stock).toBe(25);
+    expect(db.findInventoryItem(s.cable.id).stock).toBe(40);
+  });
+
+  it("keeps an old repair's status and date; dates in the future or today mean now", () => {
+    seed();
+    const drafts = resolve([
+      { type: "repair", customerName: "Bayo", device: "Tecno Spark 10", problem: "Screen", cost: 25000, status: "delivered", date: "2026-02-01" },
+      { type: "sale", items: [{ product: "charger", qty: 1 }], date: "2026-12-25" },
+    ], {}, { source: "photo", now });
+    expect(drafts[0].status).toBe("delivered");
+    expect(drafts[1].date).toBe("2026-10-04");
+    apply(drafts);
+    const rep = db.getRepairs().find((r) => r.device === "Tecno Spark 10");
+    expect(rep.status).toBe("delivered");
+    expect(new Date(rep.createdAt).getMonth()).toBe(1);
+    const sale = db.getSales()[0];
+    expect(Date.now() - new Date(sale.createdAt).getTime()).toBeLessThan(60000);
+  });
+
+  it("never treats a page as a question", () => {
+    const [d] = resolve([{ type: "question", intent: "who_owes" }], {}, { source: "photo", now });
+    expect(d.type).toBe("unknown");
+    expect(d.include).toBe(false);
+  });
+
+  it("sends the photo, not audio", async () => {
+    let body;
+    const fetchImpl = async (_u, init) => { body = JSON.parse(init.body); return { ok: true, json: async () => ({ ok: true, transcript: "", actions: [] }) }; };
+    await send({ image: "AAAA", text: "March sales" }, { fetchImpl });
+    expect(body.image).toBe("AAAA");
+    expect(body.imageMime).toBe("image/jpeg");
+    expect(body.audio).toBeUndefined();
+    expect(body.text).toBe("March sales");
+  });
+});
