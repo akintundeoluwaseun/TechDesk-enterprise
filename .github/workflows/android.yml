@@ -154,9 +154,8 @@ jobs:
           # store share it, so ANDROID_KEY_PASSWORD is deliberately not read
           # -- a second copy of the same value is a second chance to mistype
           # it, and it buys nothing.
-          # bundleRelease: the .aab Google Play takes (Play only accepts
-          # bundles). Same key, so it can be the Play "upload key".
-          ./gradlew assembleRelease bundleRelease \
+          echo "SIGN_ALIAS=$ALIAS" >> "$GITHUB_ENV"
+          ./gradlew assembleRelease \
             -Pandroid.injected.signing.store.file="$KEYSTORE" \
             -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
             -Pandroid.injected.signing.key.alias="$ALIAS" \
@@ -230,6 +229,25 @@ jobs:
         with:
           name: techdesk-apk
           path: ${{ steps.apk.outputs.path }}
+
+      # The Google Play build: the same app, built again with
+      # TECHDESK_STORE=play -- activation codes only, no prices, no checkout,
+      # because Play doesn't allow paying for features any other way than
+      # Google's own billing. Signed with the same key (the Play "upload key").
+      - name: Build the Play Store bundle
+        if: steps.keystore.outputs.signed == 'true'
+        env:
+          TECHDESK_STORE: play
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEYSTORE: ${{ steps.keystore.outputs.keystore }}
+        run: |
+          npm run build:mobile
+          cd apps/mobile && npx cap sync android && cd android
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file="$KEYSTORE" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$SIGN_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEYSTORE_PASSWORD"
 
       # For the Play Console only: kept as a private download on this run
       # (Actions -> this run -> Artifacts), not on the public releases page.

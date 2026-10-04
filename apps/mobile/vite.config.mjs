@@ -10,7 +10,12 @@ const { version } = JSON.parse(readFileSync(new URL("./package.json", import.met
 // relative. Same renderer as the desktop; only the shell differs.
 export default defineConfig({
   plugins: [react()],
-  define: { __TECHDESK_VERSION__: JSON.stringify(version) },
+  // TECHDESK_STORE=play makes the Google Play build: codes only, no prices or
+  // checkout (packages/ui/src/lib/store.js). Unset for the website APK.
+  define: {
+    __TECHDESK_VERSION__: JSON.stringify(version),
+    __TECHDESK_STORE__: JSON.stringify(process.env.TECHDESK_STORE || ""),
+  },
   base: "./",
   build: {
     outDir: "dist",

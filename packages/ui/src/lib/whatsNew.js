@@ -20,6 +20,11 @@ export const UPDATES = [
       },
       {
         icon: "zap",
+        title: "Type in an activation code",
+        text: "Got a code from TechDesk? Tap Upgrade, then \u201cHave an activation code?\u201d. Your device's PIN is shown there too.",
+      },
+      {
+        icon: "zap",
         title: "Profit that stays right",
         text: "Each sale now keeps what the item cost you that day, so changing a price later never rewrites past profit.",
       },

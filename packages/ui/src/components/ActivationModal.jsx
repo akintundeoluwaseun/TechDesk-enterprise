@@ -9,6 +9,8 @@ import { addedBy } from "../lib/featureLabels";
 import { payWithFlutterwave } from "../lib/flutterwave";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { licenceActive, daysLeft } from "../lib/licenceTerm";
+import { PLAY_STORE } from "../lib/store";
+import { formatCode } from "../lib/activationCode";
 
 // Shown until the server's price list arrives, and if it never does. The
 // checkout itself always charges the server's price, never these.
@@ -328,7 +330,7 @@ export default function ActivationModal({ onClose }) {
         {/* The choice, plain: pick a tier, nothing else on this screen. What
             each one adds lives on ITS OWN page, one tap away, not stacked
             here underneath the choice itself. */}
-        {!chosenTier && upgradeOptions.map((candidate) => {
+        {!chosenTier && !PLAY_STORE && upgradeOptions.map((candidate) => {
           const candidateMeta = TIER_META[candidate];
           const preview = ownFeatures(candidate).slice(0, 3).join(", ");
           return (
@@ -360,7 +362,7 @@ export default function ActivationModal({ onClose }) {
           );
         })}
 
-        {!chosenTier && !branchForm && renewTier && !testing && (
+        {!chosenTier && !PLAY_STORE && !branchForm && renewTier && !testing && (
           <button
             onClick={() => pick(renewTier, { renew: true })}
             className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
@@ -375,13 +377,13 @@ export default function ActivationModal({ onClose }) {
           </button>
         )}
 
-        {!chosenTier && tier === "enterprise" && testing && (
+        {!chosenTier && !PLAY_STORE && tier === "enterprise" && testing && (
           <p className={`text-xs mb-3 ${t.textMuted}`}>
             Head-office branches are unlimited while TechDesk is being tested.
           </p>
         )}
 
-        {!chosenTier && tier === "enterprise" && !branchForm && !testing && (
+        {!chosenTier && !PLAY_STORE && tier === "enterprise" && !branchForm && !testing && (
           <button
             onClick={() => { setBranchForm(true); resetPay(); }}
             className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
@@ -599,10 +601,15 @@ export default function ActivationModal({ onClose }) {
           </div>
         )}
 
+        {!chosenTier && !branchForm && (
+          <CodeEntry t={t} pin={pin} open={PLAY_STORE} verifyCode={verifyCode} refreshLicence={refreshLicence}
+            onApplied={(applied) => setNote(applied)} />
+        )}
+
         <div className={`text-xs mb-2 ${t.textMuted}`}>
           {paid && upgradeOptions.length === 0
             ? "Moved to a new computer, or need help?"
-            : "Paid already and it hasn't unlocked, or need help?"}
+            : PLAY_STORE ? "Need help with your code?" : "Paid already and it hasn't unlocked, or need help?"}
         </div>
         <div className="flex flex-col gap-2">
           <a href="tel:+2348076911614" className={`flex items-center gap-2 text-sm font-medium ${t.textPrimary}`}>
@@ -613,6 +620,79 @@ export default function ActivationModal({ onClose }) {
           </a>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * "Have an activation code?" -- the PIN this device's codes are made for,
+ * and a box to type one in. The code is checked on the device against its
+ * own table (LicenseContext.verifyCode); nothing is sent anywhere.
+ */
+function CodeEntry({ t, pin, open: startOpen, verifyCode, refreshLicence, onApplied }) {
+  const [open, setOpen] = useState(startOpen);
+  const [code, setCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState(null);
+
+  async function apply() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await verifyCode(code);
+      if (!res.ok) {
+        setMsg({ bad: true, text: "That code doesn't match this device. Check it was made for the PIN shown here." });
+        return;
+      }
+      await refreshLicence?.();
+      const label = TIER_META[res.tier]?.label || res.tier;
+      setCode("");
+      if (res.applied) {
+        onApplied?.(`${label} is on. Thank you!`);
+        setMsg({ bad: false, text: `${label} is on.` });
+      } else {
+        setMsg({ bad: false, text: `That ${label} code is already on this device.` });
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className={`w-full text-left text-sm font-medium underline underline-offset-2 mb-4 ${t.textSecondary}`}>
+        Have an activation code?
+      </button>
+    );
+  }
+  return (
+    <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
+      <div className={`text-sm font-semibold ${t.textPrimary}`}>Activation code</div>
+      {PLAY_STORE && (
+        <p className={`text-xs mt-1 ${t.textSecondary}`}>Business and Enterprise are switched on with an activation code made for this device.</p>
+      )}
+      <p className={`text-xs mt-2 ${t.textMuted}`}>
+        This device&rsquo;s PIN: <span className={`font-mono font-semibold tracking-wider ${t.textPrimary}`}>{pin || "…"}</span>
+      </p>
+      <input
+        aria-label="Activation code"
+        value={code}
+        onChange={(e) => { setCode(formatCode(e.target.value).slice(0, 14)); setMsg(null); }}
+        placeholder="XXXX-XXXX-XXXX"
+        autoCapitalize="characters"
+        autoComplete="off"
+        spellCheck={false}
+        className={`w-full rounded-xl px-4 py-2.5 text-sm font-mono tracking-widest outline-none mt-2 ${t.inputBg}`}
+      />
+      {msg && <p className={`text-xs mt-2 ${msg.bad ? "text-red-500" : "text-emerald-500"}`}>{msg.text}</p>}
+      <button
+        type="button"
+        disabled={busy || code.replace(/-/g, "").length < 12}
+        onClick={apply}
+        className={`w-full py-2.5 rounded-xl text-sm font-semibold mt-3 disabled:opacity-40 ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}
+      >
+        {busy ? "Checking…" : "Apply code"}
+      </button>
     </div>
   );
 }
