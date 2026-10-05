@@ -285,3 +285,68 @@ describe("a photo of the old notebook", () => {
     expect(body.text).toBe("March sales");
   });
 });
+
+describe("returns: 'the laptop John bought yesterday was returned'", () => {
+  beforeEach(() => storage.clear());
+  const now = new Date(2026, 9, 5, 12, 0, 0);
+  const at = (d, h = 11) => { const x = new Date(now); x.setDate(x.getDate() - d); x.setHours(h, 0, 0, 0); return x.toISOString(); };
+
+  function shop() {
+    const laptop = db.addInventoryItem({ name: "HP EliteBook 840", price: 350000, costPrice: 280000, stock: 3 });
+    const mouse = db.addInventoryItem({ name: "Wireless mouse", price: 5000, costPrice: 2500, stock: 20 });
+    const j1 = db.findOrCreateCustomer({ name: "John Okoro", phone: "08030000001" });
+    const j2 = db.findOrCreateCustomer({ name: "John Bello", phone: "08030000002" });
+    const item = (p, qty) => ({ id: db.uid("item"), productId: p.id, name: p.name, price: p.price, costPrice: p.costPrice, qty, fromInventory: true });
+    const s1 = db.createSale({ customerId: j1.id, customerName: "John Okoro", items: [item(laptop, 1), item(mouse, 1)], subtotal: 355000, total: 355000, amountPaid: 355000, paymentStatus: "Paid", createdAt: at(1) });
+    const s2 = db.createSale({ customerId: j2.id, customerName: "John Bello", items: [item(laptop, 1)], subtotal: 350000, total: 350000, amountPaid: 350000, paymentStatus: "Paid", createdAt: at(1, 15) });
+    return { laptop, mouse, j1, j2, s1, s2 };
+  }
+
+  it("asks which John when two bought a laptop yesterday", () => {
+    shop();
+    const [d] = resolve([{ type: "return", customerName: "John", product: "HP EliteBook", period: "yesterday" }], {}, { now });
+    expect(d.matches.map((m) => m.customerName).sort()).toEqual(["John Bello", "John Okoro"]);
+    expect(d.pick).toBe(null);
+    expect(issues(d)).toEqual(["Which John?"]);
+  });
+
+  it("finds the one sale when the name is clear, then takes the laptop off it, restocks it, and refunds it", () => {
+    const s = shop();
+    const stockBefore = db.findInventoryItem(s.laptop.id).stock;
+    const [d] = resolve([{ type: "return", customerName: "John Okoro", product: "HP EliteBook", period: "yesterday" }], {}, { now });
+    expect(d.pick.invoice).toBe(s.s1.invoice);
+    expect(issues(d)).toEqual([]);
+    const out = apply([d], { actor: "Admin" });
+    const sale = db.getSales().find((x) => x.id === s.s1.id);
+    expect(sale.items.map((i) => i.name)).toEqual(["Wireless mouse"]);
+    expect(sale.total).toBe(5000);
+    expect(sale.amountPaid).toBe(5000); // 350,000 given back
+    expect(sale.returns[0]).toMatchObject({ name: "HP EliteBook 840", qty: 1, refund: 350000 });
+    expect(db.findInventoryItem(s.laptop.id).stock).toBe(stockBefore + 1);
+    runUndo(out.undo);
+    expect(db.getSales().find((x) => x.id === s.s1.id).total).toBe(355000);
+    expect(db.findInventoryItem(s.laptop.id).stock).toBe(stockBefore);
+  });
+
+  it("'the laptop' when stock calls it 'HP EliteBook': offers what that John bought, and asks", () => {
+    shop();
+    const [d] = resolve([{ type: "return", customerName: "John Okoro", product: "laptop", period: "yesterday" }], {}, { now });
+    expect(d.matches.map((m) => m.name)).toEqual(["HP EliteBook 840", "Wireless mouse"]);
+    expect(issues(d)).toEqual(["Which one was returned?"]);
+  });
+
+  it("says so when there's no such sale", () => {
+    shop();
+    const [d] = resolve([{ type: "return", customerName: "Musa", product: "printer" }], {}, { now });
+    expect(issues(d)[0]).toMatch(/No sale of printer to Musa was found/);
+  });
+
+  it("writes a one-line history, no details", async () => {
+    const s = shop();
+    const [d] = resolve([{ type: "return", customerName: "John Okoro", product: "HP EliteBook 840" }], {}, { now });
+    apply([d]);
+    const { assistantHistory } = await import("./assistantHistory");
+    expect(assistantHistory()[0].text).toBe("Return recorded · John Okoro");
+    expect(s).toBeTruthy();
+  });
+});

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { X, Wallet, MessageCircle, Phone, CalendarClock, BadgeCheck, ChevronDown, Undo2, Landmark, Pencil } from "lucide-react";
-import { debtors, chaseMessage, markChased, setPromise, recordPayment, runChaseUndo, TONE_LABEL, LANGS, VOICE_PAYMENT_METHODS } from "@techdesk/core";
+import { addHistory, debtors, chaseMessage, markChased, setPromise, recordPayment, runChaseUndo, TONE_LABEL, LANGS, VOICE_PAYMENT_METHODS } from "@techdesk/core";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { useAuth, canAccess } from "../lib/AuthContext";
@@ -50,6 +50,7 @@ function DebtorCard({ d, t, settings, fmt, lang, focus, onChanged, payTo, actor 
   function send() {
     openWhatsApp(d.phone, text);
     markChased(d.key, tone);
+    addHistory(`Reminder sent · ${d.name || "customer"}`, "check");
     setOpen(null);
     onChanged();
   }
@@ -57,6 +58,7 @@ function DebtorCard({ d, t, settings, fmt, lang, focus, onChanged, payTo, actor 
     const out = recordPayment(d, amount, { method, actor });
     if (out.applied > 0) {
       setDone(out);
+      addHistory(`Payment recorded · ${d.name || "customer"}`);
       setOpen(null);
       window.dispatchEvent(new CustomEvent(VOICE_SAVED_EVENT));
       onChanged();

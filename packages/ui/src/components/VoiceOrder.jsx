@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Camera, ImagePlus, ShoppingCart, Wrench, PackagePlus, Wallet, Sunrise, TrendingUp, Coins, Users, PackageX, PackageCheck, Trophy, GraduationCap, ChevronDown } from "lucide-react";
-import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn, answerQuestion, debtors } from "@techdesk/core";
+import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Camera, ImagePlus, ShoppingCart, Wrench, PackagePlus, Wallet, Sunrise, TrendingUp, Coins, Users, PackageX, PackageCheck, Trophy, GraduationCap, ChevronDown, History, RotateCcw } from "lucide-react";
+import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn, answerQuestion, debtors, assistantHistory, addHistory, clearHistory } from "@techdesk/core";
 import { useNavigate } from "react-router-dom";
 import AssistantBot from "./AssistantBot";
 import MoneyInput from "./MoneyInput";
@@ -28,8 +28,8 @@ import { openChaser } from "../lib/chaser";
 
 export const VOICE_SAVED_EVENT = "techdesk:voice-saved";
 
-const PAGE_FOR = { sale: "/sales", payment: "/sales", repair: "/repairs", repair_status: "/repairs", stock: "/inventory" };
-const TITLE = { sale: "Sale", repair: "New repair", stock: "Stock", repair_status: "Repair status", payment: "Payment", question: "Question", unknown: "Not understood" };
+const PAGE_FOR = { sale: "/sales", payment: "/sales", return: "/sales", repair: "/repairs", repair_status: "/repairs", stock: "/inventory" };
+const TITLE = { sale: "Sale", repair: "New repair", stock: "Stock", repair_status: "Repair status", payment: "Payment", return: "Return", question: "Question", unknown: "Not understood" };
 
 function Sheet({ children, onClose, t, label }) {
   return (
@@ -272,6 +272,32 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
         <NumberField t={t} label="Amount paid" value={d.amount} onChange={(v) => set({ amount: v })} />
       </>
     );
+  } else if (d.type === "return") {
+    const plan = d.pick ? { value: d.pick.price * Math.min(d.qty ?? d.pick.qty, d.pick.qty) } : null;
+    body = (
+      <>
+        <p className={`text-sm ${t.textSecondary}`}>
+          {d.said.customer ? `${d.said.customer} brought back ` : "Brought back: "}<b className={t.textPrimary}>{d.said.product || "an item"}</b>
+        </p>
+        {!d.pick && d.matches.length > 0 && (
+          <Picker t={t} value="" placeholder={d.ask} options={d.matches.map((m, i) => ({ value: String(i), label: m.label }))}
+            onChange={(v) => v !== "" && set({ pick: d.matches[Number(v)] })} />
+        )}
+        {d.pick && (
+          <>
+            <div className={`mt-1 rounded-xl p-2 text-sm ${t.insetBg} ${t.textPrimary}`}>
+              <RotateCcw className="w-3.5 h-3.5 inline -mt-0.5 mr-1" />{d.pick.label}
+              {d.matches.length > 1 && <button type="button" onClick={() => set({ pick: null })} className={`ml-2 text-xs underline ${t.textMuted}`}>change</button>}
+            </div>
+            <div className="flex gap-2 mt-1">
+              {d.pick.qty > 1 && <NumberField t={t} label={`How many (of ${d.pick.qty})`} value={d.qty ?? d.pick.qty} onChange={(v) => set({ qty: v == null ? null : Math.max(1, Math.round(v)) })} />}
+              <NumberField t={t} label="Money given back (empty = what they paid for it)" value={d.refund} onChange={(v) => set({ refund: v })} />
+            </div>
+            <p className={`text-xs mt-1 ${t.textMuted}`}>Comes off the sale ({fmt(plan.value)}) and goes back into stock.</p>
+          </>
+        )}
+      </>
+    );
   } else if (d.question && d.answer) {
     const chase = ["who_owes", "customer_balance"].includes(d.intent) && allowed("payment") ? () => openChaser() : null;
     return <AnswerCard a={d.answer} t={t} settings={settings} chase={chase} />;
@@ -397,6 +423,7 @@ export default function VoiceOrder() {
   const [busyText, setBusyText] = useState("");
   const [nudge, setNudge] = useState(null); // the robot's speech bubble
   const [showExamples, setShowExamples] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const navigate = useNavigate();
   const camInput = useRef(null);
   const pickInput = useRef(null);
@@ -443,7 +470,10 @@ export default function VoiceOrder() {
 
   /** Online and agreed to the notice; otherwise shows why and remembers what to do next. */
   async function ready(next) {
-    if (!(await voiceOrder.isOnline())) {
+    // The phone's own answer, instantly: a server ping here used to hold up
+    // the microphone, so the first words were lost. A send that finds no
+    // connection says so then.
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
       afterConsent.current = null;
       setSheet("offline");
       return false;
@@ -540,18 +570,22 @@ export default function VoiceOrder() {
     if (!r) return;
     setBusy(true);
     try {
+      setBusyText("Getting your voice note ready…");
       const blob = await r.stop();
       const { audio, seconds: len } = await blobToWavBase64(blob);
+      setBusyText("Understanding what you said…");
       if (len < 0.8) {
         say({ role: "assistant", kind: "error", text: "That was too short. Hold the mic while you speak, or tap once to start and again to finish." });
         return;
       }
       const res = await voiceOrder.send({ audio, mime: "audio/wav" });
+      setBusyText("Matching it to your records…");
       await handleResult(res, practice ? { practiceStep: practice.step } : undefined);
     } catch {
       say({ role: "assistant", kind: "error", text: "Couldn't read that recording. Try again." });
     } finally {
       setBusy(false);
+      setBusyText("");
     }
   }
 
@@ -659,6 +693,7 @@ export default function VoiceOrder() {
   }
   function undoMsg(msg) {
     voiceOrder.runUndo(msg.undo);
+    addHistory("Undone", "undo");
     updateMsg(msg.id, { undone: true, undo: null });
     window.dispatchEvent(new CustomEvent(VOICE_SAVED_EVENT));
     toast({ title: "Undone", tone: "info" });
@@ -667,6 +702,7 @@ export default function VoiceOrder() {
   /** Answered here, from this device's records: instant, offline, free. */
   function askNow(q) {
     const answer = answerQuestion({ intent: q.intent, period: q.period });
+    addHistory(`Checked: ${q.label.replace(/\?$/, "").toLowerCase()}`, "check");
     say({ role: "user", text: q.label });
     say({ role: "assistant", kind: "drafts", drafts: [{ id: mid(), type: "question", question: true, include: false, intent: q.intent, answer }] });
   }
@@ -758,13 +794,48 @@ export default function VoiceOrder() {
                   {recording ? "Listening…" : busy ? "Thinking…" : left != null ? `Here to help · ${Math.max(0, left)} AI uses left today` : "Here to help"}
                 </div>
               </div>
+              <button type="button" onClick={() => setHistoryOpen((v) => !v)} aria-expanded={historyOpen} aria-label="History" title="History"
+                className={`flex items-center gap-1 text-xs font-semibold p-2 sm:px-3 sm:py-1.5 rounded-full hover:bg-white/25 ${historyOpen ? "bg-white/30" : "bg-white/15"}`}>
+                <History className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">History</span>
+              </button>
               {!practice && aiOn && (
-                <button type="button" onClick={startPractice} className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25">
-                  <GraduationCap className="w-3.5 h-3.5" /> Practice
+                <button type="button" onClick={startPractice} aria-label="Practice" title="Practice"
+                  className="flex items-center gap-1 text-xs font-semibold p-2 sm:px-3 sm:py-1.5 rounded-full bg-white/15 hover:bg-white/25">
+                  <GraduationCap className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Practice</span>
                 </button>
               )}
               <button type="button" onClick={() => { cancelRec(); setOpen(false); }} className="p-1 rounded-full hover:bg-white/15" aria-label="Close"><X className="w-5 h-5" /></button>
             </div>
+            {historyOpen && (() => {
+              const list = assistantHistory();
+              const when = (iso) => {
+                const d = new Date(iso);
+                const today = new Date().toDateString() === d.toDateString();
+                return today ? d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+              };
+              return (
+                <div className={`border-b max-h-[45%] overflow-y-auto ${t.divider} ${t.insetBg}`} aria-label="History">
+                  <div className="flex items-center px-4 pt-3 pb-1">
+                    <span className={`flex-1 text-[11px] font-bold uppercase tracking-wider ${t.textMuted}`}>What I've done</span>
+                    {list.length > 0 && <button type="button" onClick={() => { clearHistory(); setHistoryOpen(false); }} className={`text-xs underline ${t.textMuted}`}>Clear</button>}
+                  </div>
+                  {list.length === 0 ? (
+                    <p className={`px-4 pb-3 text-sm ${t.textMuted}`}>Nothing yet. What you save or check here will be listed.</p>
+                  ) : (
+                    <ul className="px-4 pb-3">
+                      {list.map((h, i) => (
+                        <li key={i} className={`flex items-center gap-2 py-1.5 text-sm border-b last:border-0 ${t.divider}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${h.kind === "check" ? "bg-sky-500" : h.kind === "undo" ? "bg-neutral-400" : h.kind === "return" ? "bg-amber-500" : "bg-emerald-500"}`} />
+                          <span className={`flex-1 min-w-0 truncate ${t.textPrimary}`}>{h.text}</span>
+                          <span className={`text-xs shrink-0 tabular-nums ${t.textMuted}`}>{when(h.at)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              );
+            })()}
+
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {messages.length === 0 && !practice && (
                 <div className="space-y-4">

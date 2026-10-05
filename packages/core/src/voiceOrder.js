@@ -22,7 +22,8 @@ import { db } from "./db";
 import { storage } from "./storage";
 import { installId } from "./hqStore";
 import { featureOn, pausedResult } from "./appControl";
-import { answerQuestion } from "./assistantAnswers";
+import { answerQuestion, periodRange } from "./assistantAnswers";
+import { addHistory } from "./assistantHistory";
 import { repairOwed } from "./summary";
 
 const SUPABASE_URL = "https://wuwerzyydtvargvqjufb.supabase.co";
@@ -184,6 +185,53 @@ export function dayToISO(day, now = new Date()) {
   return new Date(+m[1], +m[2] - 1, +m[3], 12, 0, 0).toISOString();
 }
 
+const DAY = 86400000;
+const shortDay = (iso, now) => {
+  const d = Math.round((new Date(now).setHours(0, 0, 0, 0) - new Date(iso).setHours(0, 0, 0, 0)) / DAY);
+  return d <= 0 ? "today" : d === 1 ? "yesterday" : d < 7 ? `${d} days ago` : new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+};
+
+/**
+ * The sale something was returned from: by customer, item and when. Two
+ * Johns, or two laptops, and the shop is asked which -- never guessed.
+ */
+function findReturn(a, { sales, customers }, now) {
+  const m = a.customerName || a.customerPhone ? matchCustomer(a.customerName, a.customerPhone, customers) : null;
+  const people = !m ? null : m.customer ? [m.customer] : m.candidates;
+  const first = words(a.customerName)[0];
+  const exact = m?.customer || null; // "John Okoro": only his sales; "John": any John's
+  const forCustomer = (s) => !people ? true
+    : exact ? s.customerId === exact.id || String(s.customerName || "").toLowerCase() === String(exact.name || "").toLowerCase()
+    : people.some((c) => s.customerId === c.id) || (!!first && words(s.customerName).includes(first));
+  const want = new Set(words(a.product).map(stem));
+  const itemFits = (i) => !want.size || words(i.name).map(stem).some((w) => want.has(w));
+  const [from, to] = a.date ? [new Date(`${a.date}T00:00:00`), new Date(new Date(`${a.date}T00:00:00`).getTime() + DAY)]
+    : a.period ? periodRange(a.period, now) : [new Date(now.getTime() - 90 * DAY), new Date(now.getTime() + DAY)];
+  const inWindow = (s) => { const t = new Date(s.createdAt).getTime(); return t >= from.getTime() && t < to.getTime(); };
+  const collect = (filter, fits = itemFits) => sales.filter(filter).filter(forCustomer).flatMap((s) =>
+    (s.items || []).map((i, idx) => ({ i, idx, s })).filter(({ i }) => fits(i)).map(({ i, idx, s }) => ({
+      saleId: s.id, idx, invoice: s.invoice, customerName: s.customerName || "Walk-in", customerId: s.customerId || null,
+      name: i.name, qty: Number(i.qty || 0), price: Number(i.price || 0), at: s.createdAt,
+      label: `${s.customerName || "Walk-in"} · ${i.name}${Number(i.qty) > 1 ? ` ×${i.qty}` : ""} · ${s.invoice || ""} · ${shortDay(s.createdAt, now)}`,
+    })));
+  // When they said "yesterday" but it was the day before, look a little wider rather than find nothing.
+  let matches = collect(inWindow);
+  if (!matches.length && (a.period || a.date)) matches = collect((s) => new Date(s.createdAt).getTime() >= now.getTime() - 30 * DAY);
+  // "The laptop" when the stock calls it "HP EliteBook 840": if no item's name
+  // fits, offer everything that customer bought then, and let the shop pick.
+  if (!matches.length && want.size && people?.length) matches = collect(inWindow, () => true);
+  matches.sort((x, y) => String(y.at).localeCompare(String(x.at)));
+  const who = new Set(matches.map((m) => (m.customerId || m.customerName).toString().toLowerCase()));
+  return {
+    said: { customer: a.customerName || "", product: a.product || "" },
+    matches: matches.slice(0, 8),
+    pick: matches.length === 1 ? matches[0] : null,
+    ask: who.size > 1 && first ? `Which ${a.customerName.trim().split(/\s+/)[0]}?` : "Which one was returned?",
+    qty: a.qty != null ? Math.max(1, Math.round(Number(a.qty))) : null,
+    refund: a.refund != null ? Number(a.refund) : null,
+  };
+}
+
 /**
  * Turns the AI's actions into drafts the shop can check and edit.
  * `source` is "voice" (also typed) or "photo" (a notebook page).
@@ -283,6 +331,9 @@ export function resolve(actions, data = {}, { source = "voice", now = new Date()
         customerName: cust?.name || a.customerName || "",
       };
     }
+    if (a.type === "return") {
+      return { ...base, ...findReturn(a, { sales, customers }, now) };
+    }
     if (a.type === "question") {
       if (source === "photo") return { ...base, type: "unknown", include: false };
       return { ...base, include: false, question: true, intent: a.intent, answer: answerQuestion(a, { sales, repairs, inventory, customers }) };
@@ -319,6 +370,10 @@ export function issues(d) {
     if (!d.target) out.push(d.candidates.length ? "Which one is being paid?" : `Nothing owed by ${d.customerName || "that customer"} was found.`);
     if (!(d.amount > 0)) out.push("How much was paid?");
     else if (d.target?.kind === "repair" && d.amount < d.target.owed) out.push("Part-payment on a repair: record it from the Repairs page.");
+  } else if (d.type === "return") {
+    if (!d.matches.length) out.push(`No sale of ${d.said.product || "that"}${d.said.customer ? ` to ${d.said.customer}` : ""} was found.`);
+    else if (!d.pick) out.push(d.ask);
+    else if (d.qty != null && d.qty > d.pick.qty) out.push(`Only ${d.pick.qty} were sold on ${d.pick.invoice}.`);
   } else if (!d.question) {
     out.push("Couldn't tell what to do.");
   }
@@ -447,6 +502,25 @@ export function apply(drafts, { actor } = {}) {
         db.updateRepair(d.repairId, { status: before.status });
         log("repair", `Status change on ${before.ticket} undone`, d.repairId, actor);
       });
+    } else if (d.type === "return") {
+      const before = db.getSales().find((x) => x.id === d.pick.saleId);
+      const item = before?.items?.[d.pick.idx];
+      if (!item) continue;
+      const out = returnPlan(before, d.pick.idx, d.qty, d.refund);
+      db.updateSale(before.id, out.patch);
+      if (item.fromInventory && item.productId) {
+        const p = db.findInventoryItem(item.productId);
+        if (p) db.updateInventoryItem(item.productId, { stock: Number(p.stock || 0) + out.back });
+      }
+      log("sale", `Return: ${out.back} × ${item.name} from ${before.customerName || "a customer"} (${before.invoice}), ${out.refund} refunded`, before.id, actor);
+      undo.unshift(() => {
+        db.updateSale(before.id, { items: before.items, subtotal: before.subtotal, total: before.total, amountPaid: before.amountPaid, paymentStatus: before.paymentStatus, returns: before.returns || [] });
+        if (item.fromInventory && item.productId) {
+          const p = db.findInventoryItem(item.productId);
+          if (p) db.updateInventoryItem(item.productId, { stock: Math.max(0, Number(p.stock || 0) - out.back) });
+        }
+        log("sale", `Return on ${before.invoice} undone`, before.id, actor);
+      });
     } else if (d.type === "payment") {
       if (d.target.kind === "sale") {
         const before = db.getSales().find((s) => s.id === d.target.id);
@@ -469,9 +543,51 @@ export function apply(drafts, { actor } = {}) {
       }
     }
     saved += 1;
+    addHistory(historyLine(d), d.type);
   }
   logSource = "voice";
   return { saved, undo };
+}
+
+/**
+ * What a return does to the sale: the item (or some of it) comes off, the
+ * total drops by its price, and whatever they had now overpaid is the
+ * refund -- unless the shop said how much was given back.
+ */
+export function returnPlan(sale, idx, qty, refund) {
+  const item = sale.items[idx];
+  const back = Math.min(Number(item.qty || 0), qty != null ? Number(qty) : Number(item.qty || 0));
+  const value = Number(item.price || 0) * back;
+  const items = sale.items.flatMap((x, j) => (j !== idx ? [x] : Number(x.qty) - back > 0 ? [{ ...x, qty: Number(x.qty) - back }] : []));
+  const total = Math.max(0, Number(sale.total || 0) - value);
+  const paid = Number(sale.amountPaid || 0);
+  const given = refund != null ? Math.min(Number(refund), paid) : Math.max(0, paid - total);
+  const amountPaid = Math.max(0, paid - given);
+  return {
+    back,
+    refund: given,
+    patch: {
+      items,
+      subtotal: Math.max(0, Number(sale.subtotal ?? sale.total ?? 0) - value),
+      total,
+      amountPaid,
+      paymentStatus: amountPaid >= total ? "Paid" : "Pending",
+      returns: [...(sale.returns || []), { at: new Date().toISOString(), name: item.name, qty: back, refund: given }],
+    },
+  };
+}
+
+function historyLine(d) {
+  const who = (c) => (c && c.name && c.name !== "Walk-in" ? ` · ${c.name}` : "");
+  switch (d.type) {
+    case "sale": return `Sale made${who(d.customer)}`;
+    case "repair": return `Repair booked${who(d.customer)}`;
+    case "stock": return d.productId ? `Stock ${d.mode === "set" ? "counted" : "added"} · ${d.name}` : `Product added · ${d.name}`;
+    case "repair_status": return `Repair marked ${d.status}`;
+    case "payment": return `Payment recorded${d.customerName ? ` · ${d.customerName}` : ""}`;
+    case "return": return `Return recorded · ${d.pick?.customerName || ""}`.replace(/ · $/, "");
+    default: return "Saved";
+  }
 }
 
 export function runUndo(undo) {
