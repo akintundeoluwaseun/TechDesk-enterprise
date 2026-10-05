@@ -123,8 +123,13 @@ async function browserNotify({ title, body, tag }) {
   }
 }
 
+import { webSpeech } from "./speech";
+
 /** @type {import("./types").PlatformAdapter} */
 export const browserAdapter = {
+  // Live speech-to-text where the browser has it (Chrome, Edge, Safari).
+  get speech() { return webSpeech(); },
+
   name: "browser",
 
   async saveFile(blob, filename) {

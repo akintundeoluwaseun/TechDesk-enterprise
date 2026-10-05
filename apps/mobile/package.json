@@ -1,6 +1,6 @@
 {
   "name": "@techdesk/mobile",
-  "version": "4.9.0",
+  "version": "4.10.0",
   "private": true,
   "type": "module",
   "description": "TechDesk for Android. The same shop, on a phone.",
@@ -11,6 +11,7 @@
     "sync": "npm run build && cap sync android"
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "@capacitor/filesystem": "^8.1.3",

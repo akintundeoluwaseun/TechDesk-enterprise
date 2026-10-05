@@ -75,3 +75,24 @@ describe("answering questions from the shop's own records", () => {
     expect(d.answer.title).toBe("Who owes you");
   });
 });
+
+describe("questions answered instantly, without the AI", () => {
+  it("recognises the everyday ones", async () => {
+    const { quickIntent } = await import("./assistantAnswers");
+    expect(quickIntent("How much did I sell today?")).toMatchObject({ intent: "sales_total", period: "today" });
+    expect(quickIntent("how much did we make yesterday")).toMatchObject({ intent: "sales_total", period: "yesterday" });
+    expect(quickIntent("Who owes me?")).toMatchObject({ intent: "who_owes" });
+    expect(quickIntent("what's my profit this week")).toMatchObject({ intent: "profit", period: "this_week" });
+    expect(quickIntent("what is running low")).toMatchObject({ intent: "low_stock" });
+    expect(quickIntent("How much does Chidi owe?")).toMatchObject({ intent: "customer_balance", subject: "chidi" });
+    expect(quickIntent("how many iphone 11 battery do i have")).toMatchObject({ intent: "stock_of", subject: "iphone 11 battery" });
+    expect(quickIntent("which repairs are ready but not collected")).toMatchObject({ intent: "repairs_ready" });
+  });
+  it("leaves instructions to the AI", async () => {
+    const { quickIntent } = await import("./assistantAnswers");
+    expect(quickIntent("sell two chargers to Chidi cash")).toBe(null);
+    expect(quickIntent("Aisha paid 5k")).toBe(null);
+    expect(quickIntent("cancel the last sale")).toBe(null);
+    expect(quickIntent("the laptop John bought yesterday was returned")).toBe(null);
+  });
+});

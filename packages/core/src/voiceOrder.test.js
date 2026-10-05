@@ -350,3 +350,73 @@ describe("returns: 'the laptop John bought yesterday was returned'", () => {
     expect(s).toBeTruthy();
   });
 });
+
+describe("correcting and cancelling a sale", () => {
+  beforeEach(() => storage.clear());
+  const now = new Date(2026, 9, 5, 12, 0, 0);
+  const at = (d, h = 11) => { const x = new Date(now); x.setDate(x.getDate() - d); x.setHours(h, 0, 0, 0); return x.toISOString(); };
+
+  function shop() {
+    const charger = db.addInventoryItem({ name: "20W charger", price: 8000, costPrice: 4000, stock: 10 });
+    const cable = db.addInventoryItem({ name: "Type-C cable", price: 2500, costPrice: 1200, stock: 20 });
+    const bayo = db.findOrCreateCustomer({ name: "Bayo Adams", phone: "08051112222" });
+    const item = (p, qty) => ({ id: db.uid("item"), productId: p.id, name: p.name, price: p.price, costPrice: p.costPrice, qty, fromInventory: true });
+    const s1 = db.createSale({ customerId: bayo.id, customerName: "Bayo Adams", items: [item(charger, 2), item(cable, 1)], subtotal: 18500, total: 18500, amountPaid: 18500, paymentStatus: "Paid", paymentMethod: "Cash", createdAt: at(1) });
+    const s2 = db.createSale({ customerName: "Walk-in", items: [item(cable, 2)], subtotal: 5000, total: 5000, amountPaid: 5000, paymentStatus: "Paid", paymentMethod: "Cash", createdAt: at(0, 9) });
+    return { charger, cable, bayo, s1, s2 };
+  }
+
+  it("'the charger I sold Bayo was 7k not 8k, and he paid by POS': fixes the price, the total and the method", () => {
+    const s = shop();
+    const [d] = resolve([{ type: "edit_sale", customerName: "Bayo", product: "charger", newPrice: 7000, paymentMethod: "POS" }], {}, { now });
+    expect(d.pick.invoice).toBe(s.s1.invoice);
+    expect(d.itemIdx).toBe(0);
+    expect(issues(d)).toEqual([]);
+    const out = apply([d]);
+    const sale = db.getSales().find((x) => x.id === s.s1.id);
+    expect(sale.items[0].price).toBe(7000);
+    expect(sale.total).toBe(16500);
+    expect(sale.amountPaid).toBe(16500); // was fully paid: stays fully paid
+    expect(sale.paymentMethod).toBe("POS");
+    runUndo(out.undo);
+    const back = db.getSales().find((x) => x.id === s.s1.id);
+    expect([back.items[0].price, back.total, back.paymentMethod]).toEqual([8000, 18500, "Cash"]);
+  });
+
+  it("changing a quantity moves stock the right way, and undo moves it back", () => {
+    const s = shop();
+    const before = db.findInventoryItem(s.charger.id).stock;
+    const [d] = resolve([{ type: "edit_sale", customerName: "Bayo Adams", product: "charger", newQty: 3 }], {}, { now });
+    const out = apply([d]);
+    expect(db.findInventoryItem(s.charger.id).stock).toBe(before - 1);
+    runUndo(out.undo);
+    expect(db.findInventoryItem(s.charger.id).stock).toBe(before);
+  });
+
+  it("asks which item when the sale has several and none was named", () => {
+    shop();
+    const [d] = resolve([{ type: "edit_sale", customerName: "Bayo", newQty: 1 }], {}, { now });
+    expect(issues(d)).toEqual(["Which item on the sale?"]);
+  });
+
+  it("'cancel the last sale': removes it, restocks, and undo brings the same sale back", () => {
+    const s = shop();
+    const before = db.findInventoryItem(s.cable.id).stock;
+    const [d] = resolve([{ type: "cancel_sale" }], {}, { now });
+    expect(d.pick.invoice).toBe(s.s2.invoice);
+    const out = apply([d]);
+    expect(db.getSales().find((x) => x.id === s.s2.id)).toBeUndefined();
+    expect(db.findInventoryItem(s.cable.id).stock).toBe(before + 2);
+    runUndo(out.undo);
+    const back = db.getSales().find((x) => x.id === s.s2.id);
+    expect(back.invoice).toBe(s.s2.invoice);
+    expect(db.findInventoryItem(s.cable.id).stock).toBe(before);
+    expect(JSON.parse(storage.getItem("techdesk_tombstones") || "[]").some((t) => t.id === s.s2.id)).toBe(false);
+  });
+
+  it("finds a sale by its invoice number", () => {
+    const s = shop();
+    const [d] = resolve([{ type: "cancel_sale", invoice: s.s1.invoice.toLowerCase() }], {}, { now });
+    expect(d.pick.saleId).toBe(s.s1.id);
+  });
+});

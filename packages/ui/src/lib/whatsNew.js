@@ -9,6 +9,33 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-05f",
+    date: "5 October 2026",
+    title: "TechDesk 4.10: a much faster assistant",
+    items: [
+      {
+        icon: "zap",
+        title: "Words appear as you talk",
+        text: "Hold the mic and your words show up straight away. Let go and it's done in a moment: only the words are sent, not the recording.",
+      },
+      {
+        icon: "sparkles",
+        title: "Instant answers",
+        text: "\u201cHow much did I sell today?\u201d, \u201cWho owes me?\u201d, \u201cWhat's running low?\u201d are answered instantly on your phone, even offline.",
+      },
+      {
+        icon: "back",
+        title: "Correct or cancel a sale",
+        text: "\u201cThe charger I sold Bayo was 7k not 8k.\u201d \u201cCancel the last sale.\u201d Check, save, and undo if you need to.",
+      },
+      {
+        icon: "bell",
+        title: "Update notices",
+        text: "The app now tells you when a new version is out, with a button to get it.",
+      },
+    ],
+  },
+  {
     id: "2026-10-05e",
     date: "5 October 2026",
     title: "TechDesk 4.9: returns, history, and a quicker assistant",

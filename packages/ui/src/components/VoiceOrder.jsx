@@ -1,9 +1,22 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Camera, ImagePlus, ShoppingCart, Wrench, PackagePlus, Wallet, Sunrise, TrendingUp, Coins, Users, PackageX, PackageCheck, Trophy, GraduationCap, ChevronDown, History, RotateCcw } from "lucide-react";
-import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn, answerQuestion, debtors, assistantHistory, addHistory, clearHistory } from "@techdesk/core";
+import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn, answerQuestion, quickIntent, debtors, assistantHistory, addHistory, clearHistory } from "@techdesk/core";
 import { useNavigate } from "react-router-dom";
 import AssistantBot from "./AssistantBot";
 import MoneyInput from "./MoneyInput";
+import { platform } from "@techdesk/platform";
+
+// Live speech-to-text where the device has it; off for good on this device
+// once it has failed, so the next try records audio straight away.
+const LIVE_OFF = "techdesk_live_speech_off";
+function liveEngine() {
+  try {
+    if (localStorage.getItem(LIVE_OFF) === "1") return null;
+    return platform().speech || null;
+  } catch {
+    return null;
+  }
+}
 import { useThemeTokens } from "../lib/ThemeContext";
 import { SITE_ORIGIN } from "@techdesk/editions";
 import { useAuth, canAccess } from "../lib/AuthContext";
@@ -28,8 +41,8 @@ import { openChaser } from "../lib/chaser";
 
 export const VOICE_SAVED_EVENT = "techdesk:voice-saved";
 
-const PAGE_FOR = { sale: "/sales", payment: "/sales", return: "/sales", repair: "/repairs", repair_status: "/repairs", stock: "/inventory" };
-const TITLE = { sale: "Sale", repair: "New repair", stock: "Stock", repair_status: "Repair status", payment: "Payment", return: "Return", question: "Question", unknown: "Not understood" };
+const PAGE_FOR = { sale: "/sales", payment: "/sales", return: "/sales", edit_sale: "/sales", cancel_sale: "/sales", repair: "/repairs", repair_status: "/repairs", stock: "/inventory" };
+const TITLE = { sale: "Sale", repair: "New repair", stock: "Stock", repair_status: "Repair status", payment: "Payment", return: "Return", edit_sale: "Correct a sale", cancel_sale: "Cancel a sale", question: "Question", unknown: "Not understood" };
 
 function Sheet({ children, onClose, t, label }) {
   return (
@@ -272,6 +285,56 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
         <NumberField t={t} label="Amount paid" value={d.amount} onChange={(v) => set({ amount: v })} />
       </>
     );
+  } else if (d.type === "edit_sale" || d.type === "cancel_sale") {
+    const sale = d.pick ? db.getSales().find((x) => x.id === d.pick.saleId) : null;
+    const c = d.change || {};
+    const item = sale && d.itemIdx != null ? sale.items[d.itemIdx] : null;
+    body = (
+      <>
+        {!d.pick && d.matches.length > 0 && (
+          <Picker t={t} value="" placeholder={d.ask} options={d.matches.map((m, i) => ({ value: String(i), label: m.label }))}
+            onChange={(v) => {
+              if (v === "") return;
+              const pick = d.matches[Number(v)];
+              const picked = db.getSales().find((x) => x.id === pick.saleId);
+              set({ pick, itemIdx: picked?.items?.length === 1 ? 0 : null });
+            }} />
+        )}
+        {d.pick && (
+          <div className={`rounded-xl p-2 text-sm ${t.insetBg} ${t.textPrimary}`}>
+            {d.pick.label}
+            {d.matches.length > 1 && <button type="button" onClick={() => set({ pick: null, itemIdx: null })} className={`ml-2 text-xs underline ${t.textMuted}`}>change</button>}
+          </div>
+        )}
+        {d.type === "cancel_sale" && d.pick && (
+          <p className="text-xs mt-1 text-rose-500">The whole sale is removed and its items go back into stock. Undo brings it back.</p>
+        )}
+        {d.type === "edit_sale" && sale && (
+          <div className="mt-1 space-y-1">
+            {(c.qty != null || c.price != null) && d.itemIdx == null && (
+              <Picker t={t} value="" placeholder="Which item on the sale?" options={sale.items.map((i, idx) => ({ value: String(idx), label: `${i.name} ×${i.qty} · ${fmt(i.price)}` }))}
+                onChange={(v) => v !== "" && set({ itemIdx: Number(v) })} />
+            )}
+            {item && (c.qty != null || c.price != null) && (
+              <div className="flex gap-2">
+                {c.qty != null && <NumberField t={t} label={`${item.name}: qty (was ${item.qty})`} value={c.qty} onChange={(v) => set({ change: { ...c, qty: v == null ? null : Math.round(v) } })} />}
+                {c.price != null && <NumberField t={t} label={`Price each (was ${fmt(item.price)})`} value={c.price} onChange={(v) => set({ change: { ...c, price: v } })} />}
+              </div>
+            )}
+            {c.paymentMethod && (
+              <label className={`text-xs ${t.textMuted} block`}>
+                Paid by (was {sale.paymentMethod || "—"})
+                <select value={c.paymentMethod} onChange={(e) => set({ change: { ...c, paymentMethod: e.target.value } })} className={`w-full rounded-xl px-3 py-2 text-sm mt-1 ${t.inputBg}`}>
+                  {VOICE_PAYMENT_METHODS.map((m) => <option key={m}>{m}</option>)}
+                </select>
+              </label>
+            )}
+            {c.amountPaid != null && <NumberField t={t} label={`Amount paid (was ${fmt(sale.amountPaid)})`} value={c.amountPaid} onChange={(v) => set({ change: { ...c, amountPaid: v } })} />}
+            {c.customer && <TextField t={t} label={`Customer (was ${sale.customerName || "Walk-in"})`} value={c.customer} onChange={(v) => set({ change: { ...c, customer: v } })} />}
+          </div>
+        )}
+      </>
+    );
   } else if (d.type === "return") {
     const plan = d.pick ? { value: d.pick.price * Math.min(d.qty ?? d.pick.qty, d.pick.qty) } : null;
     body = (
@@ -424,6 +487,7 @@ export default function VoiceOrder() {
   const [nudge, setNudge] = useState(null); // the robot's speech bubble
   const [showExamples, setShowExamples] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [liveText, setLiveText] = useState("");
   const navigate = useNavigate();
   const camInput = useRef(null);
   const pickInput = useRef(null);
@@ -529,6 +593,16 @@ export default function VoiceOrder() {
       openBrief();
       return;
     }
+    // Everyday questions are answered here, at once: no AI, no internet needed.
+    const quick = !opts && quickIntent(clean);
+    if (quick) {
+      setInput("");
+      say({ role: "user", text: clean });
+      const label = clean.replace(/\?$/, "");
+      addHistory(`Checked: ${label.length > 40 ? `${label.slice(0, 40)}…` : label.toLowerCase()}`, "check");
+      say({ role: "assistant", kind: "drafts", drafts: [{ id: mid(), type: "question", question: true, include: false, intent: quick.intent, answer: answerQuestion(quick) }] });
+      return;
+    }
     if (!(await ready(() => sendText(clean, opts)))) return;
     setInput("");
     say({ role: "user", text: clean });
@@ -543,7 +617,24 @@ export default function VoiceOrder() {
 
   async function startRec() {
     if (!(await ready(() => startRec()))) return false;
-    try {
+    const engine = liveEngine();
+    if (engine) {
+      try {
+        setLiveText("");
+        const session = await engine.start({ lang: "en-NG", onText: setLiveText });
+        rec.current = { live: true, stop: session.stop, cancel: session.cancel };
+      } catch (e) {
+        if (e?.message === "not-allowed") {
+          setError("TechDesk couldn't use the microphone. Allow microphone access for TechDesk in your phone or computer settings, then try again.");
+          setSheet("error");
+          return false;
+        }
+        // Speech-to-text isn't working here: record audio from now on.
+        try { localStorage.setItem(LIVE_OFF, "1"); } catch { /* fine */ }
+        rec.current = null;
+      }
+    }
+    if (!rec.current) try {
       rec.current = await startRecording();
     } catch {
       setError("TechDesk couldn't use the microphone. Allow microphone access for TechDesk in your phone or computer settings, then try again.");
@@ -568,6 +659,18 @@ export default function VoiceOrder() {
     setRecording(false);
     setTapMode(false);
     if (!r) return;
+    if (r.live) {
+      // The words are already here: send them as text, which is quick.
+      let text = "";
+      try { text = await r.stop(); } catch { /* nothing heard */ }
+      setLiveText("");
+      if (!text.trim()) {
+        say({ role: "assistant", kind: "error", text: "I didn't hear anything. Hold the mic, speak, then let go." });
+        return;
+      }
+      await sendText(text, practice ? { practiceStep: practice.step } : undefined);
+      return;
+    }
     setBusy(true);
     try {
       setBusyText("Getting your voice note ready…");
@@ -591,6 +694,7 @@ export default function VoiceOrder() {
 
   function cancelRec() {
     clearInterval(timer.current);
+    setLiveText("");
     rec.current?.cancel();
     rec.current = null;
     setRecording(false);
@@ -791,7 +895,7 @@ export default function VoiceOrder() {
               <div className="flex-1 min-w-0">
                 <div className="font-semibold leading-tight">TechDesk Assistant</div>
                 <div className="text-xs text-white/80 truncate">
-                  {recording ? "Listening…" : busy ? "Thinking…" : left != null ? `Here to help · ${Math.max(0, left)} AI uses left today` : "Here to help"}
+                  {recording ? "Listening…" : busy ? "Working…" : left != null ? `Here to help · ${Math.max(0, left)} AI uses left today` : "Here to help"}
                 </div>
               </div>
               <button type="button" onClick={() => setHistoryOpen((v) => !v)} aria-expanded={historyOpen} aria-label="History" title="History"
@@ -1029,7 +1133,10 @@ export default function VoiceOrder() {
               {recording ? (
                 <div className="flex-1 flex items-center gap-2 text-sm">
                   <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className={t.textPrimary}>{tapMode ? "Listening… tap the mic to finish" : "Listening… let go to send"} · {seconds}s</span>
+                  <span className={`min-w-0 truncate ${liveText ? t.textPrimary + " font-medium" : t.textPrimary}`}>
+                    {liveText || (tapMode ? "Listening… tap the mic to finish" : "Listening… let go to send")}
+                  </span>
+                  {!liveText && <span className={`shrink-0 ${t.textMuted}`}>{seconds}s</span>}
                   <button type="button" onClick={cancelRec} className={`ml-auto text-xs underline ${t.textMuted}`}>Cancel</button>
                 </div>
               ) : (

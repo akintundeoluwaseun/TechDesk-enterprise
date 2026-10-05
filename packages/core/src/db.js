@@ -267,6 +267,19 @@ export const db = {
     write(KEYS.sales, sales);
     tombstone("sale", id);
   },
+  // Undo for a delete: the same record (same id and invoice) back in its
+  // place, stamped now so it outranks the deletion everywhere it synced to,
+  // and its tombstone dropped so this device doesn't send the delete again.
+  restoreSale: (record) => {
+    const sales = read(KEYS.sales).filter((s) => s.id !== record.id);
+    sales.push(stamp(record));
+    sales.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    write(KEYS.sales, sales);
+    try {
+      const list = JSON.parse(storage.getItem(KEYS.tombstones) || "[]");
+      storage.setItem(KEYS.tombstones, JSON.stringify(list.filter((t) => !(t.kind === "sale" && t.id === record.id))));
+    } catch { /* a tombstone left behind is outranked by the newer write anyway */ }
+  },
 
   // ---- Repairs ----
   getRepairs: () => read(KEYS.repairs),

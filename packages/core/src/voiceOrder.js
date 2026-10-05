@@ -233,6 +233,61 @@ function findReturn(a, { sales, customers }, now) {
 }
 
 /**
+ * The sale being corrected or cancelled: by invoice number, customer, an
+ * item on it and when. "The last sale" with nothing else said is the most
+ * recent one. More than one fits and the shop is asked which.
+ */
+function findSale(a, { sales, customers }, now) {
+  const inv = digits(a.invoice);
+  if (inv) {
+    const hit = sales.filter((s) => digits(s.invoice) === inv || digits(s.invoice).replace(/^0+/, "") === inv.replace(/^0+/, ""));
+    if (hit.length) return saleChoice(hit, a, now);
+  }
+  const m = a.customerName || a.customerPhone ? matchCustomer(a.customerName, a.customerPhone, customers) : null;
+  const first = words(a.customerName)[0];
+  const exact = m?.customer || null;
+  const forCustomer = (s) => !m ? true
+    : exact ? s.customerId === exact.id || String(s.customerName || "").toLowerCase() === String(exact.name || "").toLowerCase()
+    : (m.candidates || []).some((c) => s.customerId === c.id) || (!!first && words(s.customerName).includes(first));
+  const want = new Set(words(a.product).map(stem));
+  const hasItem = (s) => !want.size || (s.items || []).some((i) => words(i.name).map(stem).some((w) => want.has(w)));
+  const [from, to] = a.date ? [new Date(`${a.date}T00:00:00`), new Date(new Date(`${a.date}T00:00:00`).getTime() + DAY)]
+    : a.period ? periodRange(a.period, now) : [new Date(now.getTime() - 90 * DAY), new Date(now.getTime() + DAY)];
+  const inWindow = (s) => { const t = new Date(s.createdAt).getTime(); return t >= from.getTime() && t < to.getTime(); };
+  const sorted = [...sales].sort((x, y) => String(y.createdAt).localeCompare(String(x.createdAt)));
+  if (!m && !want.size && !a.period && !a.date) return saleChoice(sorted.slice(0, 1), a, now); // "the last sale"
+  let hit = sorted.filter(inWindow).filter(forCustomer).filter(hasItem);
+  if (!hit.length && want.size) hit = sorted.filter(inWindow).filter(forCustomer); // "laptop" vs "HP EliteBook"
+  return saleChoice(hit, a, now);
+}
+
+function saleChoice(hit, a, now) {
+  const fmt = (n) => Math.round(Number(n || 0)).toLocaleString("en");
+  const matches = hit.slice(0, 8).map((s) => ({
+    saleId: s.id, invoice: s.invoice, customerName: s.customerName || "Walk-in", customerId: s.customerId || null, at: s.createdAt,
+    label: `${s.customerName || "Walk-in"} · ${(s.items || []).map((i) => `${i.name}${Number(i.qty) > 1 ? ` ×${i.qty}` : ""}`).join(", ") || "no items"} · ${s.invoice || ""} · ${shortDay(s.createdAt, now)} · ${fmt(s.total)}`,
+  }));
+  const who = new Set(matches.map((x) => (x.customerId || x.customerName).toString().toLowerCase()));
+  const name = String(a.customerName || "").trim().split(/\s+/)[0];
+  return {
+    said: { customer: a.customerName || "", product: a.product || "", invoice: a.invoice || "" },
+    matches,
+    pick: matches.length === 1 ? matches[0] : null,
+    ask: who.size > 1 && name ? `Which ${name}?` : "Which sale?",
+  };
+}
+
+/** Which line on the sale the change is about: the one named, or the only one. */
+export function saleItemIndex(sale, said) {
+  const items = sale?.items || [];
+  if (items.length === 1) return 0;
+  const want = new Set(words(said).map(stem));
+  if (!want.size) return null;
+  const hits = items.map((i, idx) => ({ idx, n: words(i.name).map(stem).filter((w) => want.has(w)).length })).filter((x) => x.n > 0).sort((x, y) => y.n - x.n);
+  return hits.length && (hits.length === 1 || hits[0].n > hits[1].n) ? hits[0].idx : null;
+}
+
+/**
  * Turns the AI's actions into drafts the shop can check and edit.
  * `source` is "voice" (also typed) or "photo" (a notebook page).
  */
@@ -331,6 +386,25 @@ export function resolve(actions, data = {}, { source = "voice", now = new Date()
         customerName: cust?.name || a.customerName || "",
       };
     }
+    if (a.type === "edit_sale") {
+      const found = findSale(a, { sales, customers }, now);
+      const sale = found.pick ? sales.find((x) => x.id === found.pick.saleId) : null;
+      return {
+        ...base,
+        ...found,
+        itemIdx: sale ? saleItemIndex(sale, a.product) : null,
+        change: {
+          qty: a.newQty != null ? Math.max(0, Math.round(Number(a.newQty))) : null,
+          price: a.newPrice != null ? Number(a.newPrice) : null,
+          paymentMethod: PAYMENT_METHODS.includes(a.paymentMethod) ? a.paymentMethod : null,
+          amountPaid: a.amountPaid != null ? Number(a.amountPaid) : null,
+          customer: a.newCustomer || null,
+        },
+      };
+    }
+    if (a.type === "cancel_sale") {
+      return { ...base, ...findSale(a, { sales, customers }, now) };
+    }
     if (a.type === "return") {
       return { ...base, ...findReturn(a, { sales, customers }, now) };
     }
@@ -370,6 +444,15 @@ export function issues(d) {
     if (!d.target) out.push(d.candidates.length ? "Which one is being paid?" : `Nothing owed by ${d.customerName || "that customer"} was found.`);
     if (!(d.amount > 0)) out.push("How much was paid?");
     else if (d.target?.kind === "repair" && d.amount < d.target.owed) out.push("Part-payment on a repair: record it from the Repairs page.");
+  } else if (d.type === "edit_sale" || d.type === "cancel_sale") {
+    if (!d.matches.length) out.push("No such sale was found.");
+    else if (!d.pick) out.push(d.ask);
+    else if (d.type === "edit_sale") {
+      const c = d.change;
+      if (c.qty == null && c.price == null && !c.paymentMethod && c.amountPaid == null && !c.customer) out.push("What should change?");
+      if ((c.qty != null || c.price != null) && d.itemIdx == null) out.push("Which item on the sale?");
+      if (c.qty === 0) out.push("To take an item off, say it was returned, or cancel the sale.");
+    }
   } else if (d.type === "return") {
     if (!d.matches.length) out.push(`No sale of ${d.said.product || "that"}${d.said.customer ? ` to ${d.said.customer}` : ""} was found.`);
     else if (!d.pick) out.push(d.ask);
@@ -502,6 +585,31 @@ export function apply(drafts, { actor } = {}) {
         db.updateRepair(d.repairId, { status: before.status });
         log("repair", `Status change on ${before.ticket} undone`, d.repairId, actor);
       });
+    } else if (d.type === "edit_sale") {
+      const before = db.getSales().find((x) => x.id === d.pick.saleId);
+      if (!before) continue;
+      const plan = editPlan(before, d);
+      if (plan.items !== before.items) db.reconcileInventoryForEdit(before.items, plan.items);
+      db.updateSale(before.id, plan.patch);
+      log("sale", `Sale ${before.invoice} corrected: ${plan.what}`, before.id, actor);
+      undo.unshift(() => {
+        if (plan.items !== before.items) db.reconcileInventoryForEdit(plan.items, before.items);
+        const keys = Object.keys(plan.patch);
+        db.updateSale(before.id, Object.fromEntries(keys.map((k) => [k, before[k] ?? null])));
+        log("sale", `Correction to ${before.invoice} undone`, before.id, actor);
+      });
+    } else if (d.type === "cancel_sale") {
+      const before = db.getSales().find((x) => x.id === d.pick.saleId);
+      if (!before) continue;
+      // Entered by mistake: the goods never left, so they go back on the shelf.
+      db.reconcileInventoryForEdit(before.items, []);
+      db.deleteSale(before.id);
+      log("sale", `Sale ${before.invoice} cancelled (${before.customerName || "Walk-in"})`, before.id, actor);
+      undo.unshift(() => {
+        db.reconcileInventoryForEdit([], before.items);
+        db.restoreSale(before);
+        log("sale", `Cancelling ${before.invoice} undone`, before.id, actor);
+      });
     } else if (d.type === "return") {
       const before = db.getSales().find((x) => x.id === d.pick.saleId);
       const item = before?.items?.[d.pick.idx];
@@ -577,6 +685,41 @@ export function returnPlan(sale, idx, qty, refund) {
   };
 }
 
+/** What a correction does to the sale: new items, totals and payment, and a few words saying what changed. */
+export function editPlan(sale, d) {
+  const c = d.change;
+  const patch = {};
+  const what = [];
+  let items = sale.items;
+  if ((c.qty != null || c.price != null) && d.itemIdx != null) {
+    items = sale.items.map((it, j) => (j !== d.itemIdx ? it : { ...it, ...(c.qty != null ? { qty: c.qty } : {}), ...(c.price != null ? { price: c.price } : {}) }));
+    const it = sale.items[d.itemIdx];
+    if (c.qty != null) what.push(`${it.name} qty ${it.qty} → ${c.qty}`);
+    if (c.price != null) what.push(`${it.name} price ${it.price} → ${c.price}`);
+    const subtotal = items.reduce((n, i) => n + Number(i.price || 0) * Number(i.qty || 0), 0);
+    patch.items = items;
+    patch.subtotal = subtotal;
+    patch.total = Math.max(0, subtotal - Number(sale.discount || 0));
+  }
+  const total = patch.total ?? Number(sale.total || 0);
+  const wasPaid = Number(sale.amountPaid || 0) >= Number(sale.total || 0);
+  let paid = c.amountPaid != null ? Math.min(Number(c.amountPaid), total) : wasPaid ? total : Math.min(Number(sale.amountPaid || 0), total);
+  if (c.amountPaid != null) what.push(`paid ${paid}`);
+  if (patch.total != null || c.amountPaid != null) {
+    patch.amountPaid = paid;
+    patch.paymentStatus = paid >= total && total > 0 ? "Paid" : "Pending";
+  }
+  if (c.paymentMethod) { patch.paymentMethod = c.paymentMethod; what.push(`paid by ${c.paymentMethod}`); }
+  if (c.customer) {
+    const cust = db.findOrCreateCustomer({ name: c.customer, phone: "" });
+    patch.customerId = cust?.id || null;
+    patch.customerName = cust?.name || c.customer;
+    patch.customerPhone = cust?.phone || "";
+    what.push(`customer → ${patch.customerName}`);
+  }
+  return { patch, items, what: what.join(", ") || "no change" };
+}
+
 function historyLine(d) {
   const who = (c) => (c && c.name && c.name !== "Walk-in" ? ` · ${c.name}` : "");
   switch (d.type) {
@@ -585,6 +728,8 @@ function historyLine(d) {
     case "stock": return d.productId ? `Stock ${d.mode === "set" ? "counted" : "added"} · ${d.name}` : `Product added · ${d.name}`;
     case "repair_status": return `Repair marked ${d.status}`;
     case "payment": return `Payment recorded${d.customerName ? ` · ${d.customerName}` : ""}`;
+    case "edit_sale": return `Sale corrected · ${d.pick?.invoice || ""}`;
+    case "cancel_sale": return `Sale cancelled · ${d.pick?.invoice || ""}`;
     case "return": return `Return recorded · ${d.pick?.customerName || ""}`.replace(/ · $/, "");
     default: return "Saved";
   }

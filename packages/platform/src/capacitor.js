@@ -21,10 +21,14 @@ import { Share } from "@capacitor/share";
 import { LocalNotifications } from "@capacitor/local-notifications";
 import { blobToBase64 } from "./blob";
 import { folderOf } from "./folder";
+import { capacitorSpeech } from "./capacitorSpeech";
 
 /** @type {import("./types").PlatformAdapter} */
 export const capacitorAdapter = {
   name: "capacitor",
+
+  // The phone's own speech recogniser, for the assistant's mic.
+  speech: capacitorSpeech,
 
   async saveFile(blob, filename) {
     const data = await blobToBase64(blob);

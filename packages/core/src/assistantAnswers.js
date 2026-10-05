@@ -147,3 +147,39 @@ export function answerQuestion({ intent, period, subject, note } = {}, data = {}
       return { title: "I can't answer that yet", lines: [], empty: `Try: “How much did I sell today?”, “Who owes me?”, “What's running low?”${note ? `\n(You asked: ${note})` : ""}` };
   }
 }
+
+// ------------------------------------------------------------ instant ----
+// Questions a shop asks all day, recognised here without asking the AI:
+// answered the moment they're said, offline, and without using a turn.
+// Anything that isn't plainly one of these goes to the AI as before.
+const PERIOD_WORDS = [
+  [/\byesterday\b/, "yesterday"], [/\blast week\b/, "last_week"], [/\bthis week\b|\bthe week\b/, "this_week"],
+  [/\blast month\b/, "last_month"], [/\bthis month\b|\bthe month\b/, "this_month"], [/\bthis year\b/, "this_year"],
+  [/\ball time\b|\bever\b|\bsince (i|we) (started|opened)\b/, "all_time"], [/\btoday\b|\bso far\b/, "today"],
+];
+const periodIn = (t) => (PERIOD_WORDS.find(([re]) => re.test(t)) || [])[1] || null;
+
+/** {intent, period, subject} for a question asked in plain words, or null. */
+export function quickIntent(text) {
+  const t = ` ${String(text || "").toLowerCase().replace(/[^a-z0-9' ]+/g, " ").replace(/\s+/g, " ")} `;
+  if (!t.trim()) return null;
+  // Telling the app to do something is never a quick question.
+  if (/\b(sell|sold to|add|record|book|mark|cancel|change|delete|return(ed)?|paid|pay|refund)\b/.test(t) && !/\bhow much\b|\bwhat\b|\bwho\b|\bwhich\b/.test(t)) return null;
+  const period = periodIn(t);
+  let m;
+  if ((m = t.match(/\bhow much (?:does|is|do) ([a-z]+(?: [a-z]+)?) ow(?:e|ing)\b/)) || (m = t.match(/\bwhat (?:does|is) ([a-z]+(?: [a-z]+)?) ow(?:e|ing)\b/))) {
+    return { intent: "customer_balance", subject: m[1].replace(/\b(me|us)\b/g, "").trim(), period: null };
+  }
+  if (/\bwho (is |are )?ow(e|es|ing)\b|\bdebtors?\b|\bpeople owing\b/.test(t)) return { intent: "who_owes", period: null };
+  if (/\bprofit\b|\bgain\b/.test(t)) return { intent: "profit", period: period || "today" };
+  if (/\b(running|finishing|going) (low|out)\b|\blow stock\b|\bwhat.*(finish|remain)/.test(t)) return { intent: "low_stock", period: null };
+  if (/\bready\b.*\b(collect|pick ?up|not collected)\b|\bnot (yet )?collected\b|\bwaiting (to be|for) (collect|pick)/.test(t)) return { intent: "repairs_ready", period: null };
+  if (/\b(open|pending) repairs?\b|\bon the bench\b|\brepairs? (in progress|pending)\b/.test(t)) return { intent: "repairs_open", period: null };
+  if (/\bbest[- ]sell|\bselling (the )?most\b|\btop (selling|products?|items?)\b|\bwhat sells\b/.test(t)) return { intent: "top_products", period: period || "this_month" };
+  if (/\bbest customers?\b|\btop customers?\b|\bwho buys? (the )?most\b/.test(t)) return { intent: "best_customers", period: period || "this_month" };
+  if ((m = t.match(/\bhow many ([a-z0-9][a-z0-9 ]*?) (?:do i have|are left|remain|in stock|left)\b/))) return { intent: "stock_of", subject: m[1].trim(), period: null };
+  if (/\bhow much (did|have) (i|we) (sell|sold|make|made)\b|\bhow much (sales|money)\b|\b(my |total )?sales (for |of )?(today|yesterday|this|last)\b|\bwhat did (i|we) (sell|make)\b/.test(t)) {
+    return { intent: "sales_total", period: period || "today" };
+  }
+  return null;
+}

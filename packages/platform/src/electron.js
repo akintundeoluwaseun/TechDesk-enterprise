@@ -10,6 +10,10 @@ import { browserAdapter } from "./browser";
 
 /** @type {import("./types").PlatformAdapter} */
 export const electronAdapter = {
+  // Electron has the Web Speech API but no speech service behind it: it
+  // fails with "network". The assistant records audio instead.
+  speech: null,
+
   ...browserAdapter,
   name: "electron",
 };

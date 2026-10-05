@@ -29,6 +29,7 @@ import WhatsNewModal from "./components/WhatsNewModal";
 import AnnouncementModal from "./components/AnnouncementModal";
 import { useAnnouncementCheck, markAnnouncementSeen, unseenAnnouncements, appPlatform, appVersion } from "./lib/announcements";
 import { useAppControl, updateLink } from "./lib/appControl";
+import { useUpdateAvailable } from "./lib/updateCheck";
 import VoiceOrder, { VOICE_SAVED_EVENT } from "./components/VoiceOrder";
 import MorningBrief from "./components/MorningBrief";
 import MoneyChaser from "./components/MoneyChaser";
@@ -325,6 +326,7 @@ function RemovedNotice() {
 // the sign-in screen included.
 function AppControlLayer() {
   const control = useAppControl();
+  const update = useUpdateAvailable();
   const notice = control?.maintenance?.message || "";
   const [hidden, setHidden] = useState(() => {
     try { return sessionStorage.getItem("techdesk_maintenance_hidden") || ""; } catch { return ""; }
@@ -359,6 +361,17 @@ function AppControlLayer() {
     );
   }
 
+  if ((!notice || hidden === notice) && update.version) {
+    return (
+      <div role="status" className="fixed inset-x-0 top-0 z-[2147483000] flex justify-center p-2 pointer-events-none">
+        <div className="pointer-events-auto max-w-xl w-full rounded-xl bg-sky-600 text-white px-4 py-2.5 shadow-lg flex gap-3 items-center">
+          <p className="text-sm leading-snug flex-1"><strong>TechDesk {update.version} is out.</strong> Update to get the newest features. Your records stay safe.</p>
+          <a href={updateLink()} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold px-3 py-1 rounded-lg bg-white text-sky-700 shrink-0">Update</a>
+          <button type="button" onClick={update.later} className="text-sm underline underline-offset-2 shrink-0">Later</button>
+        </div>
+      </div>
+    );
+  }
   if (!notice || hidden === notice) return null;
   return (
     <div role="status" className="fixed inset-x-0 top-0 z-[2147483000] flex justify-center p-2 pointer-events-none">
