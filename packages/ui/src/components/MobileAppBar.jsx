@@ -21,7 +21,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   LogOut,
-  Sparkles, Sunrise, Wallet, PackageSearch } from "lucide-react";
+  Sparkles, Sunrise, Wallet, PackageSearch, MoreHorizontal, ChevronDown } from "lucide-react";
 import { useTheme, useThemeTokens } from "../lib/ThemeContext";
 import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
@@ -67,6 +67,7 @@ export default function MobileAppBar({ onOpenActivation }) {
   const { openHelp } = useHelp();
   const unseenUpdate = useUnseenUpdate();
   const [drawer, setDrawer] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   // This is exactly the bug report "the back button closes the whole app":
   // opening either panel is just local state, so it left nothing on the
@@ -271,21 +272,26 @@ export default function MobileAppBar({ onOpenActivation }) {
             className="td-fade absolute inset-0 bg-black/50"
             onClick={() => setDrawer(false)}
           />
-          <div className={`td-drawer relative w-80 max-w-[88%] h-full flex flex-col ${dark ? "bg-neutral-950" : "bg-white"}`}>
-            <div className="flex items-start justify-between gap-3 p-4 pb-3">
-              <div className="min-w-0">
-                <div className={`text-base font-bold truncate ${t.textPrimary}`}>{settings.shopName}</div>
-                <div className={`text-xs truncate ${t.textMuted}`}>{user?.name}</div>
+          <div
+            // Below the clock and the battery, like the header: the drawer
+            // starts at the very top of the screen on Android 15.
+            style={{ paddingTop: "env(safe-area-inset-top)" }}
+            className={`td-drawer relative w-80 max-w-[88%] h-full flex flex-col ${dark ? "bg-neutral-950" : "bg-white"}`}
+          >
+            <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
+              <div className="min-w-0 flex items-baseline gap-2">
+                <span className={`text-[15px] font-bold truncate ${t.textPrimary}`}>{settings.shopName}</span>
+                <span className={`text-xs truncate ${t.textMuted}`}>{user?.name}</span>
               </div>
-              <button onClick={() => setDrawer(false)} aria-label="Close" className={t.textMuted}>
+              <button onClick={() => setDrawer(false)} aria-label="Close" className={`shrink-0 ${t.textMuted}`}>
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {/* Search belongs in here on a phone: the topbar's box is hidden
                 below md, so this is the only place to type into. */}
-            <div className="px-4 pb-3">
-              <div className={`flex items-center gap-2 rounded-xl px-3 py-2.5 ${t.pillBg}`}>
+            <div className="px-4 pb-2">
+              <div className={`flex items-center gap-2 rounded-xl px-3 py-2 ${t.pillBg}`}>
                 <Search className={`w-4 h-4 shrink-0 ${t.textMuted}`} />
                 <input
                   id="mobile-search"
@@ -349,65 +355,81 @@ export default function MobileAppBar({ onOpenActivation }) {
             </div>
 
             <div className={`border-t ${t.divider} p-2`}>
+              {/* The extras live behind "More" so the menu stays short. */}
               <button
-                onClick={toggleDark}
+                type="button"
+                onClick={() => setMoreOpen((v) => !v)}
+                aria-expanded={moreOpen}
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
               >
-                {dark ? <Moon className="w-[18px] h-[18px] shrink-0" /> : <Sun className="w-[18px] h-[18px] shrink-0" />}
-                {dark ? "Dark mode" : "Light mode"}
+                <MoreHorizontal className="w-[18px] h-[18px] shrink-0" /> More
+                {unseenUpdate && !moreOpen && <span className="w-2 h-2 rounded-full bg-sky-500" aria-label="Something new" />}
+                <ChevronDown className={`w-4 h-4 ml-auto transition-transform ${moreOpen ? "rotate-180" : ""} ${t.textMuted}`} />
               </button>
+              {moreOpen && (
+              <div className="pl-3">
               <button
-                onClick={() => {
-                  setDrawer(false);
-                  openHelp();
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
-              >
-                <HelpCircle className="w-[18px] h-[18px] shrink-0" /> Help
-              </button>
-              {canAccess(user, "/inventory") && (
+                  onClick={toggleDark}
+                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
+                >
+                  {dark ? <Moon className="w-[18px] h-[18px] shrink-0" /> : <Sun className="w-[18px] h-[18px] shrink-0" />}
+                  {dark ? "Dark mode" : "Light mode"}
+                </button>
                 <button
                   onClick={() => {
                     setDrawer(false);
-                    openRestock();
+                    openHelp();
                   }}
                   className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
                 >
-                  <PackageSearch className="w-[18px] h-[18px] shrink-0" /> Restock planner
+                  <HelpCircle className="w-[18px] h-[18px] shrink-0" /> Help
                 </button>
-              )}
-              {canAccess(user, "/sales") && (
-                <button
-                  onClick={() => {
-                    setDrawer(false);
-                    openChaser();
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
-                >
-                  <Wallet className="w-[18px] h-[18px] shrink-0" /> Money owed
-                </button>
-              )}
-              <button
-                onClick={() => {
-                  setDrawer(false);
-                  openBrief();
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
-              >
-                <Sunrise className="w-[18px] h-[18px] shrink-0" /> Morning brief
-              </button>
-              <button
-                onClick={() => {
-                  setDrawer(false);
-                  openWhatsNew();
-                }}
-                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
-              >
-                <Sparkles className="w-[18px] h-[18px] shrink-0" /> What&rsquo;s new
-                {unseenUpdate && (
-                  <span className="ml-auto text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-500 text-white">New</span>
+                {canAccess(user, "/inventory") && (
+                  <button
+                    onClick={() => {
+                      setDrawer(false);
+                      openRestock();
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
+                  >
+                    <PackageSearch className="w-[18px] h-[18px] shrink-0" /> Restock planner
+                  </button>
                 )}
-              </button>
+                {canAccess(user, "/sales") && (
+                  <button
+                    onClick={() => {
+                      setDrawer(false);
+                      openChaser();
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
+                  >
+                    <Wallet className="w-[18px] h-[18px] shrink-0" /> Money owed
+                  </button>
+                )}
+                <button
+                  onClick={() => {
+                    setDrawer(false);
+                    openBrief();
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
+                >
+                  <Sunrise className="w-[18px] h-[18px] shrink-0" /> Morning brief
+                </button>
+                <button
+                  onClick={() => {
+                    setDrawer(false);
+                    openWhatsNew();
+                  }}
+                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
+                >
+                  <Sparkles className="w-[18px] h-[18px] shrink-0" /> What&rsquo;s new
+                  {unseenUpdate && (
+                    <span className="ml-auto text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-500 text-white">New</span>
+                  )}
+                </button>
+
+              </div>
+              )}
 
               {/* Always. This was behind `!activated`, with `activated`
                   hardcoded true a few lines up, so it never rendered once --

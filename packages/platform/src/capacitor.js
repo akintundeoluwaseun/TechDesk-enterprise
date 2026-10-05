@@ -24,6 +24,7 @@ import { folderOf } from "./folder";
 import { capacitorSpeech } from "./capacitorSpeech";
 import { capacitorUpdate } from "./capacitorUpdate";
 import { capacitorBilling } from "./capacitorBilling";
+import { SystemBars, SystemBarsStyle } from "@capacitor/core";
 
 /** @type {import("./types").PlatformAdapter} */
 export const capacitorAdapter = {
@@ -37,6 +38,13 @@ export const capacitorAdapter = {
 
   // Google Play Billing. Only the Play Store build offers it (store.js).
   billing: capacitorBilling,
+
+  // The clock, signal and battery icons follow the APP's theme, not the
+  // phone's: a phone in dark mode drew white icons on TechDesk's white light
+  // theme, so they vanished.
+  setSystemBars(dark) {
+    SystemBars.setStyle({ style: dark ? SystemBarsStyle.Dark : SystemBarsStyle.Light }).catch(() => {});
+  },
 
   async saveFile(blob, filename) {
     const data = await blobToBase64(blob);

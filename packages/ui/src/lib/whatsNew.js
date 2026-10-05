@@ -9,6 +9,18 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-05o",
+    date: "5 October 2026",
+    title: "TechDesk 4.12.7: a tidier menu",
+    items: [
+      {
+        icon: "sparkles",
+        title: "Shorter menu",
+        text: "On a phone, Light mode, Help, Restock planner, Money owed, Morning brief and What's new are now under More. The menu no longer covers your phone's clock and battery, and they stay visible in light mode.",
+      },
+    ],
+  },
+  {
     id: "2026-10-05n",
     date: "5 October 2026",
     title: "TechDesk 4.12.6: prices in your money",

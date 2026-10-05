@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { platform } from "@techdesk/platform";
 
 const ThemeContext = createContext(null);
 
@@ -11,6 +12,7 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     localStorage.setItem("techdesk_theme", dark ? "dark" : "light");
     document.documentElement.classList.toggle("dark", dark);
+    try { platform().setSystemBars?.(dark); } catch { /* no shell yet */ }
   }, [dark]);
 
   function toggleDark() {
