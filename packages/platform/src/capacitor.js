@@ -23,6 +23,7 @@ import { blobToBase64 } from "./blob";
 import { folderOf } from "./folder";
 import { capacitorSpeech } from "./capacitorSpeech";
 import { capacitorUpdate } from "./capacitorUpdate";
+import { capacitorBilling } from "./capacitorBilling";
 
 /** @type {import("./types").PlatformAdapter} */
 export const capacitorAdapter = {
@@ -33,6 +34,9 @@ export const capacitorAdapter = {
 
   // Downloads a new APK and opens Android's installer for it.
   appUpdate: capacitorUpdate,
+
+  // Google Play Billing. Only the Play Store build offers it (store.js).
+  billing: capacitorBilling,
 
   async saveFile(blob, filename) {
     const data = await blobToBase64(blob);

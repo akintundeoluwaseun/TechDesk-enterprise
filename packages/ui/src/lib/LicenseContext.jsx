@@ -536,6 +536,27 @@ export function LicenseProvider({ children }) {
   }
 
   /**
+   * What the server switched on, put into effect here: a one-time code, a
+   * PIN's Upgrade code, or a Google Play purchase ("PLAY:<token>"). It goes
+   * into the history marked `server`, with the proof the device shows the
+   * server each time it asks (licence_status proven), and counts while the
+   * server's licence runs (licenceTerm).
+   */
+  async function grantFromServer(res, proof, forPin = pin) {
+    if (!res?.ok) return { ok: false, applied: false, tier: null, message: res?.message || null };
+    const granted = isTier(res.tier) ? res.tier : null;
+    // Also when the server already had it: a code used before this
+    // version kept the year on the server but never reached the device.
+    const onHere = granted && isUpgrade(tierRef.current, granted);
+    if (onHere) {
+      const history = [...(unlocksRef.current || []).filter((u) => u?.tier !== granted), { tier: granted, at: new Date().toISOString(), code: proof, server: true }];
+      await applyTier(granted, history);
+    }
+    await refreshLicence(forPin);
+    return { ok: true, applied: !res.already || !!onHere, tier: granted, expiresAt: res.expiresAt || null, message: res.already && !onHere ? res.message || null : null };
+  }
+
+  /**
    * A shop typed a code. Work out what, if anything, it buys them.
    *
    * Every code on this PIN is tried, not just one, because a PIN is sold
@@ -566,23 +587,7 @@ export function LicenseProvider({ children }) {
 
     const businessCode = (unlocksRef.current || []).find((u) => u?.tier === "business")?.code || null;
 
-    // A code the server checks and keeps: the one-time kind (BUS-, ENT-,
-    // UPG-), or this PIN's Upgrade code, which isn't in the device's table.
-    // It goes into the history marked `server`, and counts while the server
-    // says this device holds it (licenceTerm).
-    const fromServer = async (res) => {
-      if (!res?.ok) return { ok: false, applied: false, tier: null, message: res?.message || null };
-      const granted = isTier(res.tier) ? res.tier : null;
-      // Also when the server already had it: a code used before this
-      // version kept the year on the server but never reached the device.
-      const onHere = granted && isUpgrade(tierRef.current, granted);
-      if (onHere) {
-        const history = [...(unlocksRef.current || []).filter((u) => u?.tier !== granted), { tier: granted, at: new Date().toISOString(), code: clean, server: true }];
-        await applyTier(granted, history);
-      }
-      await refreshLicence(pin);
-      return { ok: true, applied: !res.already || !!onHere, tier: granted, expiresAt: res.expiresAt || null, message: res.already && !onHere ? res.message || null : null };
-    };
+    const fromServer = (res) => grantFromServer(res, clean, pin);
 
     if (/^(BUS|ENT|UPG)[0-9A-Z]{12}$/.test(clean)) {
       return fromServer(await checkout.redeemOneTimeCode(clean, pin, businessCode));
@@ -663,6 +668,7 @@ export function LicenseProvider({ children }) {
         boughtTier: tier,
         licence,
         refreshLicence,
+        grantFromServer,
         can: (feature) => tierCan(effective, feature),
         pin,
         unlocks,

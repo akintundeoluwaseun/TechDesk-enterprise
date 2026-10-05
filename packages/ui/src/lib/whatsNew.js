@@ -9,6 +9,18 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-05l",
+    date: "5 October 2026",
+    title: "TechDesk 4.12.4: Google Play payments",
+    items: [
+      {
+        icon: "ticket",
+        title: "Pay with Google Play",
+        text: "On the Play Store app, Upgrade \u2192 Pay with Google Play buys Business, Enterprise, or the upgrade from Business to Enterprise with your Google account. It switches on straight away.",
+      },
+    ],
+  },
+  {
     id: "2026-10-05k",
     date: "5 October 2026",
     title: "TechDesk 4.12.3: a simpler Upgrade screen",

@@ -11,6 +11,7 @@ import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { licenceActive, daysLeft } from "../lib/licenceTerm";
 import { PLAY_STORE } from "../lib/store";
 import { formatCode } from "../lib/activationCode";
+import { platform } from "@techdesk/platform";
 
 // Shown until the server's price list arrives, and if it never does. The
 // checkout itself always charges the server's price, never these.
@@ -70,7 +71,7 @@ function humanDate(iso) {
 
 export default function ActivationModal({ onClose }) {
   const t = useThemeTokens();
-  const { pin, tier, boughtTier, unlocks, verifyCode, licence, refreshLicence } = useLicense();
+  const { pin, tier, boughtTier, unlocks, verifyCode, licence, refreshLicence, grantFromServer } = useLicense();
   const [prices, setPrices] = useState(FALLBACK_PRICES);
   useEffect(() => {
     let live = true;
@@ -113,6 +114,18 @@ export default function ActivationModal({ onClose }) {
   // Each opens its own page: the three things to pay for, or this device's
   // PIN with a box for the code made for it.
   const [view, setView] = useState("home"); // home | pay | code
+
+  // The Play Store build pays through Google Play instead (capacitorBilling):
+  // Google's own prices, Google's own payment sheet, checked by the server.
+  const billing = PLAY_STORE ? (() => { try { return platform().billing || null; } catch { return null; } })() : null;
+  const [playPrices, setPlayPrices] = useState({});
+  const [playBusy, setPlayBusy] = useState(null); // the option being bought
+  useEffect(() => {
+    if (!billing) return undefined;
+    let live = true;
+    billing.prices().then((p) => { if (live) setPlayPrices(p || {}); }).catch(() => {});
+    return () => { live = false; };
+  }, [billing]);
 
   // Paying online, straight through to Flutterwave.
   //
@@ -286,6 +299,53 @@ export default function ActivationModal({ onClose }) {
     await claim(order.txRef);
   }
 
+  // A Google Play purchase -> the server checks it with Google -> the year
+  // starts -> it's consumed, so it can be bought again next year.
+  async function playActivate(p, { quiet = false } = {}) {
+    const res = await checkout.playVerify(pin, p.productId, p.token);
+    const out = await grantFromServer(res, `PLAY:${p.token}`);
+    if (!out.ok) {
+      if (!quiet) setPayError(out.message || "Couldn't switch it on just now. Your purchase is safe: open this screen again in a minute.");
+      return false;
+    }
+    try { await billing.finish(p.token); } catch { /* finished next time this screen opens */ }
+    const until = out.expiresAt ? ` until ${humanDate(out.expiresAt)}` : "";
+    setNote(`Done. ${TIER_META[out.tier]?.label || out.tier} is on${until}. Thank you!`);
+    setView("home");
+    return true;
+  }
+  async function playBuy(kind) {
+    setPayError("");
+    if (!pin) { setPayError("Still preparing this device. Wait a moment and try again."); return; }
+    setPlayBusy(kind);
+    try {
+      let p;
+      try {
+        p = await billing.buy(billing.ids[kind], `pin-${pin}`);
+      } catch (err) {
+        if (!/cancel/i.test(String(err?.message || err))) setPayError("Google Play couldn't finish that. Try again.");
+        return;
+      }
+      if (!p?.token) { setPayError("Google Play couldn't finish that. Try again."); return; }
+      if (!p.paid) {
+        setNote("Google Play is waiting for your payment. TechDesk switches on as soon as it's paid: open this screen again then.");
+        setView("home");
+        return;
+      }
+      await playActivate(p);
+    } finally {
+      setPlayBusy(null);
+    }
+  }
+  // Bought, but not switched on here yet (no internet at the time, the app
+  // closed mid-way): finish it whenever this screen opens.
+  useEffect(() => {
+    if (!billing || !pin) return;
+    billing.unfinished(`pin-${pin}`).then(async (list) => {
+      for (const p of list || []) if (p.paid) await playActivate(p, { quiet: true });
+    }).catch(() => {});
+  }, [billing, pin]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="td-overlay fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-6 overflow-y-auto">
       <div className={`w-full max-w-sm rounded-2xl p-6 my-auto ${t.cardBg}`}>
@@ -310,7 +370,7 @@ export default function ActivationModal({ onClose }) {
                 : branchForm
                 ? "Add branches"
                 : view === "pay"
-                ? "Pay online"
+                ? billing ? "Pay with Google Play" : "Pay online"
                 : view === "code"
                 ? "Enter your code"
                 : paid
@@ -344,13 +404,13 @@ export default function ActivationModal({ onClose }) {
 
         {/* The first screen: two buttons, nothing else to read. */}
         {!chosenTier && !branchForm && view === "home" && (
-          <div className={`grid ${PLAY_STORE ? "grid-cols-1" : "grid-cols-2"} gap-3 mb-4`}>
-            {!PLAY_STORE && (
+          <div className={`grid ${PLAY_STORE && !billing ? "grid-cols-1" : "grid-cols-2"} gap-3 mb-4`}>
+            {(!PLAY_STORE || billing) && (
               <button type="button" onClick={() => setView("pay")}
                 className={`flex flex-col items-center justify-center gap-2 text-center px-3 py-5 rounded-2xl ${t.insetBg}`}>
                 <span className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center"><CreditCard className="w-6 h-6" /></span>
-                <span className={`text-sm font-bold ${t.textPrimary}`}>Pay online</span>
-                <span className={`text-[11px] leading-tight ${t.textMuted}`}>Card, transfer or USSD</span>
+                <span className={`text-sm font-bold ${t.textPrimary}`}>{billing ? "Pay with Google Play" : "Pay online"}</span>
+                <span className={`text-[11px] leading-tight ${t.textMuted}`}>{billing ? "Your Google account" : "Card, transfer or USSD"}</span>
               </button>
             )}
             <button type="button" onClick={() => setView("code")}
@@ -365,26 +425,32 @@ export default function ActivationModal({ onClose }) {
         {/* Pay online: the three things a shop can buy, always in the same
             place. The ones that don't apply to this device say why. */}
         {!chosenTier && !branchForm && view === "pay" && [
-          { id: "business", label: "Activate Business", price: prices.business?.amount, per: "a year",
-            off: tier !== "free" ? (tier === "business" ? "You're on Business" : "You're on Enterprise") : null, go: () => pick("business") },
-          { id: "enterprise", label: "Activate Enterprise", price: prices.enterprise?.amount, per: "a year",
-            off: tier === "enterprise" ? "You're on Enterprise" : tier === "business" ? "You're on Business: use Upgrade below" : null, go: () => pick("enterprise") },
-          { id: "upgrade", label: "Upgrade Business → Enterprise", price: tier === "business" ? priceFor("enterprise") : prices.upgrade_enterprise?.amount, per: "for the rest of your Business year",
-            off: tier === "free" ? "For shops already on Business" : tier === "enterprise" ? "You're on Enterprise" : null, go: () => pick("enterprise") },
+          // On Google Play, buying the plan you're on is the renewal: another year on top.
+          { id: "business", label: tier === "business" && billing ? "Renew Business" : "Activate Business", price: prices.business?.amount, per: "a year",
+            off: tier === "enterprise" ? "You're on Enterprise" : tier === "business" && !billing ? "You're on Business" : null, go: () => (billing ? playBuy("business") : pick("business")) },
+          { id: "enterprise", label: tier === "enterprise" && billing ? "Renew Enterprise" : "Activate Enterprise", price: prices.enterprise?.amount, per: "a year",
+            off: tier === "enterprise" && !billing ? "You're on Enterprise" : tier === "business" ? "You're on Business: use Upgrade below" : null, go: () => (billing ? playBuy("enterprise") : pick("enterprise")) },
+          { id: "upgrade", label: "Upgrade Business → Enterprise", price: tier === "business" && !billing ? priceFor("enterprise") : prices.upgrade_enterprise?.amount, per: "for the rest of your Business year",
+            off: tier === "free" ? "For shops already on Business" : tier === "enterprise" ? "You're on Enterprise" : null, go: () => (billing ? playBuy("upgrade") : pick("enterprise")) },
         ].map((o) => (
-          <button key={o.id} type="button" onClick={o.go} disabled={!!o.off}
+          <button key={o.id} type="button" onClick={o.go} disabled={!!o.off || !!playBusy}
             className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 disabled:opacity-50 ${t.insetBg}`}>
             <span className="min-w-0">
               <span className={`block font-semibold ${t.textPrimary}`}>{o.label}</span>
               <span className={`block text-xs font-semibold mt-0.5 ${t.textSecondary}`}>
-                {o.off ? o.off : testing ? "Free while we test" : <>{naira(o.price)} {o.per}</>}
+                {o.off ? o.off
+                  : playBusy === o.id ? "Waiting for Google Play…"
+                  : billing ? <>{playPrices[billing.ids[o.id]] || naira(o.price)} {o.per}</>
+                  : testing ? "Free while we test" : <>{naira(o.price)} {o.per}</>}
               </span>
             </span>
             {!o.off && <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />}
           </button>
         ))}
 
-        {!chosenTier && view === "pay" && !branchForm && renewTier && !testing && (
+        {!chosenTier && view === "pay" && billing && payError && <p className="text-xs text-red-500 mb-3">{payError}</p>}
+
+        {!chosenTier && view === "pay" && !billing && !branchForm && renewTier && !testing && (
           <button
             onClick={() => pick(renewTier, { renew: true })}
             className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
@@ -399,13 +465,13 @@ export default function ActivationModal({ onClose }) {
           </button>
         )}
 
-        {!chosenTier && view === "pay" && tier === "enterprise" && testing && (
+        {!chosenTier && view === "pay" && !billing && tier === "enterprise" && testing && (
           <p className={`text-xs mb-3 ${t.textMuted}`}>
             Head-office branches are unlimited while TechDesk is being tested.
           </p>
         )}
 
-        {!chosenTier && view === "pay" && tier === "enterprise" && !branchForm && !testing && (
+        {!chosenTier && view === "pay" && !billing && tier === "enterprise" && !branchForm && !testing && (
           <button
             onClick={() => { setBranchForm(true); resetPay(); }}
             className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}

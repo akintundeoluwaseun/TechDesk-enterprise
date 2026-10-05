@@ -174,4 +174,12 @@ export const checkout = {
   async claimCode(txRef) {
     return fnFetch("activation-claim", { txRef });
   },
+
+  /**
+   * A Google Play purchase (Play Store build): the server checks it with
+   * Google and starts the year. {ok, kind, tier, expiresAt} or {ok:false, error, message}.
+   */
+  async playVerify(pin, productId, purchaseToken) {
+    return fnFetch("play-verify", { pin: String(pin), productId, purchaseToken });
+  },
 };
