@@ -60,34 +60,42 @@ describe("the licence screen leads with what you already have", () => {
     expect(container.textContent).not.toContain("read this out when you pay");
   });
 
-  it("offers the one tier above as a single card, which opens that tier's own pay button", () => {
-    openAs("business");
-    expect(screen.getByRole("button", { name: /Upgrade to TechDesk Enterprise/i })).toBeInTheDocument();
-    expect(payButton()).toBe(null);
-
-    fireEvent.click(screen.getByRole("button", { name: /Upgrade to TechDesk Enterprise/i }));
-    expect(payButton()).toBeInTheDocument();
-  });
-
-  it("offers nothing to buy, and no way to pay, at the top tier", () => {
-    const { container } = openAs("enterprise");
-    expect(screen.getByRole("heading", { name: /TechDesk Enterprise is on/i })).toBeInTheDocument();
-    expect(container.textContent).not.toMatch(/Upgrade to/i);
-    expect(payButton()).toBe(null);
-  });
-
-  it("lets a free shop pick Business or Enterprise, not just the next tier up", () => {
+  it("starts with two buttons: Pay online and I have a code", () => {
     openAs("free");
-    const businessCard = screen.getByRole("button", { name: /Upgrade to TechDesk Business/i });
-    const enterpriseCard = screen.getByRole("button", { name: /Upgrade to TechDesk Enterprise/i });
-    expect(businessCard).toBeInTheDocument();
-    expect(enterpriseCard).toBeInTheDocument();
-    // The choice is plain -- nothing about either plan shown until one is picked.
+    expect(screen.getByRole("button", { name: /Pay online/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /I have a code/i })).toBeInTheDocument();
     expect(payButton()).toBe(null);
+  });
 
-    fireEvent.click(enterpriseCard);
+  it("Pay online shows the three options; a Business shop can only Upgrade", () => {
+    openAs("business");
+    fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
+    expect(screen.getByRole("button", { name: /Activate Business/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Activate Enterprise/i })).toBeDisabled();
+    const upgrade = screen.getByRole("button", { name: /Upgrade Business → Enterprise/i });
+    expect(upgrade).toBeEnabled();
+    expect(payButton()).toBe(null);
+    fireEvent.click(upgrade);
     expect(payButton()).toBeInTheDocument();
-    // Picking Enterprise never shows Business's own card behind it.
-    expect(screen.queryByRole("button", { name: /Upgrade to TechDesk Business/i })).toBe(null);
+  });
+
+  it("offers nothing to buy at the top tier", () => {
+    openAs("enterprise");
+    expect(screen.getByRole("heading", { name: /TechDesk Enterprise is on/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
+    for (const name of [/Activate Business/i, /Activate Enterprise/i, /Upgrade Business → Enterprise/i]) {
+      expect(screen.getByRole("button", { name })).toBeDisabled();
+    }
+    expect(payButton()).toBe(null);
+  });
+
+  it("lets a free shop pick Business or Enterprise; Upgrade is for Business shops", () => {
+    openAs("free");
+    fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
+    expect(screen.getByRole("button", { name: /Activate Business/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /Upgrade Business → Enterprise/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: /Activate Enterprise/i }));
+    expect(payButton()).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Activate Business/i })).toBe(null);
   });
 });

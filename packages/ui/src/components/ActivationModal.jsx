@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { X, ShieldCheck, Phone, Mail, Check, CreditCard, ChevronRight, ArrowLeft, RefreshCw, Building2 } from "lucide-react";
+import { X, ShieldCheck, Phone, Mail, Check, CreditCard, ChevronRight, ArrowLeft, RefreshCw, Building2, KeyRound, MessageCircle } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useLicense } from "../lib/LicenseContext";
 import { useSettings } from "../lib/SettingsContext";
@@ -9,7 +9,7 @@ import { addedBy } from "../lib/featureLabels";
 import { payWithFlutterwave } from "../lib/flutterwave";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { licenceActive, daysLeft } from "../lib/licenceTerm";
-import { PLAY_STORE, CODES_ONLY } from "../lib/store";
+import { PLAY_STORE } from "../lib/store";
 import { formatCode } from "../lib/activationCode";
 
 // Shown until the server's price list arrives, and if it never does. The
@@ -109,6 +109,10 @@ export default function ActivationModal({ onClose }) {
 
   // Which tier this screen is open on. Null while the shop is still picking.
   const [chosenTier, setChosenTier] = useState(null);
+  // The first screen is two buttons: "Pay online" and "I have a code".
+  // Each opens its own page: the three things to pay for, or this device's
+  // PIN with a box for the code made for it.
+  const [view, setView] = useState("home"); // home | pay | code
 
   // Paying online, straight through to Flutterwave.
   //
@@ -157,7 +161,13 @@ export default function ActivationModal({ onClose }) {
   // as tapping "back to plans" below; only from the plan picker does it
   // actually close this screen.
   useCloseOnBack(true, onClose);
+  useCloseOnBack(view !== "home" && chosenTier === null && !branchForm, () => setView("home"));
   useCloseOnBack(chosenTier !== null, backToPlans);
+  function goBack() {
+    if (chosenTier) return backToPlans();
+    if (branchForm) { setBranchForm(false); resetPay(); return; }
+    setView("home");
+  }
 
   async function applyClaimedCode(claimedCode, claimedTier, txRef, expiresAt) {
     const until = expiresAt ? ` until ${humanDate(expiresAt)}` : "";
@@ -191,7 +201,8 @@ export default function ActivationModal({ onClose }) {
       return;
     }
     await refreshLicence?.();
-    setNote(`Done. ${TIER_META[claimedTier]?.label || claimedTier} is unlocked on this computer${until}.`);
+    setNote(`Done. ${TIER_META[claimedTier]?.label || claimedTier} is on${until}. Your activation code for PIN ${pin}: ${formatCode(claimedCode)}. Keep it safe.`);
+    setView("home");
     setChosenTier(null);
     resetPay();
   }
@@ -280,11 +291,11 @@ export default function ActivationModal({ onClose }) {
       <div className={`w-full max-w-sm rounded-2xl p-6 my-auto ${t.cardBg}`}>
         <div className="flex items-start justify-between gap-3 mb-4">
           <div className="flex items-center gap-2 min-w-0">
-            {chosenTier ? (
+            {chosenTier || branchForm || view !== "home" ? (
               <button
-                onClick={backToPlans}
+                onClick={goBack}
                 className={`${t.textMuted} shrink-0`}
-                aria-label="Back to plans"
+                aria-label="Back"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
@@ -298,6 +309,10 @@ export default function ActivationModal({ onClose }) {
                 ? renewing ? `Renew ${chosen.label}` : `Upgrade to ${chosen.label}`
                 : branchForm
                 ? "Add branches"
+                : view === "pay"
+                ? "Pay online"
+                : view === "code"
+                ? "Enter your code"
                 : paid
                 ? `${meta.label} is on`
                 : "Unlock more of TechDesk"}
@@ -308,7 +323,7 @@ export default function ActivationModal({ onClose }) {
           </button>
         </div>
 
-        {!chosenTier && (
+        {!chosenTier && view === "home" && (
           paid ? (
             <p className={`text-sm mb-4 ${t.textSecondary}`}>
               {upgradeOptions.length > 0
@@ -327,42 +342,49 @@ export default function ActivationModal({ onClose }) {
           )
         )}
 
-        {/* The choice, plain: pick a tier, nothing else on this screen. What
-            each one adds lives on ITS OWN page, one tap away, not stacked
-            here underneath the choice itself. */}
-        {!chosenTier && !(PLAY_STORE || CODES_ONLY) && upgradeOptions.map((candidate) => {
-          const candidateMeta = TIER_META[candidate];
-          const preview = ownFeatures(candidate).slice(0, 3).join(", ");
-          return (
-            <button
-              key={candidate}
-              onClick={() => pick(candidate)}
-              className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
-            >
-              <span className="min-w-0">
-                <span className={`block font-semibold ${t.textPrimary}`}>
-                  Upgrade to {candidateMeta.label}
-                </span>
-                <span className={`block text-xs font-semibold mt-0.5 ${t.textSecondary}`}>
-                  {testing ? (
-                    "Free while we test"
-                  ) : (
-                    <>
-                      {naira(priceFor(candidate))}
-                      {productFor(candidate) === "upgrade" ? " for the rest of your plan year" : " a year"}
-                    </>
-                  )}
-                </span>
-                {preview && (
-                  <span className={`block text-xs mt-0.5 truncate ${t.textMuted}`}>{preview}</span>
-                )}
-              </span>
-              <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
+        {/* The first screen: two buttons, nothing else to read. */}
+        {!chosenTier && !branchForm && view === "home" && (
+          <div className={`grid ${PLAY_STORE ? "grid-cols-1" : "grid-cols-2"} gap-3 mb-4`}>
+            {!PLAY_STORE && (
+              <button type="button" onClick={() => setView("pay")}
+                className={`flex flex-col items-center justify-center gap-2 text-center px-3 py-5 rounded-2xl ${t.insetBg}`}>
+                <span className="w-12 h-12 rounded-full bg-emerald-500 text-white flex items-center justify-center"><CreditCard className="w-6 h-6" /></span>
+                <span className={`text-sm font-bold ${t.textPrimary}`}>Pay online</span>
+                <span className={`text-[11px] leading-tight ${t.textMuted}`}>Card, transfer or USSD</span>
+              </button>
+            )}
+            <button type="button" onClick={() => setView("code")}
+              className={`flex flex-col items-center justify-center gap-2 text-center px-3 py-5 rounded-2xl ${t.insetBg}`}>
+              <span className="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center"><KeyRound className="w-6 h-6" /></span>
+              <span className={`text-sm font-bold ${t.textPrimary}`}>I have a code</span>
+              <span className={`text-[11px] leading-tight ${t.textMuted}`}>Enter the code for your PIN</span>
             </button>
-          );
-        })}
+          </div>
+        )}
 
-        {!chosenTier && !(PLAY_STORE || CODES_ONLY) && !branchForm && renewTier && !testing && (
+        {/* Pay online: the three things a shop can buy, always in the same
+            place. The ones that don't apply to this device say why. */}
+        {!chosenTier && !branchForm && view === "pay" && [
+          { id: "business", label: "Activate Business", price: prices.business?.amount, per: "a year",
+            off: tier !== "free" ? (tier === "business" ? "You're on Business" : "You're on Enterprise") : null, go: () => pick("business") },
+          { id: "enterprise", label: "Activate Enterprise", price: prices.enterprise?.amount, per: "a year",
+            off: tier === "enterprise" ? "You're on Enterprise" : tier === "business" ? "You're on Business: use Upgrade below" : null, go: () => pick("enterprise") },
+          { id: "upgrade", label: "Upgrade Business → Enterprise", price: tier === "business" ? priceFor("enterprise") : prices.upgrade_enterprise?.amount, per: "for the rest of your Business year",
+            off: tier === "free" ? "For shops already on Business" : tier === "enterprise" ? "You're on Enterprise" : null, go: () => pick("enterprise") },
+        ].map((o) => (
+          <button key={o.id} type="button" onClick={o.go} disabled={!!o.off}
+            className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 disabled:opacity-50 ${t.insetBg}`}>
+            <span className="min-w-0">
+              <span className={`block font-semibold ${t.textPrimary}`}>{o.label}</span>
+              <span className={`block text-xs font-semibold mt-0.5 ${t.textSecondary}`}>
+                {o.off ? o.off : testing ? "Free while we test" : <>{naira(o.price)} {o.per}</>}
+              </span>
+            </span>
+            {!o.off && <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />}
+          </button>
+        ))}
+
+        {!chosenTier && view === "pay" && !branchForm && renewTier && !testing && (
           <button
             onClick={() => pick(renewTier, { renew: true })}
             className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
@@ -377,13 +399,13 @@ export default function ActivationModal({ onClose }) {
           </button>
         )}
 
-        {!chosenTier && !(PLAY_STORE || CODES_ONLY) && tier === "enterprise" && testing && (
+        {!chosenTier && view === "pay" && tier === "enterprise" && testing && (
           <p className={`text-xs mb-3 ${t.textMuted}`}>
             Head-office branches are unlimited while TechDesk is being tested.
           </p>
         )}
 
-        {!chosenTier && !(PLAY_STORE || CODES_ONLY) && tier === "enterprise" && !branchForm && !testing && (
+        {!chosenTier && view === "pay" && tier === "enterprise" && !branchForm && !testing && (
           <button
             onClick={() => { setBranchForm(true); resetPay(); }}
             className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
@@ -601,37 +623,28 @@ export default function ActivationModal({ onClose }) {
           </div>
         )}
 
-        {/* Not on the Play build: Google forbids pointing to payment outside Play. */}
-        {!chosenTier && !branchForm && CODES_ONLY && !PLAY_STORE && upgradeOptions.length > 0 && (
-          <div className={`rounded-xl p-4 mb-3 ${t.insetBg}`}>
-            <div className={`text-sm font-semibold ${t.textPrimary}`}>Get a code from TechDesk</div>
-            <ul className={`text-sm mt-2 space-y-1 ${t.textSecondary}`}>
-              {tier !== "business" && <li className="flex justify-between gap-3"><span>Business, 1 year</span><span className="font-semibold tabular-nums">₦10,000</span></li>}
-              <li className="flex justify-between gap-3"><span>Enterprise, 1 year</span><span className="font-semibold tabular-nums">₦20,000</span></li>
-              {tier === "business" && <li className="flex justify-between gap-3"><span>Upgrade Business → Enterprise</span><span className="font-semibold tabular-nums">₦10,000</span></li>}
-            </ul>
-            <p className={`text-sm mt-3 ${t.textSecondary}`}>
-              Your PIN: <span className={`font-mono text-base font-bold tracking-widest ${t.textPrimary}`}>{pin || "…"}</span>
-            </p>
-            <p className={`text-xs mt-1 ${t.textMuted}`}>Send us this PIN on WhatsApp, by phone or email, and pay. We send back the code for your PIN; type it below and it switches on straight away.</p>
-            <div className="flex flex-wrap gap-2 mt-3">
-              <a href={`https://wa.me/2348076911614?text=${encodeURIComponent(`Hello TechDesk, my PIN is ${pin || ""}. I'd like ${tier === "business" ? "to upgrade to Enterprise" : "an activation code"}.`)}`} target="_blank" rel="noopener noreferrer"
-                className="text-sm font-semibold px-3 py-1.5 rounded-full bg-emerald-500 text-white">WhatsApp us</a>
-              <a href="tel:+2348076911614" className={`text-sm px-3 py-1.5 rounded-full ${t.pillBg}`}>Call +234 807 691 1614</a>
-              <a href={`mailto:techdeskapp@gmail.com?subject=${encodeURIComponent(`Activation code for PIN ${pin || ""}`)}`} className={`text-sm px-3 py-1.5 rounded-full ${t.pillBg}`}>Email</a>
+        {/* I have a code: this device's PIN, and the box for the code made for it. */}
+        {!chosenTier && !branchForm && view === "code" && (
+          <>
+            <div className={`rounded-xl p-4 mb-3 text-center ${t.insetBg}`}>
+              <div className={`text-xs font-semibold uppercase tracking-wider ${t.textMuted}`}>Your PIN</div>
+              <div className={`font-mono text-3xl font-bold tracking-[0.2em] mt-1 ${t.textPrimary}`}>{pin || "…"}</div>
+              <p className={`text-xs mt-2 ${t.textMuted}`}>No code yet? Send this PIN to TechDesk, pay, and we send you the code for it.</p>
+              <a href={`https://wa.me/2348076911614?text=${encodeURIComponent(`Hello TechDesk, my PIN is ${pin || ""}. I'd like ${tier === "business" ? "to upgrade to Enterprise" : "an activation code"}.`)}`}
+                target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 mt-2 text-sm font-semibold px-3 py-1.5 rounded-full bg-emerald-500 text-white">
+                <MessageCircle className="w-4 h-4" /> Send PIN on WhatsApp
+              </a>
             </div>
-          </div>
-        )}
-
-        {!chosenTier && !branchForm && (
-          <CodeEntry t={t} pin={pin} showPin={!(CODES_ONLY && !PLAY_STORE && upgradeOptions.length > 0)} open={PLAY_STORE || CODES_ONLY} verifyCode={verifyCode} refreshLicence={refreshLicence}
-            onApplied={(applied) => setNote(applied)} />
+            <CodeEntry t={t} pin={pin} showPin={false} open verifyCode={verifyCode} refreshLicence={refreshLicence}
+              onApplied={(applied) => { setNote(applied); setView("home"); }} />
+          </>
         )}
 
         <div className={`text-xs mb-2 ${t.textMuted}`}>
           {paid && upgradeOptions.length === 0
             ? "Moved to a new computer, or need help?"
-            : PLAY_STORE || CODES_ONLY ? "Need help with your code?" : "Paid already and it hasn't unlocked, or need help?"}
+            : "Paid already and it hasn't unlocked, or need help?"}
         </div>
         <div className="flex flex-col gap-2">
           <a href="tel:+2348076911614" className={`flex items-center gap-2 text-sm font-medium ${t.textPrimary}`}>
@@ -699,9 +712,7 @@ function CodeEntry({ t, pin, showPin = true, open: startOpen, verifyCode, refres
   return (
     <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
       <div className={`text-sm font-semibold ${t.textPrimary}`}>Activation code</div>
-      {(PLAY_STORE || CODES_ONLY) && (
-        <p className={`text-xs mt-1 ${t.textSecondary}`}>Type the code TechDesk sent for this PIN. Be online the first time, so your year starts.</p>
-      )}
+      <p className={`text-xs mt-1 ${t.textSecondary}`}>Type the code TechDesk sent for this PIN. Be online the first time, so your year starts.</p>
       {showPin && <p className={`text-xs mt-2 ${t.textMuted}`}>
         This device&rsquo;s PIN: <span className={`font-mono font-semibold tracking-wider ${t.textPrimary}`}>{pin || "…"}</span>
       </p>}

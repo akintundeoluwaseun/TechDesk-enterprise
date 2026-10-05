@@ -35,13 +35,13 @@ beforeEach(() => {
 });
 
 describe("activation code box", () => {
-  it("is one tap away on the normal build, shows the PIN, and applies a good code", async () => {
+  it("I have a code: shows the PIN, and applies a good code", async () => {
     store.play = false;
     verifyCode.mockResolvedValue({ ok: true, applied: true, tier: "enterprise" });
     open();
-    expect(screen.getAllByText(/Upgrade to/).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByText("Have an activation code?"));
+    fireEvent.click(screen.getByRole("button", { name: /I have a code/i }));
     expect(screen.getByText("482913")).toBeTruthy();
+    expect(screen.getByText(/Send PIN on WhatsApp/).closest("a").getAttribute("href")).toMatch(/^https:\/\/wa\.me\/2348076911614\?text=.*482913/);
     fireEvent.change(screen.getByLabelText("Activation code"), { target: { value: "7kq29xhm4tra" } });
     expect(screen.getByLabelText("Activation code").value).toBe("7KQ2-9XHM-4TRA");
     fireEvent.click(screen.getByText("Apply code"));
@@ -53,37 +53,31 @@ describe("activation code box", () => {
     store.play = false;
     verifyCode.mockResolvedValue({ ok: false, applied: false, tier: null });
     open();
-    fireEvent.click(screen.getByText("Have an activation code?"));
+    fireEvent.click(screen.getByRole("button", { name: /I have a code/i }));
     fireEvent.change(screen.getByLabelText("Activation code"), { target: { value: "AAAABBBBCCCC" } });
     fireEvent.click(screen.getByText("Apply code"));
     await waitFor(() => expect(screen.getByText(/doesn't match this device/)).toBeTruthy());
   });
 
-  it("codes-only: prices and how to reach TechDesk, the box open, no checkout; one-time codes keep their prefix", async () => {
+  it("still takes the one-time codes, with their prefix", async () => {
     store.play = false;
-    store.codes = true;
     verifyCode.mockResolvedValue({ ok: false, applied: false, tier: null, message: "That code has already been used on another device." });
     open();
-    expect(screen.queryByText(/Upgrade to/)).toBeNull();
-    expect(screen.getByText("Get a code from TechDesk")).toBeTruthy();
-    expect(screen.getByText("₦20,000")).toBeTruthy();
-    expect(screen.getByText("WhatsApp us").closest("a").getAttribute("href")).toMatch(/^https:\/\/wa\.me\/2348076911614/);
-    expect(screen.getAllByText(/techdeskapp@gmail\.com/).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /I have a code/i }));
     fireEvent.change(screen.getByLabelText("Activation code"), { target: { value: "bus 7k2m q9tx 4hpa" } });
     expect(screen.getByLabelText("Activation code").value).toBe("BUS-7K2M-Q9TX-4HPA");
     fireEvent.click(screen.getByText("Apply code"));
     await waitFor(() => expect(screen.getByText(/already been used on another device/)).toBeTruthy());
-    store.codes = false;
   });
 
-  it("is the only way in on the Play Store build: no prices, no upgrade buttons, no paying", async () => {
+  it("on the Play Store build there is no paying: only I have a code", async () => {
     store.play = true;
     open();
-    expect(screen.queryByText(/Upgrade to/)).toBeNull();
-    expect(screen.queryByText(/Free while we test/)).toBeNull();
+    expect(screen.queryByRole("button", { name: /Pay online/i })).toBeNull();
     expect(screen.queryByText(/₦/)).toBeNull();
-    expect(screen.queryByText(/Paid already/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /I have a code/i }));
     expect(screen.getByLabelText("Activation code")).toBeTruthy();
     expect(screen.getByText("482913")).toBeTruthy();
+    store.play = false;
   });
 });

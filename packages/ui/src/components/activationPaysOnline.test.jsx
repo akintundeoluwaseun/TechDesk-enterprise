@@ -53,7 +53,8 @@ function open() {
 }
 
 function goToEmailStep(email) {
-  fireEvent.click(screen.getByRole("button", { name: /Upgrade to TechDesk Business/i }));
+  fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
+  fireEvent.click(screen.getByRole("button", { name: /Activate Business/i }));
   fireEvent.click(screen.getByRole("button", { name: /Pay with card/i }));
   fireEvent.change(screen.getByLabelText(/Email for the receipt/i), { target: { value: email } });
   fireEvent.click(screen.getByRole("button", { name: /Continue to payment/i }));
@@ -83,7 +84,7 @@ describe("paying for an upgrade online", () => {
     await waitFor(() => expect(claimCode).toHaveBeenCalledWith("td-1"));
     await waitFor(() => expect(verifyCode).toHaveBeenCalledWith("ABCD-EFGH-IJKL"));
     await waitFor(() =>
-      expect(screen.getByText(/Done\. TechDesk Business is unlocked/i)).toBeInTheDocument(),
+      expect(screen.getByText(/Done\. TechDesk Business is on/i)).toBeInTheDocument(),
     );
   });
 
@@ -108,7 +109,7 @@ describe("paying for an upgrade online", () => {
 
     await waitFor(() => expect(claimCode).toHaveBeenCalledTimes(2));
     await waitFor(() =>
-      expect(screen.getByText(/Done\. TechDesk Business is unlocked/i)).toBeInTheDocument(),
+      expect(screen.getByText(/Done\. TechDesk Business is on/i)).toBeInTheDocument(),
     );
     // Confirming a slow webhook never re-runs the order -- that would be a
     // second charge for the same upgrade.
@@ -117,7 +118,8 @@ describe("paying for an upgrade online", () => {
 
   it("will not start an order without an email", () => {
     open();
-    fireEvent.click(screen.getByRole("button", { name: /Upgrade to TechDesk Business/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Activate Business/i }));
     fireEvent.click(screen.getByRole("button", { name: /Pay with card/i }));
     fireEvent.click(screen.getByRole("button", { name: /Continue to payment/i }));
     expect(screen.getByText(/Enter an email/i)).toBeInTheDocument();
@@ -141,7 +143,8 @@ describe("paying for an upgrade online", () => {
     verifyCode.mockResolvedValue({ ok: true, applied: true, tier: "enterprise" });
 
     open();
-    fireEvent.click(screen.getByRole("button", { name: /Upgrade to TechDesk Enterprise/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Activate Enterprise/i }));
     fireEvent.click(screen.getByRole("button", { name: /Pay with card/i }));
     fireEvent.change(screen.getByLabelText(/Email for the receipt/i), { target: { value: "shop@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: /Continue to payment/i }));
@@ -150,7 +153,7 @@ describe("paying for an upgrade online", () => {
       expect(startOrder).toHaveBeenCalledWith({ pin: "482913", tier: "enterprise", product: "plan", contact: "shop@example.com" }),
     );
     await waitFor(() =>
-      expect(screen.getByText(/Done\. TechDesk Enterprise is unlocked/i)).toBeInTheDocument(),
+      expect(screen.getByText(/Done\. TechDesk Enterprise is on/i)).toBeInTheDocument(),
     );
   });
 });

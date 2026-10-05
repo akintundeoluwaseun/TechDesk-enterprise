@@ -69,8 +69,9 @@ describe("while payments are off", () => {
     state.paymentsLive = false;
     trialUnlock.mockResolvedValue({ ok: true, tier: "enterprise", trial: true });
     open();
+    fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
     expect(screen.getAllByText(/Free while we test/).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: /Upgrade to TechDesk Enterprise/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Activate Enterprise/i }));
     fireEvent.click(screen.getByRole("button", { name: /Upgrade free while we test/i }));
     await waitFor(() => expect(trialUnlock).toHaveBeenCalledWith("482913", "enterprise"));
     expect(startOrder).not.toHaveBeenCalled();
@@ -86,7 +87,8 @@ describe("yearly plans", () => {
     state.tier = "business";
     state.upgrade = { eligible: true, amount: 830, full: 10000, daysLeft: 30 };
     open();
-    await waitFor(() => expect(screen.getByText(/₦830 for the rest of your plan year/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
+    await waitFor(() => expect(screen.getByText(/₦830 for the rest of your Business year/)).toBeTruthy());
     state.upgrade = null;
   });
 
@@ -97,8 +99,9 @@ describe("yearly plans", () => {
     verifyCode.mockResolvedValue({ ok: true, applied: true, tier: "enterprise" });
 
     open();
-    await waitFor(() => expect(screen.getByText(/₦10,000 for the rest of your plan year/)).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: /Upgrade to TechDesk Enterprise/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
+    await waitFor(() => expect(screen.getByText(/₦10,000 for the rest of your Business year/)).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /Upgrade Business → Enterprise/i }));
     fireEvent.click(screen.getByRole("button", { name: /Pay with card/i }));
     fireEvent.change(screen.getByLabelText(/Email for the receipt/i), { target: { value: "shop@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: /Continue to payment/i }));
@@ -106,7 +109,7 @@ describe("yearly plans", () => {
     await waitFor(() =>
       expect(startOrder).toHaveBeenCalledWith({ pin: "482913", tier: "enterprise", product: "upgrade", contact: "shop@example.com" }),
     );
-    await waitFor(() => expect(screen.getByText(/unlocked on this computer until/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/is on until/)).toBeTruthy());
   });
 
   it("offers a renewal, and a renewal that re-sends the same code is a success, not an error", async () => {
@@ -116,6 +119,7 @@ describe("yearly plans", () => {
     verifyCode.mockResolvedValue({ ok: true, applied: false, tier: "business" });
 
     open();
+    fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
     fireEvent.click(await screen.findByRole("button", { name: /Renew TechDesk Business/i }));
     fireEvent.click(screen.getByRole("button", { name: /Pay with card/i }));
     fireEvent.change(screen.getByLabelText(/Email for the receipt/i), { target: { value: "shop@example.com" } });
@@ -133,6 +137,7 @@ describe("yearly plans", () => {
     claimCode.mockResolvedValue({ ok: true, code: null, tier: "enterprise", expiresAt: "2027-09-30T00:00:00Z" });
 
     open();
+    fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
     fireEvent.click(await screen.findByRole("button", { name: /Add head-office branches/i }));
     fireEvent.change(screen.getByLabelText(/head office’s email or phone/i), { target: { value: "hq@shop.com" } });
     fireEvent.change(screen.getByLabelText(/How many extra branches/i), { target: { value: "2" } });
