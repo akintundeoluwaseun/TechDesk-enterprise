@@ -1,9 +1,9 @@
 {
   "name": "techdesk-monitor",
   "private": true,
-  "version": "1.4.1",
+  "version": "1.5.0",
   "type": "module",
-  "description": "TechDesk HQ Monitoring \u2014 read-only view of every branch, for the owner's phone.",
+  "description": "TechDesk HQ Monitoring — read-only view of every branch, for the owner's phone.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -12,6 +12,7 @@
     "sync": "npm run build && cap sync android"
   },
   "dependencies": {
+    "@capacitor-community/speech-recognition": "^7.0.1",
     "@capacitor/android": "^8.5.2",
     "@capacitor/core": "^8.5.2",
     "@capacitor/local-notifications": "^8.0.0",

@@ -6,6 +6,8 @@ import { notifyNewActivity, notifyNewSales, notifyReminders, requestPermission }
 import BottomNav, { SideNav, ThemeButton } from "./components/BottomNav";
 import { Backdrop } from "./components/ui";
 import Tour, { tourDone } from "./components/Tour";
+import Assistant from "./components/Assistant";
+import DailyBrief, { briefDue } from "./components/DailyBrief";
 import LoginScreen from "./screens/LoginScreen";
 import HomeScreen from "./screens/HomeScreen";
 import DevicesScreen from "./screens/DevicesScreen";
@@ -26,6 +28,15 @@ export default function App() {
   const [refreshing, setRefreshing] = useState(false);
   const [updatedAt, setUpdatedAt] = useState(null);
   const [touring, setTouring] = useState(false);
+  // The figures behind the assistant and the daily summary (hq_insights).
+  const [insights, setInsights] = useState(null);
+  const [insightsAt, setInsightsAt] = useState(0);
+  const [showBrief, setShowBrief] = useState(false);
+  const loadInsights = useCallback(async (t, { ifOlderThan = 0 } = {}) => {
+    if (!t || (ifOlderThan && Date.now() - insightsAt < ifOlderThan)) return;
+    const res = await api.insights(t);
+    if (res.ok) { setInsights(res); setInsightsAt(Date.now()); }
+  }, [insightsAt]);
 
   useEffect(() => {
     session.get().then((t) => setToken(t || null));
@@ -85,6 +96,20 @@ export default function App() {
     const id = setInterval(() => load(token, { quiet: true }), REFRESH_MS);
     return () => clearInterval(id);
   }, [token, load]);
+
+  // The figures: on start, then every five minutes while Monitor is open.
+  useEffect(() => {
+    if (!token) return undefined;
+    loadInsights(token);
+    const id = setInterval(() => loadInsights(token), 5 * 60_000);
+    return () => clearInterval(id);
+  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The daily summary, the first time Monitor opens each day -- after the
+  // tour on a very first start, never on top of it.
+  useEffect(() => {
+    if (insights?.ok && !touring && tourDone() && briefDue(insights.today)) setShowBrief(true);
+  }, [insights, touring]);
 
   if (token === undefined) {
     return (
@@ -196,6 +221,21 @@ export default function App() {
 
       {!branch && <BottomNav tab={tab} onChange={go} />}
       {touring && <Tour onDone={() => setTouring(false)} />}
+      {!touring && (
+        <Assistant
+          insights={insights}
+          offline={data?.stats?.devicesNeedingAttention || 0}
+          onNeedInsights={() => loadInsights(token, { ifOlderThan: 2 * 60_000 })}
+        />
+      )}
+      {showBrief && (
+        <DailyBrief
+          insights={insights}
+          owner={data?.business?.ownerName}
+          offline={data?.stats?.devicesNeedingAttention || 0}
+          onClose={() => setShowBrief(false)}
+        />
+      )}
     </div>
   );
 }

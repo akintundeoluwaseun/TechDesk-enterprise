@@ -85,3 +85,7 @@ button:active { transform: scale(0.97); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* A row of chips that scrolls sideways without a bar under it (the assistant). */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

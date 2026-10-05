@@ -51,4 +51,25 @@ export const api = {
   branch: (token, branchId, kind, limit) =>
     post("hq-data", { token, action: "branch", branchId, kind, limit }),
   logout: (token) => post("hq-data", { token, action: "logout" }),
+  // The figures the assistant and the daily summary are worked out from.
+  insights: (token) => post("hq-data", { token, action: "insights" }),
+  // A question the assistant didn't recognise: the AI says only WHAT was
+  // asked (voice-order, text only; same daily limits as the shop app). The
+  // answer is still worked out on the phone from the figures.
+  askAi: (text) => post("voice-order", { installId: installId(), text, today: new Date().toDateString() }),
 };
+
+/** This phone's own id, for the AI's daily limit. Random; says nothing about the owner. */
+function installId() {
+  const KEY = "techdesk_monitor_install";
+  try {
+    let id = localStorage.getItem(KEY);
+    if (!id) {
+      id = `monitor-${crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(KEY, id);
+    }
+    return id;
+  } catch {
+    return "monitor-anon";
+  }
+}
