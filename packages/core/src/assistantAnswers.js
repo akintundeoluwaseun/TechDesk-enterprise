@@ -87,7 +87,8 @@ export function answerQuestion({ intent, period, subject, note } = {}, data = {}
     }
     case "who_owes": {
       const by = new Map();
-      [...sales.map((s) => [s.customerName || "Walk-in", saleOwed(s)]), ...repairs.map((r) => [r.customerName || "Walk-in", repairOwed(r)])]
+      // A job still on the bench isn't owed yet -- the same rule as the money chaser.
+      [...sales.map((s) => [s.customerName || "Walk-in", saleOwed(s)]), ...repairs.filter((r) => !isOpenRepair(r)).map((r) => [r.customerName || "Walk-in", repairOwed(r)])]
         .filter(([, v]) => v > 0).forEach(([n, v]) => by.set(n, (by.get(n) || 0) + v));
       const list = [...by.entries()].sort((a, b) => b[1] - a[1]);
       const total = list.reduce((n, [, v]) => n + v, 0);
@@ -98,7 +99,7 @@ export function answerQuestion({ intent, period, subject, note } = {}, data = {}
       const name = m.customer?.name || subject || "";
       const first = words(name)[0];
       const mine = (r) => (m.customer && r.customerId === m.customer.id) || (first && words(r.customerName).includes(first));
-      const owed = sales.filter(mine).reduce((n, s) => n + saleOwed(s), 0) + repairs.filter(mine).reduce((n, r) => n + repairOwed(r), 0);
+      const owed = sales.filter(mine).reduce((n, s) => n + saleOwed(s), 0) + repairs.filter(mine).filter((r) => !isOpenRepair(r)).reduce((n, r) => n + repairOwed(r), 0);
       const open = repairs.filter(mine).filter(isOpenRepair).length;
       if (!first) return { title: "Which customer?", lines: [], empty: "Say the customer's name, like “How much does Chidi owe?”" };
       return { title: name, lines: [money("Owes", owed), text("Open repairs", open), text("Times bought", sales.filter(mine).length)] };

@@ -1,6 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Sparkles, Camera, ImagePlus, NotebookPen } from "lucide-react";
-import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn } from "@techdesk/core";
+import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Camera, ImagePlus, ShoppingCart, Wrench, PackagePlus, Wallet, Sunrise, TrendingUp, Coins, Users, PackageX, PackageCheck, Trophy, GraduationCap, ChevronDown } from "lucide-react";
+import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn, answerQuestion, debtors } from "@techdesk/core";
+import { useNavigate } from "react-router-dom";
+import AssistantBot from "./AssistantBot";
+import MoneyInput from "./MoneyInput";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { SITE_ORIGIN } from "@techdesk/editions";
 import { useAuth, canAccess } from "../lib/AuthContext";
@@ -30,7 +33,7 @@ const TITLE = { sale: "Sale", repair: "New repair", stock: "Stock", repair_statu
 
 function Sheet({ children, onClose, t, label }) {
   return (
-    <div className="td-overlay fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-6" role="dialog" aria-modal="true" aria-label={label}>
+    <div className="td-overlay fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-6" role="dialog" aria-modal="true" aria-label={label}>
       <div className={`w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-5 ${t.cardBg}`}>
         <div className="flex justify-end -mb-2">
           <button type="button" onClick={onClose} className={t.textMuted} aria-label="Close">
@@ -54,17 +57,15 @@ function Picker({ value, options, onChange, t, placeholder }) {
   );
 }
 
+// Figures are typed the way a shop writes them: 15,000, not 15000.
 function NumberField({ label, value, onChange, t }) {
   return (
     <label className={`text-xs ${t.textMuted} flex-1 min-w-[90px]`}>
       {label}
-      <input
-        type="number"
-        inputMode="decimal"
-        min="0"
+      <MoneyInput
         value={value ?? ""}
-        onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
-        className={`w-full rounded-xl px-3 py-2 text-sm mt-1 ${t.inputBg}`}
+        onChange={(v) => onChange(v === "" ? null : Number(v))}
+        className={`w-full rounded-xl px-3 py-2 text-sm mt-1 tabular-nums ${t.inputBg}`}
       />
     </label>
   );
@@ -324,6 +325,54 @@ function practiceLessons(inventory, customers) {
   ];
 }
 
+// One tap, no typing. "do" actions open the real thing; "ask" actions are
+// answered on this device straight away -- offline, and without using up a
+// turn of the AI.
+const QUICK_DO = [
+  { id: "sale", label: "New sale", icon: ShoppingCart, page: "/sales", tone: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" },
+  { id: "repair", label: "New repair", icon: Wrench, page: "/repairs", tone: "bg-sky-500/15 text-sky-600 dark:text-sky-400" },
+  { id: "product", label: "Add product", icon: PackagePlus, page: "/inventory", tone: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
+  { id: "photo", label: "Snap notebook", icon: Camera, page: "/sales", tone: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400" },
+  { id: "owed", label: "Money owed", icon: Wallet, page: "/sales", tone: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+  { id: "brief", label: "Today's brief", icon: Sunrise, page: null, tone: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
+];
+const QUICK_ASK = [
+  { label: "Sales today", icon: Coins, intent: "sales_total", period: "today", page: "/sales" },
+  { label: "Profit this week", icon: TrendingUp, intent: "profit", period: "this_week", page: "/reports" },
+  { label: "Who owes me?", icon: Users, intent: "who_owes", page: "/sales" },
+  { label: "Running low", icon: PackageX, intent: "low_stock", page: "/inventory" },
+  { label: "Ready for pickup", icon: PackageCheck, intent: "repairs_ready", page: "/repairs" },
+  { label: "Best sellers this month", icon: Trophy, intent: "top_products", period: "this_month", page: "/sales" },
+];
+
+const NUDGE_KEY = "techdesk_assistant_nudged_at";
+const NUDGE_EVERY_MS = 3 * 60 * 60 * 1000;
+
+/** Something worth saying from the robot's speech bubble, or null. */
+function pickNudge(user, money) {
+  const can = (p) => canAccess(user, p);
+  try {
+    if (can("/sales")) {
+      const due = debtors({}, new Date(), { includeRepairs: can("/repairs") }).filter((d) => d.status === "due");
+      if (due.length) {
+        const sum = due.reduce((n, d) => n + d.total, 0);
+        return { text: `${due.length} customer${due.length === 1 ? " owes" : "s owe"} you ${money(sum)}. Shall I help you remind them?`, action: "owed", cta: "Remind them" };
+      }
+    }
+    if (can("/repairs")) {
+      const ready = db.getRepairs().filter((r) => String(r.status || "").toLowerCase() === "completed").length;
+      if (ready) return { text: `${ready} finished repair${ready === 1 ? " is" : "s are"} waiting to be collected.`, action: "ask:repairs_ready", cta: "Show me" };
+    }
+    if (can("/inventory")) {
+      const low = db.getInventory().filter((i) => Number(i.stock || 0) <= Number(i.lowStockThreshold ?? 5)).length;
+      if (low) return { text: `${low} product${low === 1 ? " is" : "s are"} running low.`, action: "ask:low_stock", cta: "Show me" };
+    }
+  } catch {
+    // A nudge isn't worth an error.
+  }
+  return { text: "Hi! I'm your shop assistant. Tap me for quick actions, or hold me and just say what you sold.", action: "open", cta: "Show me" };
+}
+
 const EXAMPLES = ["How much did I sell today?", "Who owes me?", "What's running low?", "Which repairs are ready but not collected?"];
 
 let msgSeq = 0;
@@ -346,6 +395,9 @@ export default function VoiceOrder() {
   const [left, setLeft] = useState(null);
   const [photoMenu, setPhotoMenu] = useState(false);
   const [busyText, setBusyText] = useState("");
+  const [nudge, setNudge] = useState(null); // the robot's speech bubble
+  const [showExamples, setShowExamples] = useState(false);
+  const navigate = useNavigate();
   const camInput = useRef(null);
   const pickInput = useRef(null);
   const rec = useRef(null);
@@ -363,8 +415,28 @@ export default function VoiceOrder() {
     (el || listEnd.current)?.scrollIntoView?.({ block: el ? "start" : "end" });
   }, [messages.length, busy, practice]);
 
-  if (!featureOn("ai")) return null;
-  const micOk = canRecord();
+  // The robot says something useful a little after the app opens -- at most
+  // every few hours, and never while the assistant is already open.
+  useEffect(() => {
+    let last = 0;
+    try { last = Number(localStorage.getItem(NUDGE_KEY) || 0); } catch { /* fine */ }
+    if (Date.now() - last < NUDGE_EVERY_MS) return undefined;
+    const show = setTimeout(() => {
+      setNudge(pickNudge(user, (n) => money(n, settings)));
+      try { localStorage.setItem(NUDGE_KEY, String(Date.now())); } catch { /* fine */ }
+    }, 4000);
+    return () => clearTimeout(show);
+  }, []);
+  useEffect(() => {
+    if (!nudge) return undefined;
+    const hide = setTimeout(() => setNudge(null), 14000);
+    return () => clearTimeout(hide);
+  }, [nudge]);
+
+  // Talking and typing need the AI; quick actions don't, so the robot stays
+  // even when the console has paused the AI.
+  const aiOn = featureOn("ai");
+  const micOk = aiOn && canRecord();
   const allowed = (type) => !PAGE_FOR[type] || canAccess(user, PAGE_FOR[type]);
   const say = (m) => setMessages((list) => [...list, { id: mid(), ...m }]);
   const updateMsg = (id, patch) => setMessages((list) => list.map((m) => (m.id === id ? { ...m, ...patch } : m)));
@@ -592,6 +664,34 @@ export default function VoiceOrder() {
     toast({ title: "Undone", tone: "info" });
   }
 
+  /** Answered here, from this device's records: instant, offline, free. */
+  function askNow(q) {
+    const answer = answerQuestion({ intent: q.intent, period: q.period });
+    say({ role: "user", text: q.label });
+    say({ role: "assistant", kind: "drafts", drafts: [{ id: mid(), type: "question", question: true, include: false, intent: q.intent, answer }] });
+  }
+
+  function runQuick(id) {
+    if (id === "sale") { setOpen(false); navigate("/sales?new=1"); return; }
+    if (id === "repair") { setOpen(false); navigate("/repairs?new=1"); return; }
+    if (id === "product") { setOpen(false); navigate("/inventory?new=1"); return; }
+    if (id === "photo") { openPhoto(); return; }
+    if (id === "owed") { openChaser(); return; }
+    if (id === "brief") { setOpen(false); openBrief(); }
+  }
+
+  function takeNudge() {
+    const n = nudge;
+    setNudge(null);
+    if (!n) return;
+    if (n.action === "owed") { openChaser(); return; }
+    setOpen(true);
+    if (n.action.startsWith("ask:")) {
+      const q = QUICK_ASK.find((x) => x.intent === n.action.slice(4));
+      if (q) askNow(q);
+    }
+  }
+
   function startPractice() {
     const lessons = practiceLessons(db.getInventory(), db.getCustomers());
     setPractice({ step: 0, lessons, results: {} });
@@ -603,6 +703,29 @@ export default function VoiceOrder() {
 
   return (
     <>
+      <style>{`
+        @keyframes tdPop { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+        @keyframes tdBubble { from { opacity: 0; transform: translateY(8px) scale(.9); } to { opacity: 1; transform: none; } }
+        @keyframes tdBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+        .td-pop { animation: tdPop .22s cubic-bezier(.2,.9,.3,1.2); }
+        .td-bubble { animation: tdBubble .3s cubic-bezier(.2,.9,.3,1.3); transform-origin: bottom right; }
+        .td-bob { animation: tdBob 3s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) { .td-pop, .td-bubble, .td-bob { animation: none; } }
+      `}</style>
+
+      {!open && nudge && (
+        <div className="td-bubble fixed right-4 bottom-[9.5rem] md:bottom-24 z-[46] w-[min(19rem,calc(100vw-2rem))]" role="status">
+          <div className={`relative rounded-2xl rounded-br-md shadow-xl p-3 pr-8 border ${t.cardBg} ${t.divider}`}>
+            <button type="button" onClick={() => setNudge(null)} aria-label="Dismiss" className={`absolute top-2 right-2 ${t.textMuted}`}><X className="w-4 h-4" /></button>
+            <p className={`text-sm ${t.textPrimary}`}>{nudge.text}</p>
+            <div className="flex gap-2 mt-2">
+              <button type="button" onClick={takeNudge} className="text-xs font-semibold px-3 py-1.5 rounded-full bg-gradient-to-br from-indigo-600 to-sky-500 text-white">{nudge.cta}</button>
+              <button type="button" onClick={() => setNudge(null)} className={`text-xs px-3 py-1.5 rounded-full ${t.pillBg}`}>Not now</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {!open && (
         <button
           type="button"
@@ -612,51 +735,95 @@ export default function VoiceOrder() {
           onPointerCancel={fabUp}
           onContextMenu={(e) => e.preventDefault()}
           aria-label={recording ? "Stop recording" : "TechDesk Assistant: tap to open, hold to talk"}
-          className={`fixed right-4 bottom-20 md:bottom-6 z-[45] w-14 h-14 rounded-full shadow-xl flex items-center justify-center select-none touch-none transition-transform active:scale-95 ${
-            recording ? "bg-red-500 text-white animate-pulse" : "bg-gradient-to-br from-indigo-600 to-sky-500 text-white"
+          className={`fixed right-4 bottom-20 md:bottom-6 z-[45] w-16 h-16 rounded-full shadow-xl ring-4 ring-white/70 dark:ring-black/30 flex items-center justify-center select-none touch-none transition-transform active:scale-95 ${
+            recording ? "bg-red-500 animate-pulse" : "bg-gradient-to-br from-indigo-600 to-sky-500"
           }`}
         >
-          {recording ? <Square className="w-5 h-5" /> : <Mic className="w-6 h-6" />}
+          <span className={recording ? "" : "td-bob"}><AssistantBot size={40} listening={recording} /></span>
+          {nudge && <span className="absolute top-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-amber-400 ring-2 ring-white" />}
         </button>
       )}
 
       {open && (
-        <div className="td-overlay fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 sm:p-6" role="dialog" aria-modal="true" aria-label="TechDesk Assistant">
-          <div className={`w-full sm:max-w-lg h-[92vh] sm:h-[85vh] flex flex-col rounded-t-2xl sm:rounded-2xl ${t.cardBg}`}>
-            <div className={`flex items-center gap-2 px-4 py-3 border-b ${t.divider}`}>
-              <span className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-600 to-sky-500 text-white flex items-center justify-center"><Sparkles className="w-4 h-4" /></span>
+        <>
+          {/* Phones: a sheet over a dimmed app. Computers: a chat window in the corner. */}
+          <div className="td-overlay fixed inset-0 z-[70] bg-black/50 sm:bg-black/10" onClick={() => { cancelRec(); setOpen(false); }} />
+          <div role="dialog" aria-modal="true" aria-label="TechDesk Assistant"
+            className={`td-pop fixed z-[71] inset-x-0 bottom-0 h-[92vh] sm:inset-auto sm:right-6 sm:bottom-6 sm:w-[420px] sm:h-[min(700px,88vh)] flex flex-col rounded-t-3xl sm:rounded-3xl shadow-2xl border overflow-hidden ${t.cardBg} ${t.divider}`}>
+            <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-br from-indigo-600 to-sky-500 text-white">
+              <span className="w-11 h-11 shrink-0 rounded-full bg-white/15 flex items-center justify-center"><AssistantBot size={34} listening={recording} /></span>
               <div className="flex-1 min-w-0">
-                <div className={`font-semibold ${t.textPrimary}`}>TechDesk Assistant</div>
-                <div className={`text-xs ${t.textMuted}`}>{left != null ? `${Math.max(0, left)} left today on this device` : "Talk or type. You check everything before it's saved."}</div>
+                <div className="font-semibold leading-tight">TechDesk Assistant</div>
+                <div className="text-xs text-white/80 truncate">
+                  {recording ? "Listening…" : busy ? "Thinking…" : left != null ? `Here to help · ${Math.max(0, left)} AI uses left today` : "Here to help"}
+                </div>
               </div>
-              {!practice && <button type="button" onClick={startPractice} className={`text-xs font-semibold px-3 py-1.5 rounded-full ${t.pillBg}`}>Practice</button>}
-              <button type="button" onClick={() => { cancelRec(); setOpen(false); }} className={t.textMuted} aria-label="Close"><X className="w-5 h-5" /></button>
+              {!practice && aiOn && (
+                <button type="button" onClick={startPractice} className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-full bg-white/15 hover:bg-white/25">
+                  <GraduationCap className="w-3.5 h-3.5" /> Practice
+                </button>
+              )}
+              <button type="button" onClick={() => { cancelRec(); setOpen(false); }} className="p-1 rounded-full hover:bg-white/15" aria-label="Close"><X className="w-5 h-5" /></button>
             </div>
-
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
               {messages.length === 0 && !practice && (
-                <div className="space-y-3">
-                  <p className={`text-sm ${t.textSecondary}`}>Tell me what happened, or ask about your shop. For example:</p>
-                  <ul className={`text-sm space-y-1 ${t.textSecondary}`}>
-                    <li>• “Sell two chargers to Chidi, he paid transfer.”</li>
-                    <li>• “Add ten iPhone 11 batteries at eleven thousand each.”</li>
-                    <li>• “New repair for Aisha, Samsung A54 not charging, fifteen thousand.”</li>
-                    <li>• “Mark Chidi's iPhone as ready.” · “Aisha paid five thousand.”</li>
-                  </ul>
-                  <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => { setOpen(false); openBrief(); }} className={`text-xs px-3 py-1.5 rounded-full ${t.pillBg}`}>Today's brief</button>
-                    {EXAMPLES.map((q) => (
-                      <button key={q} type="button" onClick={() => sendText(q)} className={`text-xs px-3 py-1.5 rounded-full ${t.pillBg}`}>{q}</button>
-                    ))}
+                <div className="space-y-4">
+                  <div className="flex items-start gap-2">
+                    <span className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-indigo-600 to-sky-500 flex items-center justify-center"><AssistantBot size={24} /></span>
+                    <div className={`rounded-2xl rounded-tl-md px-3 py-2 text-sm ${t.insetBg} ${t.textPrimary}`}>
+                      {new Date().getHours() < 12 ? "Good morning" : new Date().getHours() < 17 ? "Good afternoon" : "Good evening"}{user?.name ? `, ${String(user.name).split(" ")[0]}` : ""}! What would you like to do?
+                    </div>
                   </div>
-                  <button type="button" onClick={openPhoto} className={`w-full flex items-center gap-3 rounded-2xl p-3 text-left border ${t.divider}`}>
-                    <span className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-indigo-600 to-sky-500 text-white flex items-center justify-center"><NotebookPen className="w-5 h-5" /></span>
-                    <span className="min-w-0">
-                      <span className={`block text-sm font-semibold ${t.textPrimary}`}>Bring in your old notebook</span>
-                      <span className={`block text-xs ${t.textMuted}`}>Snap a page of sales, repairs or stock. Each line becomes a record you check, on the date it was written.</span>
-                    </span>
-                  </button>
-                  <button type="button" onClick={startPractice} className={`text-sm underline underline-offset-2 ${t.textSecondary}`}>New to this? Take the 2-minute practice →</button>
+
+                  <section>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${t.textMuted}`}>Quick actions</h3>
+                    <div className="grid grid-cols-3 gap-2">
+                      {QUICK_DO.filter((q) => (q.page ? canAccess(user, q.page) : true) && (q.id !== "photo" || aiOn)).map((q) => {
+                        const Icon = q.icon;
+                        return (
+                          <button key={q.id} type="button" onClick={() => runQuick(q.id)}
+                            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-3 px-1 border transition-transform active:scale-95 ${t.divider}`}>
+                            <span className={`w-10 h-10 rounded-xl flex items-center justify-center ${q.tone}`}><Icon className="w-5 h-5" /></span>
+                            <span className={`text-xs font-medium text-center leading-tight ${t.textPrimary}`}>{q.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  <section>
+                    <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${t.textMuted}`}>Ask me · instant, works offline</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {QUICK_ASK.filter((q) => canAccess(user, q.page)).map((q) => {
+                        const Icon = q.icon;
+                        return (
+                          <button key={q.label} type="button" onClick={() => askNow(q)} className={`flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-full ${t.pillBg}`}>
+                            <Icon className="w-3.5 h-3.5" /> {q.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  {aiOn && (
+                    <section className={`rounded-2xl p-3 ${t.insetBg}`}>
+                      <button type="button" onClick={() => setShowExamples((v) => !v)} className="w-full flex items-center gap-2 text-left">
+                        <Mic className={`w-4 h-4 ${t.textMuted}`} />
+                        <span className={`flex-1 text-sm font-semibold ${t.textPrimary}`}>Or just tell me</span>
+                        <ChevronDown className={`w-4 h-4 ${t.textMuted} ${showExamples ? "rotate-180" : ""}`} />
+                      </button>
+                      <p className={`text-xs mt-1 ${t.textMuted}`}>Hold the mic and talk, or type below. I fill it in; you check and save.</p>
+                      {showExamples && (
+                        <ul className={`text-sm mt-2 space-y-1.5 ${t.textSecondary}`}>
+                          <li>“Sell two chargers to Chidi, he paid transfer.”</li>
+                          <li>“Add ten iPhone 11 batteries at 11k each.”</li>
+                          <li>“New repair for Aisha, Samsung A54 not charging, 15k.”</li>
+                          <li>“Mark Chidi's iPhone as ready.” · “Aisha paid 5k.”</li>
+                        </ul>
+                      )}
+                      <button type="button" onClick={startPractice} className={`mt-2 text-xs font-semibold underline underline-offset-2 ${t.textSecondary}`}>New to this? 2-minute practice →</button>
+                    </section>
+                  )}
                 </div>
               )}
 
@@ -767,8 +934,25 @@ export default function VoiceOrder() {
               <div ref={listEnd} />
             </div>
 
+            {messages.length > 0 && !practice && !recording && (
+              <div className={`flex gap-1.5 overflow-x-auto px-3 pt-2 border-t ${t.divider}`} aria-label="Quick actions">
+                {[...QUICK_DO.filter((q) => (q.page ? canAccess(user, q.page) : true) && (q.id !== "photo" || aiOn)).map((q) => ({ key: q.id, label: q.label, icon: q.icon, run: () => runQuick(q.id) })),
+                  ...QUICK_ASK.filter((q) => canAccess(user, q.page)).map((q) => ({ key: q.label, label: q.label, icon: q.icon, run: () => askNow(q) }))].map((q) => {
+                  const Icon = q.icon;
+                  return (
+                    <button key={q.key} type="button" onClick={q.run} className={`shrink-0 flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-full ${t.pillBg}`}>
+                      <Icon className="w-3.5 h-3.5" /> {q.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {!aiOn ? (
+              <p className={`px-4 py-3 text-xs border-t ${t.divider} ${t.textMuted}`}>Talking and typing to the assistant are paused for now. Quick actions still work.</p>
+            ) : (
             <form
-              className={`flex items-center gap-2 px-3 py-3 border-t ${t.divider}`}
+              className={`flex items-center gap-2 px-3 py-3 ${messages.length > 0 && !practice && !recording ? "" : `border-t ${t.divider}`}`}
               onSubmit={(e) => { e.preventDefault(); sendText(input, practice && lesson ? { practiceStep: practice.step } : undefined); }}
             >
               {recording ? (
@@ -811,8 +995,9 @@ export default function VoiceOrder() {
                 </button>
               ) : null}
             </form>
+            )}
           </div>
-        </div>
+        </>
       )}
 
       <input ref={camInput} type="file" accept="image/*" capture="environment" className="hidden" onChange={onPhoto} data-testid="photo-camera" />

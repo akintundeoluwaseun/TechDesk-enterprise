@@ -52,7 +52,8 @@ describe("answering questions from the shop's own records", () => {
 
   it("who owes, and one customer's balance", () => {
     const a = answerQuestion({ intent: "who_owes" }, {}, now);
-    expect(value(a, "Total owed")).toBe(10000 + 20000 + 15000);
+    // Aisha's repair is still on the bench: not owed yet.
+    expect(value(a, "Total owed")).toBe(10000 + 20000);
     expect(value(a, "Chidi Okafor")).toBe(30000);
     expect(value(answerQuestion({ intent: "customer_balance", subject: "Chidi" }, {}, now), "Owes")).toBe(30000);
   });

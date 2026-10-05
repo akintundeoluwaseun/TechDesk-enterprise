@@ -8,6 +8,7 @@ import { useSettings } from "../lib/SettingsContext";
 import { money } from "../lib/currency";
 import { openWhatsApp } from "../lib/share";
 import { VOICE_SAVED_EVENT } from "./VoiceOrder";
+import MoneyInput from "./MoneyInput";
 
 // The money chaser: who owes, and a message to ask for it.
 //
@@ -148,8 +149,8 @@ function DebtorCard({ d, t, settings, fmt, lang, focus, onChanged, payTo, actor 
           <div className="flex gap-2 flex-wrap">
             <label className={`text-xs flex-1 min-w-[120px] ${t.textMuted}`}>
               Amount received
-              <input type="number" inputMode="decimal" min="0" value={amount ?? ""} onChange={(e) => setAmount(e.target.value === "" ? null : Number(e.target.value))}
-                className={`w-full rounded-xl px-3 py-2 text-sm mt-1 ${t.inputBg}`} />
+              <MoneyInput value={amount ?? ""} onChange={(v) => setAmount(v === "" ? null : Number(v))}
+                className={`w-full rounded-xl px-3 py-2 text-sm mt-1 tabular-nums ${t.inputBg}`} />
             </label>
             <label className={`text-xs flex-1 min-w-[120px] ${t.textMuted}`}>
               How
@@ -203,7 +204,7 @@ export default function MoneyChaser({ onClose, focusKey = null }) {
   const refresh = () => setTick((n) => n + 1);
 
   return (
-    <div className="td-overlay fixed inset-0 z-[70] flex items-end sm:items-center justify-center bg-black/60 sm:p-6" role="dialog" aria-modal="true" aria-label="Money owed">
+    <div className="td-overlay fixed inset-0 z-[75] flex items-end sm:items-center justify-center bg-black/60 sm:p-6" role="dialog" aria-modal="true" aria-label="Money owed">
       <div className={`w-full sm:max-w-lg h-[94vh] sm:h-[88vh] flex flex-col rounded-t-3xl sm:rounded-3xl overflow-hidden ${t.cardBg}`}>
         <div className={`flex items-start gap-3 px-5 pt-5 pb-4 border-b ${t.divider}`}>
           <span className="w-10 h-10 shrink-0 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center"><Wallet className="w-5 h-5" /></span>

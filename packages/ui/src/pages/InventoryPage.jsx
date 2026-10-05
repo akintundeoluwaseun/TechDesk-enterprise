@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, Search, Pencil, Trash2, ChevronDown, FileSpreadsheet } from "lucide-react";
 import Topbar from "../components/Topbar";
 import ProductModal from "../components/ProductModal";
@@ -20,6 +21,18 @@ export default function InventoryPage() {
   const [sort, setSort] = useState("recent");
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  // ?new=1 (from the assistant's quick actions) opens the form straight away,
+  // whether or not this page was already showing.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get("new") === "1") {
+      setParams({}, { replace: true });
+      setEditingProduct(null);
+      setShowModal(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+
 
   function refresh() {
     setProducts(db.getInventory());

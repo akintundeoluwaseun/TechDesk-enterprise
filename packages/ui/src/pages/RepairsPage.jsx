@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, Search, FileText, MessageCircle, Trash2, ChevronRight } from "lucide-react";
 import Topbar from "../components/Topbar";
 import NewRepairModal from "../components/NewRepairModal";
@@ -39,6 +40,17 @@ export default function RepairsPage() {
   const [showModal, setShowModal] = useState(false);
   const [search, setSearch] = useState("");
   const [repairs, setRepairs] = useState(() => db.getRepairs());
+  // ?new=1 (from the assistant's quick actions) opens the form straight away,
+  // whether or not this page was already showing.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get("new") === "1") {
+      setParams({}, { replace: true });
+      setShowModal(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params]);
+
   const [expanded, setExpanded] = useState(null);
   // Today and this week open on arrival, same reasoning as Sales: that's
   // what anyone opening the page actually came to look at.

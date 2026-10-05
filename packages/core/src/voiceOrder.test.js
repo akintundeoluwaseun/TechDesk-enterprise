@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { db } from "./db";
 import { storage } from "./storage";
 import { saveAppControl } from "./appControl";
-import { matchProduct, matchCustomer, matchRepair, resolve, issues, apply, runUndo, saleTotal, send, isOnline } from "./voiceOrder";
+import { matchProduct, matchCustomer, matchRepair, resolve, issues, apply, runUndo, saleTotal, send, isOnline, voiceOrder } from "./voiceOrder";
 
 function seed() {
   const charger = db.addInventoryItem({ name: "20W USB-C fast charger", price: 7500, costPrice: 4200, stock: 25 });
@@ -257,10 +257,10 @@ describe("a photo of the old notebook", () => {
     seed();
     const drafts = resolve([
       { type: "repair", customerName: "Bayo", device: "Tecno Spark 10", problem: "Screen", cost: 25000, status: "delivered", date: "2026-02-01" },
-      { type: "sale", items: [{ product: "charger", qty: 1 }], date: "2026-12-25" },
-    ], {}, { source: "photo", now });
+      { type: "sale", items: [{ product: "charger", qty: 1 }], date: "2099-12-25" },
+    ], {}, { source: "photo", now: new Date() }); // the real today: a sale dated today is saved "now"
     expect(drafts[0].status).toBe("delivered");
-    expect(drafts[1].date).toBe("2026-10-04");
+    expect(drafts[1].date).toBe(voiceOrder.localDay());
     apply(drafts);
     const rep = db.getRepairs().find((r) => r.device === "Tecno Spark 10");
     expect(rep.status).toBe("delivered");

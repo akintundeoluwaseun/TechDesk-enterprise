@@ -47,8 +47,10 @@ export default function SalesPage() {
       setParams({}, { replace: true });
       setShowModal(true);
     }
+    // On params, not just on mount: the assistant's "New sale" can arrive
+    // while this page is already open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [params]);
   function startSale() {
     setEditingSale(null);
     if (wantsSaleSetup(settings)) {
