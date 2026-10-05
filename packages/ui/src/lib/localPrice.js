@@ -1,20 +1,21 @@
 // A Naira price in the shop's own money, for shops outside Nigeria.
 //
 // The website's /api/local-price works out the country from the connection
-// and today's rate; the answer is kept for six hours. TechDesk still charges
+// and today's rate; the answer is kept for fifteen minutes, so moving (or a
+// VPN switched to another country) shows the new currency soon after. TechDesk still charges
 // in Naira -- this is only so a shop in Accra or London can read the price.
 // In Nigeria, offline, or on any failure, there's nothing to add.
 import { useEffect, useState } from "react";
 import { SITE_ORIGIN } from "@techdesk/editions";
 
 const KEY = "techdesk_local_price";
-const SIX_HOURS = 6 * 60 * 60 * 1000;
+const KEEP_MS = 15 * 60 * 1000;
 let pending = null;
 
 function cached() {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) || "null");
-    return v && Date.now() - v.at < SIX_HOURS ? v : null;
+    return v && Date.now() - v.at < KEEP_MS ? v : null;
   } catch {
     return null;
   }
@@ -25,7 +26,7 @@ export function loadLocalPrice(fetchImpl = typeof fetch !== "undefined" ? fetch 
   if (hit) return Promise.resolve(hit);
   if (!fetchImpl) return Promise.resolve(null);
   if (!pending) {
-    pending = fetchImpl(`${SITE_ORIGIN}/api/local-price`)
+    pending = fetchImpl(`${SITE_ORIGIN}/api/local-price`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((p) => {
         const v = p && p.currency && p.rate > 0 ? { currency: p.currency, rate: Number(p.rate), at: Date.now() } : null;

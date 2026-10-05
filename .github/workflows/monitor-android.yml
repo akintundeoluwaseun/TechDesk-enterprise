@@ -207,7 +207,7 @@ jobs:
         run: |
           gh release view "$TAG" --repo akintundeoluwaseun/TechDesk-releases- >/dev/null 2>&1 \
             || gh release create "$TAG" --repo akintundeoluwaseun/TechDesk-releases- \
-                 --title "TechDesk Monitor $VERSION_LABEL" \
+                 --latest=false --title "TechDesk Monitor $VERSION_LABEL" \
                  --notes "The head-office app: every branch's sales and repairs, read-only, on your phone."
           gh release upload "$TAG" "$APK" --repo akintundeoluwaseun/TechDesk-releases- --clobber
 

@@ -243,7 +243,7 @@ jobs:
         run: |
           gh release view "$TAG" --repo akintundeoluwaseun/TechDesk-releases- >/dev/null 2>&1 \
             || gh release create "$TAG" --repo akintundeoluwaseun/TechDesk-releases- \
-                 --title "TechDesk for Android $VERSION_LABEL" \
+                 --latest=false --title "TechDesk for Android $VERSION_LABEL" \
                  --notes "The shop, on a phone. Free to use; Business and Enterprise unlock in place."
           gh release upload "$TAG" "$APK" --repo akintundeoluwaseun/TechDesk-releases- --clobber
 

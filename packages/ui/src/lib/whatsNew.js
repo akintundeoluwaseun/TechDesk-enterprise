@@ -9,6 +9,23 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-05q",
+    date: "5 October 2026",
+    title: "TechDesk 4.12.9: a shorter sidebar",
+    items: [
+      {
+        icon: "sparkles",
+        title: "More, in one place",
+        text: "Restock planner, Money owed, Morning brief and What's new are under More in the sidebar, as on the phone.",
+      },
+      {
+        icon: "sync",
+        title: "Updates arrive again",
+        text: "The desktop app now finds new versions by itself every time.",
+      },
+    ],
+  },
+  {
     id: "2026-10-05p",
     date: "5 October 2026",
     title: "TechDesk 4.12.8: meet your AI assistant",

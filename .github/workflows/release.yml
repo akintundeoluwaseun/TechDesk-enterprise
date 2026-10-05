@@ -72,3 +72,28 @@ jobs:
         run: npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+
+  # The desktop app's updater asks GitHub for the LATEST release and reads its
+  # latest.yml. The Android and Monitor releases live in the same repo and
+  # used to be made after this one, so "latest" was an APK-only release, the
+  # updater found no latest.yml, and installed desktop apps stopped updating.
+  # Once every installer is up, this release is marked latest on purpose
+  # (and the APK workflows create theirs with --latest=false).
+  mark-latest:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mark this release as the latest
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          V=$(node -p "require('./apps/desktop/package.json').version")
+          id=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/akintundeoluwaseun/TechDesk-releases-/releases/tags/v$V | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).id")
+          code=$(curl -s -o out.json -w '%{http_code}' -X PATCH \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/akintundeoluwaseun/TechDesk-releases-/releases/$id \
+            -d '{"make_latest":"true"}')
+          echo "v$V (release $id) marked latest: HTTP $code"
+          if [ "$code" != "200" ]; then cat out.json; exit 1; fi
