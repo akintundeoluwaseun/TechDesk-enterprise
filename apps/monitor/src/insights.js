@@ -2,7 +2,7 @@
 // figures the server adds up (hq_insights, migration 0045).
 //
 // Questions are understood here first -- "sales today", "which branch sold
-// most this week", "who owes us", "how far Ikeja" -- which is instant and free.
+// most this week", "who owes us", "how is Ikeja doing" -- which is instant and free.
 // Anything this doesn't recognise is sent to the AI (voice-order, text only)
 // just to find out WHAT was asked; the answer is still worked out here, from
 // the same figures, so the AI never makes up a number.
@@ -88,13 +88,13 @@ export function parseQuestion(text, branches = []) {
   const period = parsePeriod(t);
   const branch = parseBranch(t, branches);
   let intent = null;
-  if (/\b(owe|owes|owing|debt|debtor|unpaid|balance|credit)\b|dem owe|never pay|not paid/.test(t)) intent = "owed";
-  else if (/\bprofit|\bgain\b|margin|wetin we gain/.test(t)) intent = "profit";
+  if (/\b(owe|owes|owing|debt|debtor|unpaid|balance|credit)\b|never pay|not paid/.test(t)) intent = "owed";
+  else if (/\bprofit|\bgain\b|margin/.test(t)) intent = "profit";
   else if (/which branch|best branch|top branch|branch.*(most|best|highest|least|worst)|compare|all (the )?branches|each branch|every branch|per branch/.test(t)) intent = "branches";
-  else if (/best.?sell|top (product|item|selling)|selling (most|well|fast)|fast.?moving|most sold|wetin (dey|they) sell/.test(t)) intent = "top";
+  else if (/best.?sell|top (product|item|selling)|selling (most|well|fast)|fast.?moving|most sold/.test(t)) intent = "top";
   else if (/low stock|running low|finish(ing|ed)?|out of stock|restock|stock\b/.test(t)) intent = "stock";
   else if (/repair|ready|pick ?up|collect|bench|ticket/.test(t)) intent = "repairs";
-  else if (/summary|brief|overview|how far|how is (the )?(business|shop|branch)|how (we|una) dey|how are we doing|update me|how (the )?(market|business|sales|shop|branch|things) (dey|de|is|go|going)|wetin dey happen|how e dey go/.test(t)) intent = "brief";
+  else if (/summary|brief|overview|how is (the )?(business|shop|branch|market)|how are (we|things) (doing|going)|how(?:'s| is) (it|business|everything) going|update me|what's happening|\bdoing\b/.test(t)) intent = "brief";
   else if (/\b(sale|sales|sold|sell|revenue|turnover|income|money|made|make|takings|bring)\b|how much/.test(t)) intent = "sales";
   else if (branch) intent = "brief";
   return { intent, period, branch };

@@ -30,7 +30,7 @@ import { tierLabel } from "../lib/tier";
 import { useHelp } from "../lib/HelpContext";
 import { searchEverything } from "../lib/searchAll";
 import { notificationFeed, notifStyle, timeAgo, isUnread, unreadCount } from "../lib/notifications";
-import { IS_ANDROID_APP } from "../lib/platform";
+import { IS_ANDROID_APP, IS_DESKTOP_APP } from "../lib/platform";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { announcementFeedItems } from "../lib/announcements";
 import { db } from "../lib/db";
@@ -451,9 +451,10 @@ export default function MobileAppBar({ onOpenActivation }) {
                 </button>
               )}
 
-              {/* Nothing to sign out of on Android, and no way to quit an app
-                  from inside it either -- Android owns that. Desktop only. */}
-              {!IS_ANDROID_APP && (
+              {/* Sign out and quit belong to the desktop app only: a phone or
+                  a browser (desktop-site mode included) is one person's device,
+                  with nothing to sign out of and no app to quit. */}
+              {IS_DESKTOP_APP && (
                 <div className="flex gap-2 mt-1">
                   <button
                     onClick={signOut}

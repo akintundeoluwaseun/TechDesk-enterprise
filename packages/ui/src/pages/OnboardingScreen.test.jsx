@@ -50,15 +50,16 @@ describe("first run walks through its steps, not straight to the dashboard", () 
     expect(screen.getByRole("tab", { name: /repairs/i })).toHaveAttribute("aria-selected", "true");
   });
 
-  it("Next walks through reminders, then staff and branches", () => {
+  it("Next walks through money and growth, then the AI assistant", () => {
     show();
     fireEvent.click(screen.getByText("Get Started"));
     fireEvent.click(screen.getByText("Next"));
-    expect(screen.getByText("Never lose track of money")).toBeInTheDocument();
+    expect(screen.getByText("Never lose money. Grow with control.")).toBeInTheDocument();
     fireEvent.click(screen.getByText("Next"));
-    expect(screen.getByText("Grow without losing control")).toBeInTheDocument();
+    expect(screen.getByText("Meet your AI assistant")).toBeInTheDocument();
+    for (const s of ["Talk", "Ask", "Snap"]) expect(screen.getByText(s)).toBeInTheDocument();
     fireEvent.click(screen.getByText("Back"));
-    expect(screen.getByText("Never lose track of money")).toBeInTheDocument();
+    expect(screen.getByText("Never lose money. Grow with control.")).toBeInTheDocument();
   });
 
   it("then reaches the new-business / join-existing question", () => {
@@ -81,7 +82,7 @@ describe("first run walks through its steps, not straight to the dashboard", () 
     show();
     toGate();
     fireEvent.click(screen.getByText("Back"));
-    expect(screen.getByText("Grow without losing control")).toBeInTheDocument();
+    expect(screen.getByText("Meet your AI assistant")).toBeInTheDocument();
   });
 
   it("finishing on the last step (continuing locally) still calls onDone", () => {

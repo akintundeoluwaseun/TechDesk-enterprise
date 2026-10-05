@@ -245,6 +245,8 @@ export default function MoneyChaser({ onClose, focusKey = null }) {
                 {settings.payTo || "Add your bank and account number, and every message tells customers where to transfer."}
               </p>
             )}
+            {/* A choice only when there is more than one language to choose. */}
+            {Object.keys(LANGS).length > 1 && (
             <div className="flex items-center gap-2 mt-3">
               <span className={`text-xs ${t.textMuted}`}>Messages in</span>
               {Object.entries(LANGS).map(([k, label]) => (
@@ -252,6 +254,7 @@ export default function MoneyChaser({ onClose, focusKey = null }) {
                   className={`text-xs px-3 py-1 rounded-full ${lang === k ? (t.dark ? "bg-white text-black" : "bg-neutral-900 text-white") : t.pillBg}`}>{label}</button>
               ))}
             </div>
+            )}
           </div>
 
           {list.length === 0 && (

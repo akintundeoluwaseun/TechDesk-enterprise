@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { db } from "./db";
 import { account, getCachedAccountStatus } from "./account";
-import { IS_ANDROID_APP } from "./platform";
+import { IS_DESKTOP_APP } from "./platform";
 
 const AuthContext = createContext(null);
 
@@ -86,8 +86,11 @@ export function homeFor(userOrRole) {
 // a completely different device. None of this touches the cloud account --
 // connecting this phone to a business, or joining one as a worker with a
 // code, is a different system and stays exactly as it was.
+// Only the desktop app is a shared counter. The web app -- including a phone
+// browser in "desktop site" mode, which is wide enough to look like one --
+// is one person's device like the Android app, so it never asks either.
 function pinRequired() {
-  return Boolean(db.getSettings().requirePin) && !IS_ANDROID_APP;
+  return Boolean(db.getSettings().requirePin) && IS_DESKTOP_APP;
 }
 
 export function AuthProvider({ children }) {

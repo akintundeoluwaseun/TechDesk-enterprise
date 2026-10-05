@@ -56,15 +56,14 @@ describe("the money chaser", () => {
     expect(late.tone).toBe("promise");
   });
 
-  it("writes the message in English or Pidgin, with how to pay", () => {
+  it("writes the message, with how to pay; an old Pidgin choice reads as English", () => {
     seed();
     const chidi = debtors({}, NOW).find((d) => d.name === "Chidi Okafor");
     const en = chaseMessage(chidi, { tone: "friendly", shop: "Ade Gadgets", payTo: "GTBank 0123456789 (Ade Gadgets)", money });
     expect(en).toMatch(/^Hello Chidi, hope you're well\. A quick reminder from Ade Gadgets: ₦18,000 is still outstanding for 2 unpaid purchases \(INV-\d+, INV-\d+\)\./);
     expect(en).toMatch(/You can pay by transfer to: GTBank 0123456789 \(Ade Gadgets\)/);
-    const pcm = chaseMessage(chidi, { tone: "reminder", lang: "pcm", shop: "Ade Gadgets", money });
-    expect(pcm).toMatch(/Chidi, na Ade Gadgets again o\. The ₦18,000 .* don stay 20 days\. Abeg try pay am this week\./);
-    expect(pcm).not.toMatch(/transfer/);
+    const old = chaseMessage(chidi, { tone: "reminder", lang: "pcm", shop: "Ade Gadgets", money });
+    expect(old).toMatch(/^Hello Chidi, this is Ade Gadgets again\. The balance of ₦18,000 .* has been outstanding for 20 days\./);
     const aisha = debtors({}, NOW).find((d) => d.name === "Aisha Bello");
     expect(chaseMessage(aisha, { tone: "firm", money })).toMatch(/₦20,000 for [A-Z]+-\d+ · Samsung A54 repair has now been outstanding for 8 days\. Please pay today/);
   });

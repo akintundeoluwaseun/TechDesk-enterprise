@@ -18,7 +18,7 @@ const LOG_KEY = "techdesk_chase_log";
 export const GRACE_DAYS = 3; // a debt younger than this isn't chased yet
 export const TONES = ["friendly", "reminder", "firm", "promise"];
 export const TONE_LABEL = { friendly: "Friendly", reminder: "Reminder", firm: "Firm", promise: "Promise" };
-export const LANGS = { en: "English", pcm: "Pidgin" };
+export const LANGS = { en: "English" };
 
 const pad = (n) => String(n).padStart(2, "0");
 export const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -157,13 +157,6 @@ const T = {
     firm: (v) => `Hello ${v.first}. ${v.shop.charAt(0).toUpperCase()}${v.shop.slice(1)} here. ${v.amount} for ${v.items} has now been outstanding for ${v.days} days${v.count ? `, and we have reminded you ${v.count} time${v.count === 1 ? "" : "s"}` : ""}. Please pay today, or call us to agree a date.${v.pay}`,
     promise: (v) => `Hello ${v.first}, ${v.shop} here. You said you would pay the ${v.amount} by ${v.promise}. Please send it today.${v.pay}\n\nThank you.`,
   },
-  pcm: {
-    pay: (to) => `You fit transfer am to: ${to}`,
-    friendly: (v) => `Good day ${v.first}, how you dey? Na ${v.shop} dey remind you small: ${v.amount} still remain for ${v.items}.${v.pay}\n\nThank you!`,
-    reminder: (v) => `${v.first}, na ${v.shop} again o. The ${v.amount} for ${v.items} don stay ${v.days} days. Abeg try pay am this week.${v.pay}\n\nThank you.`,
-    firm: (v) => `${v.first}, na ${v.shop} dey talk. The ${v.amount} for ${v.items} don pass ${v.days} days${v.count ? `, and we don remind you ${v.count} times` : ""}. Abeg pay am today, or call us make we agree date.${v.pay}`,
-    promise: (v) => `${v.first}, na ${v.shop}. You talk say you go pay the ${v.amount} by ${v.promise}. Abeg send am today.${v.pay}\n\nThank you.`,
-  },
 };
 
 /** The words for this customer, ready to paste into WhatsApp. */
@@ -173,8 +166,8 @@ export function chaseMessage(d, { tone, lang = "en", shop = "", payTo = "", mone
   const items = d.items.length === 1 ? d.items[0].label : `${d.items.length} unpaid ${d.items.every((i) => i.kind === "repair") ? "repairs" : "purchases"} (${d.items.slice(0, 2).map((i) => i.label.split(" · ")[0]).join(", ")}${d.items.length > 2 ? ", …" : ""})`;
   const promise = d.chase?.promise ? new Date(`${d.chase.promise}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "short" }) : "the date you gave";
   return L[tn]({
-    first: first(d.name) || (lang === "pcm" ? "Oga" : "there"),
-    shop: shop || (lang === "pcm" ? "our shop" : "the shop"),
+    first: first(d.name) || "there",
+    shop: shop || "the shop",
     amount: money(d.total),
     items,
     days: d.days,

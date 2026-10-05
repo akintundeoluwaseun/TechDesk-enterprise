@@ -9,7 +9,7 @@ import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
 import { isConfigured as pinRecoveryConfigured } from "../../lib/pinRecovery";
 import { currentStaffLimit, tierLabel, nextTier } from "../../lib/tier";
 import { TIER_META } from "@techdesk/editions";
-import { IS_ANDROID_APP } from "../../lib/platform";
+import { IS_DESKTOP_APP } from "../../lib/platform";
 
 function toggleRole0(draft, setDraft, r) {
   setDraft((d) => {
@@ -378,7 +378,7 @@ export default function UsersTab() {
           user list anyway would just be controls for a screen that can't
           appear. Online workers (below) is a different system -- a cloud
           account this phone connects to -- and stays exactly as it was. */}
-      {!IS_ANDROID_APP && (
+      {IS_DESKTOP_APP && (
         <>
           <div className={`rounded-2xl p-6 ${t.cardBg}`}>
             <div className="flex items-center justify-between">

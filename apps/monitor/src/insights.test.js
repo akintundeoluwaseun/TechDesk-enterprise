@@ -28,12 +28,12 @@ describe("understanding head office", () => {
     expect(parseQuestion("profit at ikeja this week", branches)).toMatchObject({ intent: "profit", period: "week", branch: { id: "ik" } });
     expect(parseQuestion("Which branch sold most yesterday", branches)).toMatchObject({ intent: "branches", period: "yesterday" });
     expect(parseQuestion("who owes us money", branches).intent).toBe("owed");
-    expect(parseQuestion("wetin dem owe for Yaba", branches)).toMatchObject({ intent: "owed", branch: { id: "yb" } });
+    expect(parseQuestion("what do customers owe at Yaba", branches)).toMatchObject({ intent: "owed", branch: { id: "yb" } });
     expect(parseQuestion("what's running low?", branches).intent).toBe("stock");
     expect(parseQuestion("repairs ready for pickup", branches).intent).toBe("repairs");
     expect(parseQuestion("best selling products", branches).intent).toBe("top");
-    expect(parseQuestion("abeg how market dey go", branches).intent).toBe("brief");
-    expect(parseQuestion("how far Ikeja", branches)).toMatchObject({ intent: "brief", branch: { id: "ik" } });
+    expect(parseQuestion("how is business going?", branches).intent).toBe("brief");
+    expect(parseQuestion("how is Ikeja doing", branches)).toMatchObject({ intent: "brief", branch: { id: "ik" } });
     expect(parseQuestion("tell me a joke", branches).intent).toBeNull();
   });
   it("takes the AI's reading when the words are unusual", () => {

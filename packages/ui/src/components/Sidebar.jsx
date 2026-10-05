@@ -17,7 +17,7 @@ import {
   ShieldCheck,
   Sparkles, Sunrise, Wallet, PackageSearch } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
-import { IS_ANDROID_APP } from "../lib/platform";
+import { IS_DESKTOP_APP } from "../lib/platform";
 import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { useLicense } from "../lib/LicenseContext";
@@ -225,7 +225,9 @@ export default function Sidebar({ onOpenActivation }) {
 
               Which is the lesson from the Users tab repeated: a breakpoint
               answers "how much room is there", never "which app is this". */}
-          {!IS_ANDROID_APP && (
+          {/* The desktop app only -- not the web app, not a phone in
+              desktop-site mode (see AuthContext's pinRequired). */}
+          {IS_DESKTOP_APP && (
             <div className={`flex items-center gap-1 ${collapsed ? "flex-col" : ""}`}>
               <button onClick={signOut} title="Switch user" className={`p-1.5 rounded-lg ${t.textMuted}`}>
                 <Users className="w-4 h-4" />

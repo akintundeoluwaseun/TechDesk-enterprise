@@ -1,9 +1,12 @@
 import React from "react";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
+// The desktop app, unless a test says otherwise.
+const shell = vi.hoisted(() => ({ desktop: true }));
+vi.mock("./platform", async (orig) => ({ ...(await orig()), get IS_DESKTOP_APP() { return shell.desktop; } }));
 import Sidebar from "../components/Sidebar";
 import { ThemeProvider } from "./ThemeContext";
 import { AuthProvider } from "./AuthContext";
@@ -25,9 +28,9 @@ describe("controls that belong to a counter, not a phone", () => {
   const src = readFileSync(join(process.cwd(), "src/components/Sidebar.jsx"), "utf8");
 
   it("are decided by the shell, not by how wide the window is", () => {
-    expect(src).toMatch(/IS_ANDROID_APP/);
+    expect(src).toMatch(/IS_DESKTOP_APP/);
     // The buttons sit inside a shell check, not only inside a media class.
-    const guard = src.indexOf("!IS_ANDROID_APP");
+    const guard = src.indexOf("IS_DESKTOP_APP && (");
     expect(guard).toBeGreaterThan(-1);
     expect(src.indexOf('title="Switch user"')).toBeGreaterThan(guard);
     expect(src.indexOf('title="Power off"')).toBeGreaterThan(guard);
@@ -41,9 +44,22 @@ describe("controls that belong to a counter, not a phone", () => {
         </AuthProvider></LicenseProvider></SettingsProvider></ThemeProvider>
       </MemoryRouter>
     );
-    // jsdom is not the Capacitor shell, so this is the desktop/web case.
     expect(screen.getByTitle("Switch user")).toBeInTheDocument();
     expect(screen.getByTitle("Power off")).toBeInTheDocument();
+  });
+
+  it("never shows on the web app -- a phone in desktop-site mode is wide too", () => {
+    shell.desktop = false;
+    render(
+      <MemoryRouter>
+        <ThemeProvider><SettingsProvider><LicenseProvider><AuthProvider>
+          <Sidebar onOpenActivation={() => {}} />
+        </AuthProvider></LicenseProvider></SettingsProvider></ThemeProvider>
+      </MemoryRouter>
+    );
+    expect(screen.queryByTitle("Switch user")).toBeNull();
+    expect(screen.queryByTitle("Power off")).toBeNull();
+    shell.desktop = true;
   });
 });
 
@@ -66,8 +82,8 @@ describe("the local multi-user PIN system, on the Users tab", () => {
   // stay reachable regardless.
   const src = readFileSync(join(process.cwd(), "src/pages/settings/UsersTab.jsx"), "utf8");
 
-  it("gates Require PIN sign-in and Local users behind IS_ANDROID_APP", () => {
-    const guard = src.indexOf("!IS_ANDROID_APP");
+  it("gates Require PIN sign-in and Local users behind IS_DESKTOP_APP", () => {
+    const guard = src.indexOf("IS_DESKTOP_APP && (");
     expect(guard).toBeGreaterThan(-1);
     expect(src.indexOf("Require PIN sign-in")).toBeGreaterThan(guard);
     expect(src.indexOf("Local users")).toBeGreaterThan(guard);

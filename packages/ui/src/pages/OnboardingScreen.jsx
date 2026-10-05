@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { ForceDark, useThemeTokens } from "../lib/ThemeContext";
 import AccountGateScreen from "./AccountGateScreen";
+import AiShowcase from "./AiShowcase";
 
 // First run, before "new sale" or "new repair" mean anything yet: what this
 // is, what it does, then the question AccountGateScreen already asks (set up
@@ -527,6 +528,20 @@ function GrowthDemo() {
   );
 }
 
+/** Reminders, then staff and branches, taking turns in one box (page 3). */
+function MoneyAndGrowthDemo() {
+  const [which, setWhich] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setWhich((w) => 1 - w), SLIDE_MS);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <div key={which} className="h-full" style={{ animation: `obSlide .5s ${EASE} both` }}>
+      {which === 0 ? <RemindersDemo /> : <GrowthDemo />}
+    </div>
+  );
+}
+
 function StoryPage({ title, subtitle, Demo, headline, text, onNext, onBack }) {
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center px-6 py-16">
@@ -620,26 +635,16 @@ function Onboarding({ onDone }) {
         {step === 1 && <QuickInfo onNext={() => go(2)} onBack={() => go(0)} />}
         {step === 2 && (
           <StoryPage
-            title="Never lose track of money"
-            subtitle="TechDesk tells you, so you don't have to remember."
-            Demo={RemindersDemo}
-            headline="Who sold what, who owes, who hasn't collected"
-            text="A reminder every 5 hours until they pay or pick it up."
+            title="Never lose money. Grow with control."
+            subtitle="Reminders, staff and branches, in one picture."
+            Demo={MoneyAndGrowthDemo}
+            headline="Who owes, who hasn't collected, every branch"
+            text="A reminder every 5 hours until they pay. Each worker sees only what you allow, and every branch adds up at head office."
             onNext={() => go(3)}
             onBack={() => go(1)}
           />
         )}
-        {step === 3 && (
-          <StoryPage
-            title="Grow without losing control"
-            subtitle="Your staff, your branches, one picture."
-            Demo={GrowthDemo}
-            headline="Staff logins and head office"
-            text="Each worker sees only what you allow. Every branch adds up at head office, even when the internet drops."
-            onNext={() => go(4)}
-            onBack={() => go(2)}
-          />
-        )}
+        {step === 3 && <AiShowcase onNext={() => go(4)} onBack={() => go(2)} />}
         {step === 4 && <AccountGateScreen onDone={onDone} transparent />}
       </div>
       {step === 4 && (

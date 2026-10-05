@@ -1,3 +1,4 @@
+import { IS_DESKTOP_APP } from "../lib/platform";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -329,6 +330,7 @@ export default function Topbar({ title, subtitle, action }) {
               >
                 <HelpCircle className="w-4 h-4" /> Help
               </button>
+{IS_DESKTOP_APP && (
               <button
                 onClick={handlePowerOff}
                 className={`w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 ${
@@ -337,6 +339,7 @@ export default function Topbar({ title, subtitle, action }) {
               >
                 <Power className="w-4 h-4" /> Power off
               </button>
+              )}
             </div>
           )}
         </div>

@@ -8,6 +8,7 @@ import { db } from "../../lib/db";
 import { setCurrentTier, currentStaffLimit, FREE_TIER } from "../../lib/tier";
 import UsersTab from "./UsersTab";
 
+vi.mock("../../lib/platform", async (orig) => ({ ...(await orig()), IS_DESKTOP_APP: true }));
 vi.mock("../../lib/account", () => ({
   account: {
     status: vi.fn(async () => ({ signedIn: false })),
