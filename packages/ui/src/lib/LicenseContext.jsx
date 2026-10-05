@@ -523,6 +523,18 @@ export function LicenseProvider({ children }) {
     const pin = await pinAt(licenseIndex);
     if (!pin) return { ok: false, applied: false, tier: null };
 
+    // One-time codes (BUS-, ENT-, UPG-) work on any device, so they're
+    // checked online and used up there; the year they buy comes back as this
+    // PIN's licence. The device's own Business code goes along as proof for
+    // an Upgrade code.
+    if (/^(BUS|ENT|UPG)[0-9A-Z]{12}$/.test(clean)) {
+      const businessCode = (unlocksRef.current || []).find((u) => u?.tier === "business")?.code || null;
+      const res = await checkout.redeemOneTimeCode(clean, pin, businessCode);
+      if (!res?.ok) return { ok: false, applied: false, tier: null, message: res?.message || null };
+      await refreshLicence(pin);
+      return { ok: true, applied: !res.already, tier: res.tier, expiresAt: res.expiresAt || null, oneTime: true };
+    }
+
     let matched = null;
     for (const { tier: candidate, hash } of await hashesAt(licenseIndex)) {
       const digest = await sha256Prefix(hashPreimage(pin, candidate, clean));

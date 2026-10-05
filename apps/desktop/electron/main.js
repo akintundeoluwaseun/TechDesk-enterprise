@@ -830,9 +830,50 @@ function createWindow() {
 // are from; this must match build.appId in package.json.
 if (process.platform === "win32") app.setAppUserModelId("com.techdesk.app");
 
+// ------------------------------------------------------------ updates ---
+// New versions arrive by themselves, the way an app from a store does: the
+// installers on the public releases page come with latest*.yml files, and
+// electron-updater reads those, downloads the new version in the background,
+// and installs it when TechDesk is closed -- or straight away from the
+// "Restart to update" button. Windows and the Linux AppImage support this.
+// macOS only allows it for a code-signed app, and a .deb or .rpm belongs to
+// the system's package manager; there the app shows its "new version"
+// notice with a download button instead (the renderer's own check).
+let updateState = { state: "none", version: null };
+function tellRenderer(next) {
+  updateState = next;
+  for (const w of BrowserWindow.getAllWindows()) w.webContents.send("techdesk:update-status", next);
+}
+function startAutoUpdates() {
+  if (!app.isPackaged) return;
+  const supported = process.platform === "win32" || (process.platform === "linux" && !!process.env.APPIMAGE);
+  if (!supported) { tellRenderer({ state: "unsupported", version: null }); return; }
+  let autoUpdater;
+  try {
+    ({ autoUpdater } = require("electron-updater"));
+  } catch {
+    tellRenderer({ state: "unsupported", version: null });
+    return;
+  }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.on("update-available", (info) => tellRenderer({ state: "downloading", version: info?.version || null }));
+  autoUpdater.on("update-downloaded", (info) => tellRenderer({ state: "ready", version: info?.version || null }));
+  autoUpdater.on("error", () => tellRenderer({ state: "error", version: updateState.version }));
+  const check = () => autoUpdater.checkForUpdates().catch(() => tellRenderer({ state: "error", version: null }));
+  setTimeout(check, 15 * 1000); // let the shop open first
+  setInterval(check, 4 * 60 * 60 * 1000);
+  ipcMain.handle("techdesk:install-update", () => {
+    if (updateState.state === "ready") setImmediate(() => autoUpdater.quitAndInstall(false, true));
+    return updateState.state === "ready";
+  });
+}
+ipcMain.handle("techdesk:update-status", () => updateState);
+
 app.whenReady().then(() => {
   startActivityServer();
   createWindow();
+  startAutoUpdates();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Camera, ImagePlus, ShoppingCart, Wrench, PackagePlus, Wallet, Sunrise, TrendingUp, Coins, Users, PackageX, PackageCheck, Trophy, GraduationCap, ChevronDown, History, RotateCcw } from "lucide-react";
+import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Camera, ImagePlus, ShoppingCart, Wrench, PackagePlus, Wallet, Sunrise, TrendingUp, Coins, Users, PackageX, PackageCheck, Trophy, GraduationCap, ChevronDown, History, RotateCcw, LayoutGrid, MessageSquare, Trash2 } from "lucide-react";
 import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn, answerQuestion, quickIntent, debtors, assistantHistory, addHistory, clearHistory } from "@techdesk/core";
 import { useNavigate } from "react-router-dom";
 import AssistantBot from "./AssistantBot";
@@ -486,7 +486,7 @@ export default function VoiceOrder() {
   const [busyText, setBusyText] = useState("");
   const [nudge, setNudge] = useState(null); // the robot's speech bubble
   const [showExamples, setShowExamples] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [tab, setTab] = useState("home"); // home | chat | history
   const [liveText, setLiveText] = useState("");
   const navigate = useNavigate();
   const camInput = useRef(null);
@@ -529,7 +529,7 @@ export default function VoiceOrder() {
   const aiOn = featureOn("ai");
   const micOk = aiOn && canRecord();
   const allowed = (type) => !PAGE_FOR[type] || canAccess(user, PAGE_FOR[type]);
-  const say = (m) => setMessages((list) => [...list, { id: mid(), ...m }]);
+  const say = (m) => { setTab("chat"); setMessages((list) => [...list, { id: mid(), ...m }]); };
   const updateMsg = (id, patch) => setMessages((list) => list.map((m) => (m.id === id ? { ...m, ...patch } : m)));
 
   /** Online and agreed to the notice; otherwise shows why and remembers what to do next. */
@@ -835,6 +835,7 @@ export default function VoiceOrder() {
   function startPractice() {
     const lessons = practiceLessons(db.getInventory(), db.getCustomers());
     setPractice({ step: 0, lessons, results: {} });
+    setTab("chat");
     say({ role: "assistant", kind: "info", text: "Practice: say each sentence, then see what TechDesk understood. Nothing is saved while you practise." });
   }
 
@@ -898,10 +899,6 @@ export default function VoiceOrder() {
                   {recording ? "Listening…" : busy ? "Working…" : left != null ? `Here to help · ${Math.max(0, left)} AI uses left today` : "Here to help"}
                 </div>
               </div>
-              <button type="button" onClick={() => setHistoryOpen((v) => !v)} aria-expanded={historyOpen} aria-label="History" title="History"
-                className={`flex items-center gap-1 text-xs font-semibold p-2 sm:px-3 sm:py-1.5 rounded-full hover:bg-white/25 ${historyOpen ? "bg-white/30" : "bg-white/15"}`}>
-                <History className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">History</span>
-              </button>
               {!practice && aiOn && (
                 <button type="button" onClick={startPractice} aria-label="Practice" title="Practice"
                   className="flex items-center gap-1 text-xs font-semibold p-2 sm:px-3 sm:py-1.5 rounded-full bg-white/15 hover:bg-white/25">
@@ -910,7 +907,18 @@ export default function VoiceOrder() {
               )}
               <button type="button" onClick={() => { cancelRec(); setOpen(false); }} className="p-1 rounded-full hover:bg-white/15" aria-label="Close"><X className="w-5 h-5" /></button>
             </div>
-            {historyOpen && (() => {
+            {/* Three places, always one tap apart: what you can do, the conversation, and what's been done. */}
+            <div role="tablist" aria-label="Assistant" className={`grid grid-cols-3 gap-1 p-1 mx-3 mt-3 rounded-2xl ${t.insetBg}`}>
+              {[["home", "Home", LayoutGrid], ["chat", "Chat", MessageSquare], ["history", "History", History]].map(([id, label, Icon]) => (
+                <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
+                  className={`relative flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-semibold transition-colors ${tab === id ? `${t.cardBg} ${t.textPrimary} shadow-sm` : t.textMuted}`}>
+                  <Icon className="w-4 h-4" /> {label}
+                  {id === "chat" && tab !== "chat" && messages.length > 0 && <span className="absolute top-1.5 right-3 w-2 h-2 rounded-full bg-sky-500" />}
+                </button>
+              ))}
+            </div>
+
+            {tab === "history" && (() => {
               const list = assistantHistory();
               const when = (iso) => {
                 const d = new Date(iso);
@@ -918,17 +926,17 @@ export default function VoiceOrder() {
                 return today ? d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
               };
               return (
-                <div className={`border-b max-h-[45%] overflow-y-auto ${t.divider} ${t.insetBg}`} aria-label="History">
-                  <div className="flex items-center px-4 pt-3 pb-1">
+                <div className="flex-1 overflow-y-auto px-4 py-3" aria-label="History">
+                  <div className="flex items-center pb-1">
                     <span className={`flex-1 text-[11px] font-bold uppercase tracking-wider ${t.textMuted}`}>What I've done</span>
-                    {list.length > 0 && <button type="button" onClick={() => { clearHistory(); setHistoryOpen(false); }} className={`text-xs underline ${t.textMuted}`}>Clear</button>}
+                    {list.length > 0 && <button type="button" onClick={() => { clearHistory(); setTab("home"); }} className={`text-xs underline ${t.textMuted}`}>Clear</button>}
                   </div>
                   {list.length === 0 ? (
-                    <p className={`px-4 pb-3 text-sm ${t.textMuted}`}>Nothing yet. What you save or check here will be listed.</p>
+                    <p className={`py-3 text-sm ${t.textMuted}`}>Nothing yet. What you save or check will be listed here.</p>
                   ) : (
-                    <ul className="px-4 pb-3">
+                    <ul>
                       {list.map((h, i) => (
-                        <li key={i} className={`flex items-center gap-2 py-1.5 text-sm border-b last:border-0 ${t.divider}`}>
+                        <li key={i} className={`flex items-center gap-2 py-2 text-sm border-b last:border-0 ${t.divider}`}>
                           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${h.kind === "check" ? "bg-sky-500" : h.kind === "undo" ? "bg-neutral-400" : h.kind === "return" ? "bg-amber-500" : "bg-emerald-500"}`} />
                           <span className={`flex-1 min-w-0 truncate ${t.textPrimary}`}>{h.text}</span>
                           <span className={`text-xs shrink-0 tabular-nums ${t.textMuted}`}>{when(h.at)}</span>
@@ -940,8 +948,9 @@ export default function VoiceOrder() {
               );
             })()}
 
+            {tab !== "history" && (
             <div className="flex-1 overflow-y-auto px-4 py-3 space-y-3">
-              {messages.length === 0 && !practice && (
+              {tab === "home" && (
                 <div className="space-y-4">
                   <div className="flex items-start gap-2">
                     <span className="w-8 h-8 shrink-0 rounded-full bg-gradient-to-br from-indigo-600 to-sky-500 flex items-center justify-center"><AssistantBot size={24} /></span>
@@ -1002,7 +1011,18 @@ export default function VoiceOrder() {
                 </div>
               )}
 
-              {messages.map((m) => (
+              {tab === "chat" && messages.length === 0 && !practice && !busy && (
+                <div className="text-center py-10">
+                  <MessageSquare className={`w-8 h-8 mx-auto ${t.textMuted}`} />
+                  <p className={`mt-2 text-sm ${t.textSecondary}`}>No conversation yet. Type below, hold the mic, or pick something on Home.</p>
+                </div>
+              )}
+              {tab === "chat" && messages.length > 0 && !practice && (
+                <div className="flex justify-end -mb-1">
+                  <button type="button" onClick={() => setMessages([])} className={`flex items-center gap-1 text-xs ${t.textMuted}`}><Trash2 className="w-3.5 h-3.5" /> Clear chat</button>
+                </div>
+              )}
+              {tab === "chat" && messages.map((m) => (
                 m.role === "user" ? (
                   <div key={m.id} className="flex justify-end">
                     <div className="max-w-[85%] rounded-2xl rounded-br-md px-3 py-2 text-sm bg-gradient-to-br from-indigo-600 to-sky-500 text-white">
@@ -1073,7 +1093,7 @@ export default function VoiceOrder() {
                 )
               ))}
 
-              {practice && (
+              {tab === "chat" && practice && (
                 <div className={`rounded-2xl p-3 border ${t.divider}`}>
                   {lesson ? (
                     <>
@@ -1108,8 +1128,9 @@ export default function VoiceOrder() {
               {busy && <div className={`text-sm flex items-center gap-2 ${t.textMuted}`}><Loader2 className="w-4 h-4 animate-spin" /> {busyText || "Working it out…"}</div>}
               <div ref={listEnd} />
             </div>
+            )}
 
-            {messages.length > 0 && !practice && !recording && (
+            {tab === "chat" && messages.length > 0 && !practice && !recording && (
               <div className={`flex gap-1.5 overflow-x-auto px-3 pt-2 border-t ${t.divider}`} aria-label="Quick actions">
                 {[...QUICK_DO.filter((q) => (q.page ? canAccess(user, q.page) : true) && (q.id !== "photo" || aiOn)).map((q) => ({ key: q.id, label: q.label, icon: q.icon, run: () => runQuick(q.id) })),
                   ...QUICK_ASK.filter((q) => canAccess(user, q.page)).map((q) => ({ key: q.label, label: q.label, icon: q.icon, run: () => askNow(q) }))].map((q) => {
@@ -1127,7 +1148,7 @@ export default function VoiceOrder() {
               <p className={`px-4 py-3 text-xs border-t ${t.divider} ${t.textMuted}`}>Talking and typing to the assistant are paused for now. Quick actions still work.</p>
             ) : (
             <form
-              className={`flex items-center gap-2 px-3 py-3 ${messages.length > 0 && !practice && !recording ? "" : `border-t ${t.divider}`}`}
+              className={`flex items-center gap-2 px-3 py-3 ${tab === "chat" && messages.length > 0 && !practice && !recording ? "" : `border-t ${t.divider}`}`}
               onSubmit={(e) => { e.preventDefault(); sendText(input, practice && lesson ? { practiceStep: practice.step } : undefined); }}
             >
               {recording ? (

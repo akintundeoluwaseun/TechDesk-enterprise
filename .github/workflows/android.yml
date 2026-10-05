@@ -96,6 +96,17 @@ jobs:
           grep -q IMAGE_CAPTURE "$M" || sed -i 's#</manifest>#    <queries>\n        <intent>\n            <action android:name="android.media.action.IMAGE_CAPTURE" />\n        </intent>\n    </queries>\n</manifest>#' "$M"
           grep -n "IMAGE_CAPTURE" "$M"
 
+      # In-app updates for the website's APK: the app downloads the new APK
+      # and hands it to Android's installer, which needs this permission
+      # (the person still confirms the install). Removed again for the Play
+      # bundle below: Google updates that one, and restricts the permission.
+      - name: Let the app install its own updates (website APK only)
+        working-directory: apps/mobile
+        run: |
+          M=android/app/src/main/AndroidManifest.xml
+          grep -q REQUEST_INSTALL_PACKAGES "$M" || sed -i 's#</manifest>#    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />\n</manifest>#' "$M"
+          grep -n "REQUEST_INSTALL_PACKAGES" "$M"
+
       # Every build so far shipped Capacitor's defaults -- versionCode 1,
       # versionName "1.0" -- because `cap add android` generates the project
       # fresh each time and nothing told it otherwise. Android decides whether
@@ -253,6 +264,8 @@ jobs:
           KEYSTORE: ${{ steps.keystore.outputs.keystore }}
         run: |
           npm run build:mobile
+          sed -i '/REQUEST_INSTALL_PACKAGES/d' apps/mobile/android/app/src/main/AndroidManifest.xml
+          if grep -q REQUEST_INSTALL_PACKAGES apps/mobile/android/app/src/main/AndroidManifest.xml; then echo "::error::Play bundle must not ask to install packages"; exit 1; fi
           cd apps/mobile && npx cap sync android && cd android
           ./gradlew bundleRelease \
             -Pandroid.injected.signing.store.file="$KEYSTORE" \

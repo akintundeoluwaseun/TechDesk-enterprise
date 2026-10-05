@@ -11,7 +11,7 @@ import { SettingsProvider } from "../lib/SettingsContext";
 const store = vi.hoisted(() => ({ play: false }));
 const { verifyCode, prices } = vi.hoisted(() => ({ verifyCode: vi.fn(), prices: vi.fn() }));
 
-vi.mock("../lib/store", () => ({ get PLAY_STORE() { return store.play; }, STORE: "" }));
+vi.mock("../lib/store", () => ({ get PLAY_STORE() { return store.play; }, get CODES_ONLY() { return !!store.codes; }, STORE: "" }));
 vi.mock("../lib/LicenseContext", async (importOriginal) => ({
   ...(await importOriginal()),
   useLicense: () => ({
@@ -57,6 +57,23 @@ describe("activation code box", () => {
     fireEvent.change(screen.getByLabelText("Activation code"), { target: { value: "AAAABBBBCCCC" } });
     fireEvent.click(screen.getByText("Apply code"));
     await waitFor(() => expect(screen.getByText(/doesn't match this device/)).toBeTruthy());
+  });
+
+  it("codes-only: prices and how to reach TechDesk, the box open, no checkout; one-time codes keep their prefix", async () => {
+    store.play = false;
+    store.codes = true;
+    verifyCode.mockResolvedValue({ ok: false, applied: false, tier: null, message: "That code has already been used on another device." });
+    open();
+    expect(screen.queryByText(/Upgrade to/)).toBeNull();
+    expect(screen.getByText("Get a code from TechDesk")).toBeTruthy();
+    expect(screen.getByText("₦20,000")).toBeTruthy();
+    expect(screen.getByText("WhatsApp us").closest("a").getAttribute("href")).toMatch(/^https:\/\/wa\.me\/2348076911614/);
+    expect(screen.getAllByText(/techdeskapp@gmail\.com/).length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText("Activation code"), { target: { value: "bus 7k2m q9tx 4hpa" } });
+    expect(screen.getByLabelText("Activation code").value).toBe("BUS-7K2M-Q9TX-4HPA");
+    fireEvent.click(screen.getByText("Apply code"));
+    await waitFor(() => expect(screen.getByText(/already been used on another device/)).toBeTruthy());
+    store.codes = false;
   });
 
   it("is the only way in on the Play Store build: no prices, no upgrade buttons, no paying", async () => {

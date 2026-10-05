@@ -59,6 +59,26 @@ export const checkout = {
    * What this PIN has paid for, and until when -- plans are yearly, and the
    * server's licence is what says for how long. {ok, found, tier, expiresAt}.
    */
+  /**
+   * A one-time code (BUS-/ENT-/UPG-...), checked and used up online; the
+   * year it buys lands on this PIN's licence. {ok, tier, expiresAt} or
+   * {ok:false, error, message}.
+   */
+  async redeemOneTimeCode(code, pin, businessCode = null) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_one_time_code`, {
+        method: "POST",
+        headers: { apikey: PUBLISHABLE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_code: String(code), p_pin: String(pin), p_business_code: businessCode || null }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || typeof data !== "object") return { ok: false, error: "server", message: "Couldn't check that code just now. Try again in a moment." };
+      return data;
+    } catch {
+      return { ok: false, error: "offline", message: "Connect to the internet to use this code. It only needs to be online once." };
+    }
+  },
+
   async licenceStatus(pin) {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/licence_status`, {

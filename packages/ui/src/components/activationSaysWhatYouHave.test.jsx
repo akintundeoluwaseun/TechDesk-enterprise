@@ -7,6 +7,9 @@ import { SettingsProvider } from "../lib/SettingsContext";
 import { LicenseProvider } from "../lib/LicenseContext";
 import { setCurrentTier } from "../lib/tier";
 
+// The in-app checkout is what these test, so it is switched on here (the app ships codes-only).
+vi.mock("../lib/store", () => ({ PLAY_STORE: false, CODES_ONLY: false, STORE: "" }));
+
 // A shop that has paid opened this and thought it still had to activate.
 //
 // The screen used to lead with a PIN and an empty code box even for a shop

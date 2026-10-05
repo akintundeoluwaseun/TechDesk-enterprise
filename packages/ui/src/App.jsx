@@ -362,12 +362,20 @@ function AppControlLayer() {
   }
 
   if ((!notice || hidden === notice) && update.version) {
+    const busyDl = update.progress != null;
+    const text = update.mode === "restart" ? <><strong>TechDesk {update.version} is ready.</strong> Restart to finish updating. Your records stay safe.</>
+      : update.mode === "downloading" ? <><strong>Downloading TechDesk {update.version}…</strong> It installs by itself when you close TechDesk.</>
+      : busyDl ? <><strong>Downloading TechDesk {update.version}…</strong> {Math.round(update.progress * 100)}%</>
+      : <><strong>TechDesk {update.version} is out.</strong> Update to get the newest features. Your records stay safe.</>;
+    const action = update.mode === "restart" ? "Restart now" : update.mode === "android" ? "Update now" : update.mode === "download" ? "Update" : null;
     return (
       <div role="status" className="fixed inset-x-0 top-0 z-[2147483000] flex justify-center p-2 pointer-events-none">
         <div className="pointer-events-auto max-w-xl w-full rounded-xl bg-sky-600 text-white px-4 py-2.5 shadow-lg flex gap-3 items-center">
-          <p className="text-sm leading-snug flex-1"><strong>TechDesk {update.version} is out.</strong> Update to get the newest features. Your records stay safe.</p>
-          <a href={updateLink()} target="_blank" rel="noopener noreferrer" className="text-sm font-semibold px-3 py-1 rounded-lg bg-white text-sky-700 shrink-0">Update</a>
-          <button type="button" onClick={update.later} className="text-sm underline underline-offset-2 shrink-0">Later</button>
+          <p className="text-sm leading-snug flex-1">{text}</p>
+          {action && !busyDl && (
+            <button type="button" onClick={() => update.act()} className="text-sm font-semibold px-3 py-1 rounded-lg bg-white text-sky-700 shrink-0">{action}</button>
+          )}
+          {!busyDl && <button type="button" onClick={update.later} className="text-sm underline underline-offset-2 shrink-0">Later</button>}
         </div>
       </div>
     );

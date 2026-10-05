@@ -41,6 +41,9 @@ vi.mock("../lib/flutterwave", () => ({ payWithFlutterwave }));
 // eslint-disable-next-line import/first
 import ActivationModal from "./ActivationModal";
 
+// The in-app checkout is what these test, so it is switched on here (the app ships codes-only).
+vi.mock("../lib/store", () => ({ PLAY_STORE: false, CODES_ONLY: false, STORE: "" }));
+
 function open() {
   return render(
     <ThemeProvider>

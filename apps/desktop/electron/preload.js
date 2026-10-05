@@ -2,6 +2,14 @@ const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("techdesk", {
   quit: () => ipcRenderer.send("techdesk:quit"),
+  // Automatic updates: {state: none|unsupported|downloading|ready|error, version}.
+  updateStatus: () => ipcRenderer.invoke("techdesk:update-status"),
+  onUpdateStatus: (fn) => {
+    const listener = (_e, status) => fn(status);
+    ipcRenderer.on("techdesk:update-status", listener);
+    return () => ipcRenderer.removeListener("techdesk:update-status", listener);
+  },
+  installUpdate: () => ipcRenderer.invoke("techdesk:install-update"),
   saveBackup: (jsonString) => ipcRenderer.invoke("techdesk:save-backup", jsonString),
   findOtherEditions: () => ipcRenderer.invoke("techdesk:find-other-editions"),
   readEditionBackup: (filePath) => ipcRenderer.invoke("techdesk:read-edition-backup", filePath),

@@ -59,3 +59,20 @@ describe("claiming the code", () => {
     expect(res.error).toBe("not_paid");
   });
 });
+
+describe("one-time codes", () => {
+  it("asks the server to use the code for this PIN, with the Business proof", async () => {
+    const calls = [];
+    globalThis.fetch = async (url, init) => { calls.push([url, JSON.parse(init.body)]); return { ok: true, json: async () => ({ ok: true, tier: "enterprise", expiresAt: "2027-10-05T00:00:00Z" }) }; };
+    const { checkout } = await import("./checkout");
+    const res = await checkout.redeemOneTimeCode("UPG7K2MQ9TX4HPA", "482913", "ABCD1234EFGH");
+    expect(res).toMatchObject({ ok: true, tier: "enterprise" });
+    expect(calls[0][0]).toMatch(/rpc\/redeem_one_time_code$/);
+    expect(calls[0][1]).toEqual({ p_code: "UPG7K2MQ9TX4HPA", p_pin: "482913", p_business_code: "ABCD1234EFGH" });
+  });
+  it("says to connect when offline", async () => {
+    globalThis.fetch = async () => { throw new Error("offline"); };
+    const { checkout } = await import("./checkout");
+    expect(await checkout.redeemOneTimeCode("BUS7K2MQ9TX4HPA", "482913")).toMatchObject({ ok: false, error: "offline" });
+  });
+});

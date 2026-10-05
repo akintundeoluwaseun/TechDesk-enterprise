@@ -9,7 +9,7 @@ import { addedBy } from "../lib/featureLabels";
 import { payWithFlutterwave } from "../lib/flutterwave";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { licenceActive, daysLeft } from "../lib/licenceTerm";
-import { PLAY_STORE } from "../lib/store";
+import { PLAY_STORE, CODES_ONLY } from "../lib/store";
 import { formatCode } from "../lib/activationCode";
 
 // Shown until the server's price list arrives, and if it never does. The
@@ -330,7 +330,7 @@ export default function ActivationModal({ onClose }) {
         {/* The choice, plain: pick a tier, nothing else on this screen. What
             each one adds lives on ITS OWN page, one tap away, not stacked
             here underneath the choice itself. */}
-        {!chosenTier && !PLAY_STORE && upgradeOptions.map((candidate) => {
+        {!chosenTier && !(PLAY_STORE || CODES_ONLY) && upgradeOptions.map((candidate) => {
           const candidateMeta = TIER_META[candidate];
           const preview = ownFeatures(candidate).slice(0, 3).join(", ");
           return (
@@ -362,7 +362,7 @@ export default function ActivationModal({ onClose }) {
           );
         })}
 
-        {!chosenTier && !PLAY_STORE && !branchForm && renewTier && !testing && (
+        {!chosenTier && !(PLAY_STORE || CODES_ONLY) && !branchForm && renewTier && !testing && (
           <button
             onClick={() => pick(renewTier, { renew: true })}
             className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
@@ -377,13 +377,13 @@ export default function ActivationModal({ onClose }) {
           </button>
         )}
 
-        {!chosenTier && !PLAY_STORE && tier === "enterprise" && testing && (
+        {!chosenTier && !(PLAY_STORE || CODES_ONLY) && tier === "enterprise" && testing && (
           <p className={`text-xs mb-3 ${t.textMuted}`}>
             Head-office branches are unlimited while TechDesk is being tested.
           </p>
         )}
 
-        {!chosenTier && !PLAY_STORE && tier === "enterprise" && !branchForm && !testing && (
+        {!chosenTier && !(PLAY_STORE || CODES_ONLY) && tier === "enterprise" && !branchForm && !testing && (
           <button
             onClick={() => { setBranchForm(true); resetPay(); }}
             className={`w-full flex items-center justify-between gap-3 text-left px-4 py-3.5 rounded-xl mb-3 ${t.insetBg}`}
@@ -601,15 +601,34 @@ export default function ActivationModal({ onClose }) {
           </div>
         )}
 
+        {/* Not on the Play build: Google forbids pointing to payment outside Play. */}
+        {!chosenTier && !branchForm && CODES_ONLY && !PLAY_STORE && upgradeOptions.length > 0 && (
+          <div className={`rounded-xl p-4 mb-3 ${t.insetBg}`}>
+            <div className={`text-sm font-semibold ${t.textPrimary}`}>Get a code from TechDesk</div>
+            <ul className={`text-sm mt-2 space-y-1 ${t.textSecondary}`}>
+              {tier !== "business" && <li className="flex justify-between gap-3"><span>Business, 1 year</span><span className="font-semibold tabular-nums">₦10,000</span></li>}
+              <li className="flex justify-between gap-3"><span>Enterprise, 1 year</span><span className="font-semibold tabular-nums">₦20,000</span></li>
+              {tier === "business" && <li className="flex justify-between gap-3"><span>Upgrade Business → Enterprise</span><span className="font-semibold tabular-nums">₦10,000</span></li>}
+            </ul>
+            <p className={`text-xs mt-2 ${t.textMuted}`}>Call, WhatsApp or email us below. Pay, get your code, and type it in here: it switches on straight away.</p>
+            <div className="flex flex-wrap gap-2 mt-3">
+              <a href="https://wa.me/2348076911614?text=Hello%20TechDesk%2C%20I%27d%20like%20an%20activation%20code." target="_blank" rel="noopener noreferrer"
+                className="text-sm font-semibold px-3 py-1.5 rounded-full bg-emerald-500 text-white">WhatsApp us</a>
+              <a href="tel:+2348076911614" className={`text-sm px-3 py-1.5 rounded-full ${t.pillBg}`}>Call +234 807 691 1614</a>
+              <a href="mailto:techdeskapp@gmail.com?subject=Activation%20code" className={`text-sm px-3 py-1.5 rounded-full ${t.pillBg}`}>Email</a>
+            </div>
+          </div>
+        )}
+
         {!chosenTier && !branchForm && (
-          <CodeEntry t={t} pin={pin} open={PLAY_STORE} verifyCode={verifyCode} refreshLicence={refreshLicence}
+          <CodeEntry t={t} pin={pin} open={PLAY_STORE || CODES_ONLY} verifyCode={verifyCode} refreshLicence={refreshLicence}
             onApplied={(applied) => setNote(applied)} />
         )}
 
         <div className={`text-xs mb-2 ${t.textMuted}`}>
           {paid && upgradeOptions.length === 0
             ? "Moved to a new computer, or need help?"
-            : PLAY_STORE ? "Need help with your code?" : "Paid already and it hasn't unlocked, or need help?"}
+            : PLAY_STORE || CODES_ONLY ? "Need help with your code?" : "Paid already and it hasn't unlocked, or need help?"}
         </div>
         <div className="flex flex-col gap-2">
           <a href="tel:+2348076911614" className={`flex items-center gap-2 text-sm font-medium ${t.textPrimary}`}>
@@ -629,6 +648,14 @@ export default function ActivationModal({ onClose }) {
  * and a box to type one in. The code is checked on the device against its
  * own table (LicenseContext.verifyCode); nothing is sent anywhere.
  */
+// BUS-XXXX-XXXX-XXXX for the one-time codes, XXXX-XXXX-XXXX for a code made for this device.
+function shapeCode(typed) {
+  const clean = String(typed || "").toUpperCase().replace(/[^0-9A-Z]/g, "");
+  const m = clean.match(/^(BUS|ENT|UPG)(.*)$/);
+  if (m) return [m[1], ...(m[2].slice(0, 12).match(/.{1,4}/g) || [])].join("-");
+  return formatCode(clean).slice(0, 14);
+}
+
 function CodeEntry({ t, pin, open: startOpen, verifyCode, refreshLicence, onApplied }) {
   const [open, setOpen] = useState(startOpen);
   const [code, setCode] = useState("");
@@ -641,15 +668,16 @@ function CodeEntry({ t, pin, open: startOpen, verifyCode, refreshLicence, onAppl
     try {
       const res = await verifyCode(code);
       if (!res.ok) {
-        setMsg({ bad: true, text: "That code doesn't match this device. Check it was made for the PIN shown here." });
+        setMsg({ bad: true, text: res.message || "That code doesn't match this device. Check it was made for the PIN shown here." });
         return;
       }
       await refreshLicence?.();
       const label = TIER_META[res.tier]?.label || res.tier;
+      const until = res.expiresAt ? ` until ${new Date(res.expiresAt).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}` : "";
       setCode("");
       if (res.applied) {
-        onApplied?.(`${label} is on. Thank you!`);
-        setMsg({ bad: false, text: `${label} is on.` });
+        onApplied?.(`${label} is on${until}. Thank you!`);
+        setMsg({ bad: false, text: `${label} is on${until}.` });
       } else {
         setMsg({ bad: false, text: `That ${label} code is already on this device.` });
       }
@@ -668,8 +696,8 @@ function CodeEntry({ t, pin, open: startOpen, verifyCode, refreshLicence, onAppl
   return (
     <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
       <div className={`text-sm font-semibold ${t.textPrimary}`}>Activation code</div>
-      {PLAY_STORE && (
-        <p className={`text-xs mt-1 ${t.textSecondary}`}>Business and Enterprise are switched on with an activation code made for this device.</p>
+      {(PLAY_STORE || CODES_ONLY) && (
+        <p className={`text-xs mt-1 ${t.textSecondary}`}>Type the code TechDesk gave you: it starts with BUS, ENT or UPG. It needs the internet once.</p>
       )}
       <p className={`text-xs mt-2 ${t.textMuted}`}>
         This device&rsquo;s PIN: <span className={`font-mono font-semibold tracking-wider ${t.textPrimary}`}>{pin || "…"}</span>
@@ -677,8 +705,8 @@ function CodeEntry({ t, pin, open: startOpen, verifyCode, refreshLicence, onAppl
       <input
         aria-label="Activation code"
         value={code}
-        onChange={(e) => { setCode(formatCode(e.target.value).slice(0, 14)); setMsg(null); }}
-        placeholder="XXXX-XXXX-XXXX"
+        onChange={(e) => { setCode(shapeCode(e.target.value)); setMsg(null); }}
+        placeholder="BUS-XXXX-XXXX-XXXX"
         autoCapitalize="characters"
         autoComplete="off"
         spellCheck={false}
@@ -687,7 +715,7 @@ function CodeEntry({ t, pin, open: startOpen, verifyCode, refreshLicence, onAppl
       {msg && <p className={`text-xs mt-2 ${msg.bad ? "text-red-500" : "text-emerald-500"}`}>{msg.text}</p>}
       <button
         type="button"
-        disabled={busy || code.replace(/-/g, "").length < 12}
+        disabled={busy || code.replace(/-/g, "").length < 12 || (/^(BUS|ENT|UPG)/.test(code) && code.replace(/-/g, "").length < 15)}
         onClick={apply}
         className={`w-full py-2.5 rounded-xl text-sm font-semibold mt-3 disabled:opacity-40 ${t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"}`}
       >
