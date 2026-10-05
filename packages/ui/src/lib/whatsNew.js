@@ -9,6 +9,18 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-05n",
+    date: "5 October 2026",
+    title: "TechDesk 4.12.6: prices in your money",
+    items: [
+      {
+        icon: "sparkles",
+        title: "Outside Nigeria?",
+        text: "Upgrade now shows each price in your own currency too, at today's rate (for example \u20A610,000, about $6.50). You still pay in Naira; your bank converts it.",
+      },
+    ],
+  },
+  {
     id: "2026-10-05m",
     date: "5 October 2026",
     title: "TechDesk 4.12.5: a new look",

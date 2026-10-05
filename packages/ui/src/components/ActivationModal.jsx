@@ -12,6 +12,7 @@ import { licenceActive, daysLeft } from "../lib/licenceTerm";
 import { PLAY_STORE } from "../lib/store";
 import { formatCode } from "../lib/activationCode";
 import { platform } from "@techdesk/platform";
+import { useLocalPrice } from "../lib/localPrice";
 
 // Shown until the server's price list arrives, and if it never does. The
 // checkout itself always charges the server's price, never these.
@@ -73,6 +74,9 @@ export default function ActivationModal({ onClose }) {
   const t = useThemeTokens();
   const { pin, tier, boughtTier, unlocks, verifyCode, licence, refreshLicence, grantFromServer } = useLicense();
   const [prices, setPrices] = useState(FALLBACK_PRICES);
+  // Outside Nigeria, each price also in the shop's own money (charged in Naira).
+  const { local } = useLocalPrice();
+  const withLocal = (n) => (local(n) ? ` (${local(n)})` : "");
   useEffect(() => {
     let live = true;
     Promise.resolve(checkout.prices?.()).then((p) => { if (live && p && Object.keys(p).length) setPrices({ ...FALLBACK_PRICES, ...p }); });
@@ -441,7 +445,7 @@ export default function ActivationModal({ onClose }) {
                 {o.off ? o.off
                   : playBusy === o.id ? "Waiting for Google Play…"
                   : billing ? <>{playPrices[billing.ids[o.id]] || naira(o.price)} {o.per}</>
-                  : testing ? "Free while we test" : <>{naira(o.price)} {o.per}</>}
+                  : testing ? "Free while we test" : <>{naira(o.price)}{withLocal(o.price)} {o.per}</>}
               </span>
             </span>
             {!o.off && <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />}
@@ -557,8 +561,9 @@ export default function ActivationModal({ onClose }) {
                   {testing
                     ? "Free while TechDesk is being tested."
                     : productFor(chosenTier) === "upgrade" && !renewing
-                      ? `${naira(priceFor(chosenTier))} for the rest of your Business year, then ${naira(prices.enterprise?.amount)} a year.`
-                      : `${naira(prices[chosenTier]?.amount)} a year.`}{" "}
+                      ? `${naira(priceFor(chosenTier))}${withLocal(priceFor(chosenTier))} for the rest of your Business year, then ${naira(prices.enterprise?.amount)} a year.`
+                      : `${naira(prices[chosenTier]?.amount)}${withLocal(prices[chosenTier]?.amount)} a year.`}{" "}
+                  {local(prices[chosenTier]?.amount) ? "You pay in Naira; your bank converts it. " : ""}
                   Your records stay exactly where they are &mdash; nothing to download, nothing to reinstall.
                 </p>
               </div>
