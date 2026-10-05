@@ -1,96 +1,67 @@
-"""The home-screen icons for Monitor on the web.
+"""Monitor's icons, from brand/icon-source.png.
 
-Checked in as a script rather than four opaque PNGs, so the next person can
-change the mark without guessing how these were made.
+Monitor keeps the white "TD" tile -- the icon TechDesk itself used before it
+took the website's indigo-to-sky logo -- so the two apps sit side by side on
+a home screen and are told apart at a glance.
 
-Two rules the phone platforms impose, both learned the hard way on the main
-app's icon:
+    python3 apps/monitor/scripts/make-icons.py
 
-  Full-bleed and OPAQUE. iOS composites an apple-touch-icon onto BLACK and
-  rounds the corners itself. A transparent or already-rounded icon shows a
-  black square, or black in the four corners.
+The rules the phone platforms impose, learned the hard way:
 
-  A separate maskable icon, with the mark well inside a safe circle, because
-  Android crops it to whatever shape the launcher uses.
+  Full-bleed and OPAQUE for the web icons. iOS composites an
+  apple-touch-icon onto BLACK and rounds the corners itself, so a
+  transparent or already-rounded icon shows black in the four corners.
 
-The mark is a phone with a rising bar chart in it -- Monitor is the owner
-watching their shops from their phone -- on a teal-to-blue gradient. A
-sibling of TechDesk's purple-to-blue screen, not a copy of it: the two sit
-next to each other on a home screen and have to be told apart at a glance.
+  A separate maskable / adaptive icon with the mark well inside a safe
+  circle, because Android crops it to whatever shape the launcher uses.
 """
 
-from PIL import Image, ImageDraw
+from PIL import Image
 import os
 
-OUT = os.path.join(os.path.dirname(__file__), "..", "public")
-
-START = (6, 182, 212)    # #06b6d4
-END = (37, 99, 235)      # #2563eb
+HERE = os.path.dirname(os.path.abspath(__file__))
+APP = os.path.join(HERE, "..")
+SRC = Image.open(os.path.join(APP, "brand", "icon-source.png")).convert("RGBA")
 WHITE = (255, 255, 255, 255)
 
 
-def gradient(size):
-    """Diagonal, corner to corner, the same direction as TechDesk's."""
-    img = Image.new("RGB", (size, size))
-    px = img.load()
-    for y in range(size):
-        for x in range(size):
-            t = (x + y) / (2 * (size - 1))
-            px[x, y] = tuple(round(START[i] + (END[i] - START[i]) * t) for i in range(3))
+def on_white(size, scale=1.0):
+    """The tile on an opaque white square; scale < 1 leaves room around it."""
+    img = Image.new("RGBA", (size, size), WHITE)
+    inner = round(size * scale)
+    tile = SRC.resize((inner, inner), Image.LANCZOS)
+    off = (size - inner) // 2
+    img.alpha_composite(tile, (off, off))
+    return img.convert("RGB")
+
+
+def transparent(size, scale):
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    inner = round(size * scale)
+    off = (size - inner) // 2
+    img.alpha_composite(SRC.resize((inner, inner), Image.LANCZOS), (off, off))
     return img
 
 
-def mark(img, scale):
-    """The phone and its bars, drawn at `scale` of the icon's width.
-
-    scale is the fraction of the canvas the whole mark occupies -- smaller for
-    the maskable icon, which a launcher is free to crop into a circle.
-    """
-    size = img.size[0]
-    d = ImageDraw.Draw(img, "RGBA")
-
-    w = size * scale
-    h = w * 1.5
-    x0 = (size - w) / 2
-    y0 = (size - h) / 2
-    stroke = max(2, round(w * 0.085))
-    radius = w * 0.2
-
-    d.rounded_rectangle([x0, y0, x0 + w, y0 + h], radius=radius, outline=WHITE, width=stroke)
-
-    # Three bars, rising. Drawn inside the phone with a clear margin, so the
-    # shape still reads at 48 pixels on a launcher.
-    inset = w * 0.22
-    bx = x0 + inset
-    bw = (w - inset * 2)
-    bar_w = bw * 0.22
-    gap = (bw - bar_w * 3) / 2
-    floor = y0 + h - inset * 1.15
-    heights = [h * 0.16, h * 0.30, h * 0.44]
-
-    for i, bh in enumerate(heights):
-        left = bx + i * (bar_w + gap)
-        d.rounded_rectangle(
-            [left, floor - bh, left + bar_w, floor],
-            radius=bar_w / 2,
-            fill=WHITE,
-        )
-    return img
+def splash(bg):
+    img = Image.new("RGBA", (2732, 2732), bg)
+    tile = SRC.resize((440, 440), Image.LANCZOS)
+    img.alpha_composite(tile, ((2732 - 440) // 2, (2732 - 440) // 2))
+    return img.convert("RGB")
 
 
-def write(name, size, scale):
-    img = mark(gradient(size), scale)
-    path = os.path.join(OUT, name)
-    img.save(path, "PNG")
-    print(f"  {name}  {size}x{size}")
+public = os.path.join(APP, "public")
+on_white(192).save(os.path.join(public, "icon-192.png"))
+on_white(512).save(os.path.join(public, "icon-512.png"))
+on_white(180).save(os.path.join(public, "apple-touch-icon.png"))
+on_white(512, 0.72).save(os.path.join(public, "icon-maskable-512.png"))
 
-
-if __name__ == "__main__":
-    os.makedirs(OUT, exist_ok=True)
-    print("Monitor icons:")
-    write("icon-192.png", 192, 0.44)
-    write("icon-512.png", 512, 0.44)
-    # iOS: square, opaque, full-bleed. It rounds the corners itself.
-    write("apple-touch-icon.png", 180, 0.44)
-    # Android crops this to the launcher's shape, so the mark sits well in.
-    write("icon-maskable-512.png", 512, 0.34)
+# The Android app (@capacitor/assets, run by monitor-android.yml).
+assets = os.path.join(APP, "assets")
+os.makedirs(assets, exist_ok=True)
+on_white(1024).save(os.path.join(assets, "icon-only.png"))
+transparent(1024, 0.62).save(os.path.join(assets, "icon-foreground.png"))
+Image.new("RGB", (1024, 1024), (255, 255, 255)).save(os.path.join(assets, "icon-background.png"))
+splash((255, 255, 255, 255)).save(os.path.join(assets, "splash.png"))
+splash((15, 17, 21, 255)).save(os.path.join(assets, "splash-dark.png"))
+print("monitor icons written")

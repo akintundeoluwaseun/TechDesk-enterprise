@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
+import BrandMark from "../components/BrandMark";
 import {
-  Monitor,
   ShoppingCart,
   Wrench,
   Box,
@@ -129,16 +129,10 @@ function Welcome({ onNext }) {
             />
           ))}
           <div
-            className="relative w-24 h-24 rounded-[28px] p-[1.5px]"
-            style={{
-              background: "linear-gradient(135deg,#818cf8,#38bdf8,#34d399)",
-              boxShadow: "0 24px 70px -18px rgba(56,189,248,.6)",
-              animation: `obLogo .9s ${SPRING} both`,
-            }}
+            className="relative w-24 h-24 rounded-[28px]"
+            style={{ boxShadow: "0 24px 70px -18px rgba(56,189,248,.6)", animation: `obLogo .9s ${SPRING} both` }}
           >
-            <div className="w-full h-full rounded-[27px] bg-neutral-900 flex items-center justify-center">
-              <Monitor className="w-10 h-10 text-white" strokeWidth={1.75} />
-            </div>
+            <BrandMark className="w-24 h-24" />
           </div>
         </div>
 

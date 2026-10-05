@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import BrandMark from "./BrandMark";
 import { NavLink } from "react-router-dom";
 import {
   LayoutGrid,
@@ -10,7 +11,6 @@ import {
   ClipboardList,
   Settings,
   Power,
-  Monitor,
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
@@ -79,7 +79,7 @@ export default function Sidebar({ onOpenActivation }) {
       <div>
         <div className="flex items-center justify-between px-1 pt-2 pb-1">
           <div className="flex items-center gap-2 min-w-0">
-            <Monitor className={`w-5 h-5 shrink-0 ${t.dark ? "text-white" : "text-blue-500"}`} />
+            <BrandMark className="w-6 h-6 shrink-0" />
             {!collapsed && (
               <span className={`text-base font-bold truncate ${t.textPrimary}`}>{settings.shopName}</span>
             )}

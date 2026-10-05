@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Delete, Monitor } from "lucide-react";
+import BrandMark from "../components/BrandMark";
+import { Delete } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
@@ -103,7 +104,7 @@ export default function LoginScreen() {
     <div className={`min-h-screen w-full flex items-center justify-center ${t.bg}`}>
       <div className="w-full max-w-sm px-6">
         <div className="flex flex-col items-center mb-8">
-          <Monitor className={`w-8 h-8 mb-2 ${t.dark ? "text-white" : "text-blue-500"}`} />
+          <BrandMark className="w-12 h-12 mb-3" />
           <h1 className={`text-2xl font-bold ${t.textPrimary}`}>{settings.shopName}</h1>
           <p className={`text-sm ${t.textMuted}`}>{settings.tagline}</p>
         </div>

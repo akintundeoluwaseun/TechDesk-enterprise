@@ -62,6 +62,12 @@ jobs:
           echo "ANDROID_HOME=$ANDROID_SDK_ROOT" >> "$GITHUB_ENV"
           echo "sdk.dir=$ANDROID_SDK_ROOT" > android/local.properties
 
+      # `cap add android` generates Capacitor's stock artwork; without this
+      # Monitor's launcher icon was the generic one. Monitor's own icon is the
+      # white TD tile (scripts/make-icons.py), told apart from TechDesk's.
+      - name: Put Monitor's icon and splash on it
+        run: npx --yes @capacitor/assets generate --android --assetPath assets
+
       - name: Copy the web build into the Android project
         run: npx cap sync android
 

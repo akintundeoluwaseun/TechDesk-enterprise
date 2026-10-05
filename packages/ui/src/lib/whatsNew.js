@@ -9,6 +9,18 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-05m",
+    date: "5 October 2026",
+    title: "TechDesk 4.12.5: a new look",
+    items: [
+      {
+        icon: "sparkles",
+        title: "One TechDesk icon everywhere",
+        text: "The app, the desktop app, the web app and the website now share the same indigo-to-sky TechDesk icon. Monitor keeps its own white icon, so you can tell them apart.",
+      },
+    ],
+  },
+  {
     id: "2026-10-05l",
     date: "5 October 2026",
     title: "TechDesk 4.12.4: Google Play payments",

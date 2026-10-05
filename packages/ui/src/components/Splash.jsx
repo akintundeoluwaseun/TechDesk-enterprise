@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Monitor } from "lucide-react";
+import BrandMark from "./BrandMark";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useSettings } from "../lib/SettingsContext";
 
@@ -31,11 +31,8 @@ export default function Splash({ onDone, duration = 1800 }) {
       }`}
     >
       <div className="flex flex-col items-center animate-[splashPop_0.6s_ease-out]">
-        <div
-          className={`w-20 h-20 rounded-3xl flex items-center justify-center mb-5 ${t.cardBg}`}
-          style={{ animation: "splashPulse 1.8s ease-in-out infinite" }}
-        >
-          <Monitor className={`w-9 h-9 ${t.dark ? "text-white" : "text-blue-500"}`} />
+        <div className="w-20 h-20 mb-5 drop-shadow-xl" style={{ animation: "splashPulse 1.8s ease-in-out infinite" }}>
+          <BrandMark className="w-20 h-20" />
         </div>
         <h1
           className={`text-2xl font-bold tracking-tight mb-1 text-center break-words max-w-[280px] ${t.textPrimary}`}
