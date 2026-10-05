@@ -9,6 +9,23 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-05i",
+    date: "5 October 2026",
+    title: "TechDesk 4.12.1: the mic hears Nigerian names",
+    items: [
+      {
+        icon: "sparkles",
+        title: "Names like Bola Oluwatoyin",
+        text: "When the phone writes a name as English words (\u201cBola Oluwa to in\u201d), the assistant now finds the right customer. For shops with many such names, choose \u201cBest for names\u201d under How the mic listens: the AI listens instead of the phone.",
+      },
+      {
+        icon: "zap",
+        title: "No more repeated words",
+        text: "On some Android phones the words you said showed again and again while you talked. Fixed, and the stop button always stays on screen.",
+      },
+    ],
+  },
+  {
     id: "2026-10-05h",
     date: "5 October 2026",
     title: "TechDesk 4.12: the restock planner",

@@ -9,14 +9,29 @@ import { platform } from "@techdesk/platform";
 // Live speech-to-text where the device has it; off for good on this device
 // once it has failed, so the next try records audio straight away.
 const LIVE_OFF = "techdesk_live_speech_off";
+// The shop's choice: "ai" sends the recording for the AI to listen to --
+// slower, but it hears Nigerian names the phone's English listener spells
+// as English words.
+const LISTEN_MODE = "techdesk_listen_mode";
 function liveEngine() {
   try {
-    if (localStorage.getItem(LIVE_OFF) === "1") return null;
+    if (localStorage.getItem(LIVE_OFF) === "1" || localStorage.getItem(LISTEN_MODE) === "ai") return null;
     return platform().speech || null;
   } catch {
     return null;
   }
 }
+function listenMode() {
+  try { return localStorage.getItem(LISTEN_MODE) === "ai" ? "ai" : "fast"; } catch { return "fast"; }
+}
+function setListenMode(mode) {
+  try {
+    if (mode === "ai") localStorage.setItem(LISTEN_MODE, "ai");
+    else { localStorage.removeItem(LISTEN_MODE); localStorage.removeItem(LIVE_OFF); }
+  } catch { /* fine */ }
+}
+/** The end of what's been heard, so the newest words are the ones on screen. */
+const tail = (s, n = 64) => (s.length > n ? `…${s.slice(-n).replace(/^\S*\s/, "")}` : s);
 import { useThemeTokens } from "../lib/ThemeContext";
 import { SITE_ORIGIN } from "@techdesk/editions";
 import { useAuth, canAccess } from "../lib/AuthContext";
@@ -531,6 +546,8 @@ export default function VoiceOrder() {
   // even when the console has paused the AI.
   const aiOn = featureOn("ai");
   const micOk = aiOn && canRecord();
+  const [listen, setListen] = useState(listenMode);
+  const hasLive = micOk && (() => { try { return !!platform().speech; } catch { return false; } })();
   const allowed = (type) => !PAGE_FOR[type] || canAccess(user, PAGE_FOR[type]);
   const say = (m) => { setTab("chat"); setMessages((list) => [...list, { id: mid(), ...m }]); };
   const updateMsg = (id, patch) => setMessages((list) => list.map((m) => (m.id === id ? { ...m, ...patch } : m)));
@@ -1019,6 +1036,21 @@ export default function VoiceOrder() {
                         </ul>
                       )}
                       <button type="button" onClick={startPractice} className={`mt-2 text-xs font-semibold underline underline-offset-2 ${t.textSecondary}`}>New to this? 2-minute practice →</button>
+                      {hasLive && (
+                        <div className="mt-3" role="radiogroup" aria-label="How the mic listens">
+                          <div className={`text-xs font-semibold ${t.textSecondary}`}>How the mic listens</div>
+                          <div className="mt-1.5 grid grid-cols-2 gap-2">
+                            {[["fast", "Fast", "Words show as you talk"], ["ai", "Best for names", "AI listens: Bola Oluwatoyin, Chidi…"]].map(([id, label, sub]) => (
+                              <button key={id} type="button" role="radio" aria-checked={listen === id}
+                                onClick={() => { setListenMode(id); setListen(id); }}
+                                className={`text-left rounded-xl px-3 py-2 border ${listen === id ? "border-indigo-500 ring-1 ring-indigo-500" : `border-transparent ${t.pillBg}`}`}>
+                                <div className={`text-sm font-semibold ${t.textPrimary}`}>{label}</div>
+                                <div className={`text-[11px] leading-tight ${t.textMuted}`}>{sub}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </section>
                   )}
                 </div>
@@ -1165,13 +1197,13 @@ export default function VoiceOrder() {
               onSubmit={(e) => { e.preventDefault(); sendText(input, practice && lesson ? { practiceStep: practice.step } : undefined); }}
             >
               {recording ? (
-                <div className="flex-1 flex items-center gap-2 text-sm">
-                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-                  <span className={`min-w-0 truncate ${liveText ? t.textPrimary + " font-medium" : t.textPrimary}`}>
-                    {liveText || (tapMode ? "Listening… tap the mic to finish" : "Listening… let go to send")}
+                <div className="flex-1 min-w-0 flex items-center gap-2 text-sm">
+                  <span className="w-2 h-2 shrink-0 rounded-full bg-red-500 animate-pulse" />
+                  <span data-testid="live-text" className={`flex-1 min-w-0 line-clamp-2 break-words leading-snug ${liveText ? t.textPrimary + " font-medium" : t.textPrimary}`}>
+                    {liveText ? tail(liveText) : (tapMode ? "Listening… tap the mic to finish" : "Listening… let go to send")}
                   </span>
                   {!liveText && <span className={`shrink-0 ${t.textMuted}`}>{seconds}s</span>}
-                  <button type="button" onClick={cancelRec} className={`ml-auto text-xs underline ${t.textMuted}`}>Cancel</button>
+                  <button type="button" onClick={cancelRec} className={`shrink-0 text-xs underline ${t.textMuted}`}>Cancel</button>
                 </div>
               ) : (
                 <>

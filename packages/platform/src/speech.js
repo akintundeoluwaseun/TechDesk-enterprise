@@ -26,20 +26,18 @@ export function webSpeech() {
         rec.continuous = true;
         rec.interimResults = true;
         rec.maxAlternatives = 1;
-        let finalText = "";
-        let interim = "";
+        let kept = "";     // what earlier sessions heard (Chrome restarts after a pause)
+        let current = "";  // what this session has heard so far
         let started = false;
         let finished = null;
         let stopping = false;
         let failure = null;
-        const all = () => `${finalText} ${interim}`.replace(/\s+/g, " ").trim();
+        const all = () => `${kept} ${current}`.replace(/\s+/g, " ").trim();
         rec.onresult = (e) => {
-          interim = "";
-          for (let i = e.resultIndex; i < e.results.length; i++) {
-            const r = e.results[i];
-            if (r.isFinal) finalText += ` ${r[0].transcript}`;
-            else interim += ` ${r[0].transcript}`;
-          }
+          // Read the whole session each time rather than adding pieces on:
+          // Chrome on Android reports every step as a new result ("add",
+          // "add iPhone", "add iPhone 11"...), which added up to repeats.
+          current = mergeResults(Array.from(e.results, (r) => r[0]?.transcript || ""));
           onText?.(all());
         };
         rec.onerror = (e) => {
@@ -62,6 +60,8 @@ export function webSpeech() {
         rec.onend = () => {
           // Chrome ends a session after a pause; keep listening until the
           // person lets go of the button.
+          kept = all();
+          current = "";
           if (!stopping && started && !failure) { try { rec.start(); return; } catch { /* fall through */ } }
           if (finished) finished();
         };
@@ -69,4 +69,26 @@ export function webSpeech() {
       });
     },
   };
+}
+
+const squash = (t) => t.toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+/**
+ * One line from a session's results. Where a result just repeats the one
+ * before it with more words (or fewer), keep the longer one only.
+ */
+export function mergeResults(list) {
+  const out = [];
+  for (const raw of list) {
+    const t = String(raw || "").trim();
+    if (!t) continue;
+    const last = out[out.length - 1];
+    if (last != null) {
+      const a = squash(last), b = squash(t);
+      if (b.startsWith(a)) { out[out.length - 1] = t; continue; }
+      if (a.startsWith(b)) continue;
+    }
+    out.push(t);
+  }
+  return out.join(" ").replace(/\s+/g, " ").trim();
 }

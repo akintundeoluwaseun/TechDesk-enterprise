@@ -132,7 +132,59 @@ export function matchCustomer(name, phone, customers) {
   const first = words(name)[0];
   const partial = customers.filter((c) => words(c.name).includes(first));
   if (exact.length === 0 && partial.length === 1) return { customer: partial[0], candidates: partial };
-  return { customer: null, candidates: (exact.length ? exact : partial).slice(0, 4) };
+  if (exact.length || partial.length) return { customer: null, candidates: (exact.length ? exact : partial).slice(0, 4) };
+  // Nothing spelt the same. Phones write Nigerian names the way they sound
+  // in English ("Bola Oluwa to in" for Bola Oluwatoyin, "Chee dee" for
+  // Chidi), so compare how the names sound instead.
+  const scored = customers
+    .map((c) => ({ c, score: nameLikeness(name, c.name) }))
+    .filter((x) => x.score >= 0.55)
+    .sort((a, b) => b.score - a.score);
+  const candidates = scored.slice(0, 4).map((x) => x.c);
+  if (scored.length && scored[0].score >= 0.72 && (scored.length === 1 || scored[0].score - scored[1].score >= 0.12)) {
+    return { customer: scored[0].c, candidates };
+  }
+  return { customer: null, candidates };
+}
+
+/** A name squashed to how it sounds: no spaces, doubled letters and silent h's dropped, sound-alikes made one. */
+export function soundKey(s) {
+  return String(s || "").toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Yorùbá tone marks: Olúwatóyìn -> oluwatoyin
+    .replace(/[^a-z]/g, "")
+    .replace(/ph/g, "f").replace(/ck|q/g, "k").replace(/c(?=[eiy])/g, "s").replace(/c/g, "k")
+    .replace(/ee|ea|ie/g, "i").replace(/oo|ou/g, "u").replace(/y/g, "i")
+    .replace(/(?<=[^aeiou])h/g, "").replace(/w(?=[aeiou])/g, "w")
+    .replace(/z/g, "s").replace(/(.)\1+/g, "$1");
+}
+
+function bigrams(s) {
+  const out = new Map();
+  for (let i = 0; i < s.length - 1; i++) { const g = s.slice(i, i + 2); out.set(g, (out.get(g) || 0) + 1); }
+  return out;
+}
+function dice(a, b) {
+  if (!a || !b) return 0;
+  if (a === b) return 1;
+  if (a.length < 2 || b.length < 2) return 0;
+  const A = bigrams(a), B = bigrams(b);
+  let both = 0;
+  for (const [g, n] of A) both += Math.min(n, B.get(g) || 0);
+  return (2 * both) / (a.length - 1 + b.length - 1);
+}
+
+/**
+ * How alike two names sound, 0 to 1: the whole name, or just the first name
+ * when only that was said ("Toyin" heard as "toy in").
+ */
+export function nameLikeness(said, name) {
+  const a = soundKey(said), b = soundKey(name);
+  if (!a || !b) return 0;
+  const whole = dice(a, b);
+  const parts = String(name || "").split(/\s+/).map(soundKey).filter((x) => x.length >= 3);
+  const one = parts.length > 1 ? Math.max(...parts.map((p) => dice(a, p))) * 0.95 : 0;
+  const inside = a.length >= 4 && b.includes(a) ? 0.75 : 0; // a part of the name, run together
+  return Math.max(whole, one, inside);
 }
 
 function ticketNumber(t) {
