@@ -79,12 +79,32 @@ export const checkout = {
     }
   },
 
-  async licenceStatus(pin) {
+  /**
+   * A code made for this PIN (Business, Enterprise or Upgrade), typed in:
+   * the server starts the year the first time it hears about it.
+   */
+  async redeemPinCode(code, pin, businessCode = null) {
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/redeem_pin_code`, {
+        method: "POST",
+        headers: { apikey: PUBLISHABLE_KEY, "Content-Type": "application/json" },
+        body: JSON.stringify({ p_code: String(code), p_pin: String(pin), p_business_code: businessCode || null }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data || typeof data !== "object") return { ok: false, error: "server", message: "Couldn't check that code just now. Try again in a moment." };
+      return data;
+    } catch {
+      return { ok: false, error: "offline", message: "Connect to the internet to use this code. It only needs to be online once." };
+    }
+  },
+
+  /** proofs: codes this device holds that only the server can check (one-time and Upgrade codes). */
+  async licenceStatus(pin, proofs = []) {
     try {
       const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/licence_status`, {
         method: "POST",
         headers: { apikey: PUBLISHABLE_KEY, "Content-Type": "application/json" },
-        body: JSON.stringify({ p_pin: String(pin) }),
+        body: JSON.stringify(proofs?.length ? { p_pin: String(pin), p_proof: proofs.map(String) } : { p_pin: String(pin) }),
       });
       if (!res.ok) return { ok: false };
       const data = await res.json();

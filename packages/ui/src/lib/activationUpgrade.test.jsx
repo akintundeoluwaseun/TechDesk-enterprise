@@ -20,6 +20,8 @@ function digest(tier) {
 vi.mock("./activationTable", () => ({
   TABLE_TIERS: ["business", "enterprise"],
   TABLE_SIZE: 1,
+  POOL_SIZE: 1,
+  inPool: (i) => i === 0,
   isValidIndex: (i) => i === 0,
   loadTable: async () => ({ tiers: ["business", "enterprise"], entries: [] }),
   // Async, like the real ones: the table is loaded on demand, and a test

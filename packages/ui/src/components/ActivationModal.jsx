@@ -610,18 +610,21 @@ export default function ActivationModal({ onClose }) {
               <li className="flex justify-between gap-3"><span>Enterprise, 1 year</span><span className="font-semibold tabular-nums">₦20,000</span></li>
               {tier === "business" && <li className="flex justify-between gap-3"><span>Upgrade Business → Enterprise</span><span className="font-semibold tabular-nums">₦10,000</span></li>}
             </ul>
-            <p className={`text-xs mt-2 ${t.textMuted}`}>Call, WhatsApp or email us below. Pay, get your code, and type it in here: it switches on straight away.</p>
+            <p className={`text-sm mt-3 ${t.textSecondary}`}>
+              Your PIN: <span className={`font-mono text-base font-bold tracking-widest ${t.textPrimary}`}>{pin || "…"}</span>
+            </p>
+            <p className={`text-xs mt-1 ${t.textMuted}`}>Send us this PIN on WhatsApp, by phone or email, and pay. We send back the code for your PIN; type it below and it switches on straight away.</p>
             <div className="flex flex-wrap gap-2 mt-3">
-              <a href="https://wa.me/2348076911614?text=Hello%20TechDesk%2C%20I%27d%20like%20an%20activation%20code." target="_blank" rel="noopener noreferrer"
+              <a href={`https://wa.me/2348076911614?text=${encodeURIComponent(`Hello TechDesk, my PIN is ${pin || ""}. I'd like ${tier === "business" ? "to upgrade to Enterprise" : "an activation code"}.`)}`} target="_blank" rel="noopener noreferrer"
                 className="text-sm font-semibold px-3 py-1.5 rounded-full bg-emerald-500 text-white">WhatsApp us</a>
               <a href="tel:+2348076911614" className={`text-sm px-3 py-1.5 rounded-full ${t.pillBg}`}>Call +234 807 691 1614</a>
-              <a href="mailto:techdeskapp@gmail.com?subject=Activation%20code" className={`text-sm px-3 py-1.5 rounded-full ${t.pillBg}`}>Email</a>
+              <a href={`mailto:techdeskapp@gmail.com?subject=${encodeURIComponent(`Activation code for PIN ${pin || ""}`)}`} className={`text-sm px-3 py-1.5 rounded-full ${t.pillBg}`}>Email</a>
             </div>
           </div>
         )}
 
         {!chosenTier && !branchForm && (
-          <CodeEntry t={t} pin={pin} open={PLAY_STORE || CODES_ONLY} verifyCode={verifyCode} refreshLicence={refreshLicence}
+          <CodeEntry t={t} pin={pin} showPin={!(CODES_ONLY && !PLAY_STORE && upgradeOptions.length > 0)} open={PLAY_STORE || CODES_ONLY} verifyCode={verifyCode} refreshLicence={refreshLicence}
             onApplied={(applied) => setNote(applied)} />
         )}
 
@@ -656,7 +659,7 @@ function shapeCode(typed) {
   return formatCode(clean).slice(0, 14);
 }
 
-function CodeEntry({ t, pin, open: startOpen, verifyCode, refreshLicence, onApplied }) {
+function CodeEntry({ t, pin, showPin = true, open: startOpen, verifyCode, refreshLicence, onApplied }) {
   const [open, setOpen] = useState(startOpen);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -697,16 +700,16 @@ function CodeEntry({ t, pin, open: startOpen, verifyCode, refreshLicence, onAppl
     <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
       <div className={`text-sm font-semibold ${t.textPrimary}`}>Activation code</div>
       {(PLAY_STORE || CODES_ONLY) && (
-        <p className={`text-xs mt-1 ${t.textSecondary}`}>Type the code TechDesk gave you: it starts with BUS, ENT or UPG. It needs the internet once.</p>
+        <p className={`text-xs mt-1 ${t.textSecondary}`}>Type the code TechDesk sent for this PIN. Be online the first time, so your year starts.</p>
       )}
-      <p className={`text-xs mt-2 ${t.textMuted}`}>
+      {showPin && <p className={`text-xs mt-2 ${t.textMuted}`}>
         This device&rsquo;s PIN: <span className={`font-mono font-semibold tracking-wider ${t.textPrimary}`}>{pin || "…"}</span>
-      </p>
+      </p>}
       <input
         aria-label="Activation code"
         value={code}
         onChange={(e) => { setCode(shapeCode(e.target.value)); setMsg(null); }}
-        placeholder="BUS-XXXX-XXXX-XXXX"
+        placeholder="XXXX-XXXX-XXXX"
         autoCapitalize="characters"
         autoComplete="off"
         spellCheck={false}

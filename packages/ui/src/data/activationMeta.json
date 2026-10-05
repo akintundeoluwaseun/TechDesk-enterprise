@@ -4,5 +4,6 @@
     "business",
     "enterprise"
   ],
-  "size": 20000
+  "size": 20000,
+  "pool": 5000
 }

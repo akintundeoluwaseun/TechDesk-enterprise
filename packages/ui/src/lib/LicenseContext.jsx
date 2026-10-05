@@ -6,9 +6,9 @@ import { IS_ANDROID_APP } from "./platform";
 import { isTier, tierCan, isUpgrade } from "@techdesk/editions";
 import { FREE_TIER, setCurrentTier } from "./tier";
 import { HASH_HEX, normalizeCode, hashPreimage } from "./activationCode";
-import { TABLE_SIZE, isValidIndex, pinAt, hashesAt } from "./activationTable";
+import { POOL_SIZE, inPool, isValidIndex, pinAt, hashesAt } from "./activationTable";
 import { checkout } from "@techdesk/core";
-import { effectiveTier } from "./licenceTerm";
+import { effectiveTier, YEARLY_FROM } from "./licenceTerm";
 
 const LicenseContext = createContext(null);
 
@@ -72,8 +72,23 @@ function readLocalIndex() {
   return isValidIndex(index) ? index : null;
 }
 
+// New devices draw from the PINs on the owner's list only.
 function assignIndex() {
-  return Math.floor(Math.random() * TABLE_SIZE);
+  return Math.floor(Math.random() * POOL_SIZE);
+}
+
+// A device that has never paid for anything: no activation, no code typed,
+// no licence on record. Only such a device may be given a new PIN (one on
+// the owner's list) -- there is nothing a new PIN could cost it.
+function neverPaid() {
+  try {
+    if (localStorage.getItem(KEY_ACTIVATED) === "1") return false;
+  } catch {
+    return false;
+  }
+  if (readLocalUnlocks().length) return false;
+  const lic = readLicence();
+  return !lic?.found;
 }
 
 function storeLocalIndex(index) {
@@ -165,6 +180,10 @@ async function verifyUnlocks(unlocks, licenseIndex) {
 
   const verified = [];
   for (const entry of unlocks) {
+    // One-time and Upgrade codes aren't in this device's table; the server
+    // vouches for those (licence.proven), and licenceTerm only counts them
+    // while it does.
+    if (entry?.server && isTier(entry.tier) && entry.code) { verified.push(entry); continue; }
     const target = expected.get(entry?.tier);
     if (!target || !entry?.code) continue;
     const digest = await sha256Prefix(hashPreimage(pin, entry.tier, entry.code));
@@ -194,7 +213,9 @@ export function LicenseProvider({ children }) {
   // from license.json below if that disagrees.
   const [licenseIndex, setLicenseIndex] = useState(() => {
     const local = readLocalIndex();
-    if (local !== null) return local;
+    // A PIN from before the list existed, on a device that never paid: move
+    // it onto the list so the owner can find its codes.
+    if (local !== null && (inPool(local) || !neverPaid())) return local;
     const fresh = assignIndex();
     storeLocalIndex(fresh);
     return fresh;
@@ -221,13 +242,30 @@ export function LicenseProvider({ children }) {
 
   // What the server says this PIN has paid for, and until when.
   const [licence, setLicence] = useState(readLicence);
+  const claimTried = useRef(new Set());
   async function refreshLicence(forPin = pin) {
     if (!forPin) return null;
-    const res = await checkout.licenceStatus(forPin);
+    const history = unlocksRef.current || [];
+    const proofs = history.filter((u) => u?.server && u.code).map((u) => u.code);
+    const res = await checkout.licenceStatus(forPin, proofs);
     if (!res?.ok) return null; // offline: keep the cached answer, dates and all
-    const next = { found: !!res.found, tier: res.tier || null, expiresAt: res.expiresAt || null, upgrade: res.upgrade || null, trial: !!res.trial, paymentsLive: res.paymentsLive ?? null, checkedAt: new Date().toISOString() };
+    const next = { found: !!res.found, tier: res.tier || null, expiresAt: res.expiresAt || null, upgrade: res.upgrade || null, trial: !!res.trial, proven: !!res.proven, paymentsLive: res.paymentsLive ?? null, checkedAt: new Date().toISOString() };
     try { localStorage.setItem(KEY_LICENCE, JSON.stringify(next)); } catch { /* mirror only */ }
     setLicence(next);
+
+    // A code typed while offline (or before the server learned about codes
+    // typed in the app) still needs its year started -- otherwise it lapses
+    // after the 14 days' grace. Once per code per session.
+    if (!next.found) {
+      const pending = history.filter((u) => !u?.server && u?.code && Date.parse(u.at) >= YEARLY_FROM && !claimTried.current.has(u.code));
+      if (pending.length) {
+        for (const u of pending) {
+          claimTried.current.add(u.code);
+          await checkout.redeemPinCode(u.code, forPin).catch(() => null);
+        }
+        return refreshLicence(forPin);
+      }
+    }
     return next;
   }
   useEffect(() => {
@@ -293,7 +331,10 @@ export function LicenseProvider({ children }) {
         if (cancelled || !res?.ok) return;
         const stored = res.state;
         const storedIndex = Number(stored?.licenseIndex);
-        const hasStoredIndex = isValidIndex(storedIndex);
+        // A PIN from before the list, on a device that has never paid
+        // anything, isn't kept: the device has already moved onto the list.
+        const filePaid = stored?.activated === true || (Array.isArray(stored?.unlocks) && stored.unlocks.length > 0);
+        const hasStoredIndex = isValidIndex(storedIndex) && (inPool(storedIndex) || filePaid || !neverPaid());
 
         // The file is the authority on which PIN this device was issued, so a
         // device whose localStorage was cleared gets its original PIN back
@@ -523,16 +564,28 @@ export function LicenseProvider({ children }) {
     const pin = await pinAt(licenseIndex);
     if (!pin) return { ok: false, applied: false, tier: null };
 
-    // One-time codes (BUS-, ENT-, UPG-) work on any device, so they're
-    // checked online and used up there; the year they buy comes back as this
-    // PIN's licence. The device's own Business code goes along as proof for
-    // an Upgrade code.
-    if (/^(BUS|ENT|UPG)[0-9A-Z]{12}$/.test(clean)) {
-      const businessCode = (unlocksRef.current || []).find((u) => u?.tier === "business")?.code || null;
-      const res = await checkout.redeemOneTimeCode(clean, pin, businessCode);
+    const businessCode = (unlocksRef.current || []).find((u) => u?.tier === "business")?.code || null;
+
+    // A code the server checks and keeps: the one-time kind (BUS-, ENT-,
+    // UPG-), or this PIN's Upgrade code, which isn't in the device's table.
+    // It goes into the history marked `server`, and counts while the server
+    // says this device holds it (licenceTerm).
+    const fromServer = async (res) => {
       if (!res?.ok) return { ok: false, applied: false, tier: null, message: res?.message || null };
+      const granted = isTier(res.tier) ? res.tier : null;
+      // Also when the server already had it: a code used before this
+      // version kept the year on the server but never reached the device.
+      const onHere = granted && isUpgrade(tierRef.current, granted);
+      if (onHere) {
+        const history = [...(unlocksRef.current || []).filter((u) => u?.tier !== granted), { tier: granted, at: new Date().toISOString(), code: clean, server: true }];
+        await applyTier(granted, history);
+      }
       await refreshLicence(pin);
-      return { ok: true, applied: !res.already, tier: res.tier, expiresAt: res.expiresAt || null, oneTime: true };
+      return { ok: true, applied: !res.already || !!onHere, tier: granted, expiresAt: res.expiresAt || null, message: res.already && !onHere ? res.message || null : null };
+    };
+
+    if (/^(BUS|ENT|UPG)[0-9A-Z]{12}$/.test(clean)) {
+      return fromServer(await checkout.redeemOneTimeCode(clean, pin, businessCode));
     }
 
     let matched = null;
@@ -542,7 +595,15 @@ export function LicenseProvider({ children }) {
         matched = candidate;
       }
     }
-    if (matched === null) return { ok: false, applied: false, tier: null };
+    // Not this PIN's Business or Enterprise code: it may be its Upgrade code.
+    if (matched === null) {
+      const res = await checkout.redeemPinCode(clean, pin, businessCode);
+      if (res?.ok && res.kind === "upgrade") return fromServer(res);
+      if (res?.error === "offline" || res?.error === "server" || res?.error === "needs_business" || res?.error === "too_many") {
+        return { ok: false, applied: false, tier: null, message: res.message };
+      }
+      return { ok: false, applied: false, tier: null };
+    }
 
     if (!isUpgrade(tierRef.current, matched)) {
       // A real code, already spent. Say so plainly and leave everything as
@@ -551,9 +612,13 @@ export function LicenseProvider({ children }) {
       return { ok: true, applied: false, tier: matched };
     }
 
+    // On straight away, from the device's own table -- no internet needed.
+    // Then the server is told, which starts the year (offline, refreshLicence
+    // tries again later; the app allows 14 days).
     await applyTier(matched, withUnlock(unlocksRef.current, matched, clean));
-    refreshLicence();
-    return { ok: true, applied: true, tier: matched };
+    const claim = await checkout.redeemPinCode(clean, pin).catch(() => null);
+    await refreshLicence(pin);
+    return { ok: true, applied: true, tier: matched, expiresAt: claim?.ok ? claim.expiresAt || null : null };
   }
 
   // Whatever is in the unlock history -- from localStorage on this tick, or

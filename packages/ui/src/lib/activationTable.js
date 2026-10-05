@@ -27,6 +27,19 @@ export const TABLE_TIERS = meta.tiers;
 /** How many PINs exist. The range a device draws its own from. */
 export const TABLE_SIZE = meta.size;
 
+/**
+ * How many of those a NEW device draws from: the first 5,000 rows, the PINs
+ * on the owner's printed list (each with a Business, Enterprise and Upgrade
+ * code). Devices that already have a PIN beyond them keep it once they've
+ * paid; see LicenseContext.
+ */
+export const POOL_SIZE = Math.min(meta.pool || meta.size, meta.size);
+
+/** Is this row one of the PINs on the owner's list? */
+export function inPool(index) {
+  return Number.isInteger(index) && index >= 0 && index < POOL_SIZE;
+}
+
 /** Is this a row that exists? Answerable without the table. */
 export function isValidIndex(index) {
   return Number.isInteger(index) && index >= 0 && index < TABLE_SIZE;

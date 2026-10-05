@@ -62,6 +62,14 @@ function tierFromCodes({ bought, unlocks, licence, now }) {
     if (!isTier(u?.tier)) continue;
     const at = Date.parse(u.at);
 
+    // A code only the server can check (one-time, or a PIN's Upgrade code):
+    // on while the server's licence runs AND the server has confirmed this
+    // device holds the code that bought it.
+    if (u.server) {
+      if (active && !licence.trial && licence.proven) best = higher(best, isUpgrade(licence.tier, u.tier) ? licence.tier : u.tier);
+      continue;
+    }
+
     // Bought before yearly plans: theirs for good.
     if (!Number.isFinite(at) || at < YEARLY_FROM) {
       best = higher(best, u.tier);
