@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, Search, Pencil, Trash2, ChevronDown, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, ChevronDown, FileSpreadsheet, PackageSearch } from "lucide-react";
 import Topbar from "../components/Topbar";
+import { openRestock } from "../lib/restock";
 import ProductModal from "../components/ProductModal";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
@@ -156,6 +157,12 @@ export default function InventoryPage() {
         }
         action={
           <div className="flex items-center gap-2">
+            <button
+              onClick={openRestock}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
+            >
+              <PackageSearch className="w-4 h-4" /> Restock planner
+            </button>
             <button
               data-tour="page-export"
               onClick={handleExportCsv}

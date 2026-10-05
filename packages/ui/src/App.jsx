@@ -33,6 +33,8 @@ import { useUpdateAvailable } from "./lib/updateCheck";
 import VoiceOrder, { VOICE_SAVED_EVENT } from "./components/VoiceOrder";
 import MorningBrief from "./components/MorningBrief";
 import MoneyChaser from "./components/MoneyChaser";
+import RestockPlanner from "./components/RestockPlanner";
+import { onOpenRestock } from "./lib/restock";
 import { onOpenChaser } from "./lib/chaser";
 import { onOpenBrief } from "./lib/brief";
 import { briefDue, markBriefSeen } from "@techdesk/core";
@@ -157,6 +159,8 @@ function Shell() {
   }, [user]);
   // The money chaser opens over everything, from the menu, the brief or the assistant.
   const [chaser, setChaser] = useState(null); // null | {focus}
+  const [restock, setRestock] = useState(false);
+  useEffect(() => onOpenRestock(() => setRestock(true)), []);
   useEffect(() => onOpenChaser((focus) => setChaser({ focus })), []);
   function closeBrief() {
     markBriefSeen();
@@ -252,6 +256,7 @@ function Shell() {
       <Toaster />
       <VoiceOrder />
       {chaser && canAccess(user, "/sales") && <MoneyChaser focusKey={chaser.focus} onClose={() => setChaser(null)} />}
+      {restock && canAccess(user, "/inventory") && <RestockPlanner onClose={() => setRestock(false)} />}
       {showActivation && <ActivationModal onClose={() => setShowActivation(false)} />}
       {mergeEditions.length > 0 ? (
         <DataMergeModal editions={mergeEditions} onClose={dismissMerge} />

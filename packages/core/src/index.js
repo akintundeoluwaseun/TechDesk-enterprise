@@ -80,3 +80,4 @@ export { buildBrief, briefText, briefDue, briefOff, setBriefOff, markBriefSeen, 
 export { debtors, debtorKey, chaseMessage, markChased, setPromise, recordPayment, runChaseUndo, toneFor, chaseLog, TONES, TONE_LABEL, LANGS, GRACE_DAYS } from "./moneyChaser";
 export { answerQuestion, quickIntent, PERIOD_LABEL } from "./assistantAnswers";
 export { assistantHistory, addHistory, clearHistory } from "./assistantHistory";
+export { buildRestockPlan, restockSettings, saveRestockSettings, fitToBudget, orderTotal, orderText, receiveOrder, runRestockUndo, salesRates } from "./restockPlanner";

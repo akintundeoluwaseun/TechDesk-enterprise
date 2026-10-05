@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { X, Sunrise, TrendingUp, TrendingDown, MessageCircle, ArrowRight, Wrench, Wallet, PackageX, Clock, Share2 } from "lucide-react";
 import { buildBrief, briefText, briefOff, setBriefOff, chaseMessage, markChased } from "@techdesk/core";
 import { openChaser } from "../lib/chaser";
+import { openRestock } from "../lib/restock";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
 import { useAuth, canAccess } from "../lib/AuthContext";
@@ -150,7 +151,7 @@ export default function MorningBrief({ onClose, now }) {
                           <MessageCircle className="w-3.5 h-3.5" /> Message
                         </button>
                       ) : (
-                        <button type="button" aria-label="Open" onClick={() => (x.kind === "owed" ? (onClose(), openChaser(x.debt.key)) : go(x.page))} className={`shrink-0 p-1.5 rounded-full ${t.pillBg}`}>
+                        <button type="button" aria-label="Open" onClick={() => (x.kind === "owed" ? (onClose(), openChaser(x.debt.key)) : x.kind === "restock" ? (onClose(), openRestock()) : go(x.page))} className={`shrink-0 p-1.5 rounded-full ${t.pillBg}`}>
                           <ArrowRight className="w-4 h-4" />
                         </button>
                       )}

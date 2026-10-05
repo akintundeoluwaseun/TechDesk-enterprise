@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Camera, ImagePlus, ShoppingCart, Wrench, PackagePlus, Wallet, Sunrise, TrendingUp, Coins, Users, PackageX, PackageCheck, Trophy, GraduationCap, ChevronDown, History, RotateCcw, LayoutGrid, MessageSquare, Trash2 } from "lucide-react";
+import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Camera, ImagePlus, ShoppingCart, Wrench, PackagePlus, Wallet, Sunrise, TrendingUp, Coins, Users, PackageX, PackageCheck, Trophy, GraduationCap, ChevronDown, History, RotateCcw, LayoutGrid, MessageSquare, Trash2, PackageSearch, BarChart3 } from "lucide-react";
 import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn, answerQuestion, quickIntent, debtors, assistantHistory, addHistory, clearHistory } from "@techdesk/core";
 import { useNavigate } from "react-router-dom";
 import AssistantBot from "./AssistantBot";
@@ -28,6 +28,7 @@ import { canRecord, startRecording, blobToWavBase64, MAX_SECONDS } from "../lib/
 import { preparePhoto } from "../lib/photoPrep";
 import { openBrief } from "../lib/brief";
 import { openChaser } from "../lib/chaser";
+import { openRestock } from "../lib/restock";
 
 // Voice orders: hold the mic, say what happened, check it, save it.
 //
@@ -423,6 +424,8 @@ const QUICK_DO = [
   { id: "product", label: "Add product", icon: PackagePlus, page: "/inventory", tone: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
   { id: "photo", label: "Snap notebook", icon: Camera, page: "/sales", tone: "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400" },
   { id: "owed", label: "Money owed", icon: Wallet, page: "/sales", tone: "bg-amber-500/15 text-amber-600 dark:text-amber-400" },
+  { id: "restock", label: "Restock list", icon: PackageSearch, page: "/inventory", tone: "bg-teal-500/15 text-teal-600 dark:text-teal-400" },
+  { id: "reports", label: "Reports", icon: BarChart3, page: "/reports", tone: "bg-fuchsia-500/15 text-fuchsia-600 dark:text-fuchsia-400" },
   { id: "brief", label: "Today's brief", icon: Sunrise, page: null, tone: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
 ];
 const QUICK_ASK = [
@@ -591,6 +594,14 @@ export default function VoiceOrder() {
       setInput("");
       setOpen(false);
       openBrief();
+      return;
+    }
+    // "What should I buy?" is the restock planner, worked out here.
+    if (!opts && /\b(restock|re-stock|what (should|do) i (buy|order)|shopping list|what to (buy|order)|order list)\b/i.test(clean) && canAccess(user, "/inventory")) {
+      setInput("");
+      say({ role: "user", text: clean });
+      say({ role: "assistant", kind: "info", text: "Here's your restock list." });
+      openRestock();
       return;
     }
     // Everyday questions are answered here, at once: no AI, no internet needed.
@@ -817,6 +828,8 @@ export default function VoiceOrder() {
     if (id === "product") { setOpen(false); navigate("/inventory?new=1"); return; }
     if (id === "photo") { openPhoto(); return; }
     if (id === "owed") { openChaser(); return; }
+    if (id === "restock") { openRestock(); return; }
+    if (id === "reports") { setOpen(false); navigate("/reports"); return; }
     if (id === "brief") { setOpen(false); openBrief(); }
   }
 
@@ -961,12 +974,12 @@ export default function VoiceOrder() {
 
                   <section>
                     <h3 className={`text-[11px] font-bold uppercase tracking-wider mb-2 ${t.textMuted}`}>Quick actions</h3>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                       {QUICK_DO.filter((q) => (q.page ? canAccess(user, q.page) : true) && (q.id !== "photo" || aiOn)).map((q) => {
                         const Icon = q.icon;
                         return (
                           <button key={q.id} type="button" onClick={() => runQuick(q.id)}
-                            className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl py-3 px-1 border transition-transform active:scale-95 ${t.divider}`}>
+                            className={`flex flex-col items-center justify-start gap-1.5 rounded-2xl py-2.5 px-1 border transition-transform active:scale-95 ${t.divider}`}>
                             <span className={`w-10 h-10 rounded-xl flex items-center justify-center ${q.tone}`}><Icon className="w-5 h-5" /></span>
                             <span className={`text-xs font-medium text-center leading-tight ${t.textPrimary}`}>{q.label}</span>
                           </button>

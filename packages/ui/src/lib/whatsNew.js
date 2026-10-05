@@ -9,6 +9,28 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-05h",
+    date: "5 October 2026",
+    title: "TechDesk 4.12: the restock planner",
+    items: [
+      {
+        icon: "sparkles",
+        title: "Know what to buy",
+        text: "Inventory → Restock planner (or ask the assistant \u201cWhat should I restock?\u201d). It works out how fast each product sells, how long your stock will last, and how many to buy.",
+      },
+      {
+        icon: "zap",
+        title: "Fits your budget",
+        text: "Tell it how much you have to spend and it puts the most urgent, best-selling items first. Send the list to your supplier on WhatsApp.",
+      },
+      {
+        icon: "calendar",
+        title: "Goods arrived? One tap",
+        text: "When the order comes in, tap Goods arrived and everything is added to stock, with the new cost price if it changed. It also shows stock that isn't selling.",
+      },
+    ],
+  },
+  {
     id: "2026-10-05g",
     date: "5 October 2026",
     title: "TechDesk 4.11: updates by themselves, and activation codes",
