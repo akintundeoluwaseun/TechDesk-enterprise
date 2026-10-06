@@ -57,8 +57,8 @@ function open() {
 beforeEach(() => {
   [verifyCode, startOrder, claimCode, payWithFlutterwave, prices, trialUnlock].forEach((f) => f.mockReset());
   prices.mockResolvedValue({
-    business: { amount: 10000 }, enterprise: { amount: 20000 },
-    upgrade_enterprise: { amount: 10000 }, branch: { amount: 5000 },
+    business: { amount: 5 }, enterprise: { amount: 10 },
+    upgrade_enterprise: { amount: 5 }, branch: { amount: 2.5 },
   });
   payWithFlutterwave.mockResolvedValue({ attempted: true });
 });
@@ -82,25 +82,25 @@ describe("while payments are off", () => {
   });
 });
 
-describe("yearly plans", () => {
-  it("the upgrade shows only what is left of the Business year", async () => {
+describe("monthly plans", () => {
+  it("the upgrade shows only what is left of the Business month", async () => {
     state.tier = "business";
-    state.upgrade = { eligible: true, amount: 830, full: 10000, daysLeft: 30 };
+    state.upgrade = { eligible: true, amount: 2.5, full: 5, daysLeft: 15 };
     open();
     fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
-    await waitFor(() => expect(screen.getByText(/₦830 for the rest of your Business year/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/\$2\.50 for the rest of your Business month/)).toBeTruthy());
     state.upgrade = null;
   });
 
   it("a Business shop upgrades to Enterprise at the upgrade price", async () => {
     state.tier = "business";
-    startOrder.mockResolvedValue({ ok: true, txRef: "td-u", amount: 10000, currency: "NGN" });
+    startOrder.mockResolvedValue({ ok: true, txRef: "td-u", amount: 5, currency: "USD" });
     claimCode.mockResolvedValue({ ok: true, code: "E-CODE", tier: "enterprise", expiresAt: "2027-09-30T00:00:00Z" });
     verifyCode.mockResolvedValue({ ok: true, applied: true, tier: "enterprise" });
 
     open();
     fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
-    await waitFor(() => expect(screen.getByText(/₦10,000 for the rest of your Business year/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/\$5 for the rest of your Business month/)).toBeTruthy());
     fireEvent.click(screen.getByRole("button", { name: /Upgrade Business → Enterprise/i }));
     fireEvent.click(screen.getByRole("button", { name: /Pay with card/i }));
     fireEvent.change(screen.getByLabelText(/Email for the receipt/i), { target: { value: "shop@example.com" } });
@@ -141,7 +141,7 @@ describe("yearly plans", () => {
     fireEvent.click(await screen.findByRole("button", { name: /Add head-office branches/i }));
     fireEvent.change(screen.getByLabelText(/head office’s email or phone/i), { target: { value: "hq@shop.com" } });
     fireEvent.change(screen.getByLabelText(/How many extra branches/i), { target: { value: "2" } });
-    expect(screen.getByText("₦10,000 a year")).toBeTruthy();
+    expect(screen.getByText("$5 a month")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /^Continue$/ }));
     fireEvent.change(screen.getByLabelText(/Email for the receipt/i), { target: { value: "owner@shop.com" } });
     fireEvent.click(screen.getByRole("button", { name: /Continue to payment/i }));

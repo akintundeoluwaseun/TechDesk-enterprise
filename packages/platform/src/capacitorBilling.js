@@ -1,21 +1,21 @@
 // Google Play Billing, for the Play Store build.
 //
 // TechDesk sells three one-time products (set up in the Play Console):
-// Business for a year, Enterprise for a year, and Business -> Enterprise.
+// Business for a month, Enterprise for a month, and Business -> Enterprise.
 // One-time rather than subscriptions because that's what a TechDesk plan is
-// -- a year, paid once -- and it keeps the year in one place, the server's
+// -- a month, paid once -- and it keeps the term in one place, the server's
 // licence, whichever way a shop paid.
 //
 // Every purchase carries "pin-<PIN>" so the server can check it was made
 // for this device. Purchases aren't acknowledged here: the server does that
-// once it has checked the purchase with Google and started the year, and
+// once it has checked the purchase with Google and started the month, and
 // only then is the purchase consumed, so the same product can be bought
-// again next year.
+// again next month.
 import { NativePurchases, PURCHASE_TYPE } from "@capgo/native-purchases";
 
 export const PLAY_PRODUCT_IDS = {
-  business: "techdesk_business_1y",
-  enterprise: "techdesk_enterprise_1y",
+  business: "techdesk_business_1m",
+  enterprise: "techdesk_enterprise_1m",
   upgrade: "techdesk_upgrade_enterprise",
 };
 
@@ -38,7 +38,7 @@ export const capacitorBilling = {
     }
   },
 
-  /** {id: localPriceString} for the products Google has, e.g. {techdesk_business_1y: "₦10,000.00"}. */
+  /** {id: localPriceString} for the products Google has, e.g. {techdesk_business_1m: "$5.00"}. */
   async prices() {
     const { products } = await NativePurchases.getProducts({
       productIdentifiers: Object.values(PLAY_PRODUCT_IDS),

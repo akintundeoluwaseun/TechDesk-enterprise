@@ -9,6 +9,23 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-06c",
+    date: "6 October 2026",
+    title: "TechDesk 4.13: plans are monthly now",
+    items: [
+      {
+        icon: "ticket",
+        title: "$5 and $10 a month",
+        text: "Business is $5 a month and Enterprise $10, instead of a year at a time. An extra branch is $2.50 a month.",
+      },
+      {
+        icon: "shield",
+        title: "Your current plan is untouched",
+        text: "If you already paid for a year, you keep every day of it. Monthly only starts when that year runs out.",
+      },
+    ],
+  },
+  {
     id: "2026-10-06b",
     date: "6 October 2026",
     title: "TechDesk 4.12.11: the Assistant shows you what to say",

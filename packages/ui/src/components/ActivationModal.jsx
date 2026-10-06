@@ -12,19 +12,22 @@ import { licenceActive, daysLeft } from "../lib/licenceTerm";
 import { PLAY_STORE } from "../lib/store";
 import { formatCode } from "../lib/activationCode";
 import { platform } from "@techdesk/platform";
-import { useLocalPrice } from "../lib/localPrice";
 
 // Shown until the server's price list arrives, and if it never does. The
 // checkout itself always charges the server's price, never these.
+// Only used until the server's own price list arrives; plans are monthly,
+// in US dollars.
 const FALLBACK_PRICES = {
-  business: { amount: 10000 },
-  enterprise: { amount: 20000 },
-  upgrade_enterprise: { amount: 10000 },
-  branch: { amount: 5000 },
+  business: { amount: 5 },
+  enterprise: { amount: 10 },
+  upgrade_enterprise: { amount: 5 },
+  branch: { amount: 2.5 },
 };
 
-function naira(n) {
-  return `₦${Number(n || 0).toLocaleString("en-NG")}`;
+/** $5, or $2.50 -- cents only when there are any. */
+function usd(n) {
+  const v = Number(n || 0);
+  return `$${v.toLocaleString("en-US", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 })}`;
 }
 
 // The licence screen.
@@ -74,9 +77,6 @@ export default function ActivationModal({ onClose }) {
   const t = useThemeTokens();
   const { pin, tier, boughtTier, unlocks, verifyCode, licence, refreshLicence, grantFromServer } = useLicense();
   const [prices, setPrices] = useState(FALLBACK_PRICES);
-  // Outside Nigeria, each price also in the shop's own money (charged in Naira).
-  const { local } = useLocalPrice();
-  const withLocal = (n) => (local(n) ? ` (${local(n)})` : "");
   useEffect(() => {
     let live = true;
     Promise.resolve(checkout.prices?.()).then((p) => { if (live && p && Object.keys(p).length) setPrices({ ...FALLBACK_PRICES, ...p }); });
@@ -84,7 +84,7 @@ export default function ActivationModal({ onClose }) {
   }, []);
 
   // What the chosen purchase is: a plan (new or a renewal), or the
-  // Business -> Enterprise upgrade, which costs less for the rest of the year.
+  // Business -> Enterprise upgrade, which costs less for the rest of the month.
   const running = licenceActive(licence);
   const left = daysLeft(licence);
   const upgradeOnly = tier === "business";
@@ -93,7 +93,7 @@ export default function ActivationModal({ onClose }) {
   }
   function priceFor(candidate) {
     if (productFor(candidate) === "upgrade") {
-      // Only for what is left of the Business year -- the server's quote,
+      // Only for what is left of the Business term -- the server's quote,
       // the same number the order will charge.
       const quote = licence?.upgrade;
       return quote?.eligible ? Number(quote.amount) : prices.upgrade_enterprise?.amount;
@@ -151,7 +151,7 @@ export default function ActivationModal({ onClose }) {
   const paid = tier !== "free";
   const newest = unlocks.length ? unlocks[unlocks.length - 1] : null;
   const upgradeOptions = TIERS.filter((candidate) => isUpgrade(tier, candidate));
-  // Renewing: the plan this device is on, a year at a time.
+  // Renewing: the plan this device is on, a month at a time.
   const renewTier = tier !== "free" && licence?.found ? tier : null;
   const [renewing, setRenewing] = useState(false);
   const chosen = chosenTier ? TIER_META[chosenTier] : null;
@@ -303,8 +303,8 @@ export default function ActivationModal({ onClose }) {
     await claim(order.txRef);
   }
 
-  // A Google Play purchase -> the server checks it with Google -> the year
-  // starts -> it's consumed, so it can be bought again next year.
+  // A Google Play purchase -> the server checks it with Google -> the month
+  // starts -> it's consumed, so it can be bought again next month.
   async function playActivate(p, { quiet = false } = {}) {
     const res = await checkout.playVerify(pin, p.productId, p.token);
     const out = await grantFromServer(res, `PLAY:${p.token}`);
@@ -400,7 +400,7 @@ export default function ActivationModal({ onClose }) {
           ) : (
             <p className={`text-sm mb-4 ${t.textSecondary}`}>
               {licence?.found && !running && boughtTier !== "free"
-                ? `Your ${TIER_META[licence.tier]?.label || "plan"} year ended on ${humanDate(licence.expiresAt)}. Renew to switch it back on — your records are all still here.`
+                ? `Your ${TIER_META[licence.tier]?.label || "plan"} plan ended on ${humanDate(licence.expiresAt)}. Renew to switch it back on — your records are all still here.`
                 : <>You&rsquo;re on {meta.label} &mdash; a whole working shop, free, forever. This is where you open the rest.</>}
             </p>
           )
@@ -429,12 +429,12 @@ export default function ActivationModal({ onClose }) {
         {/* Pay online: the three things a shop can buy, always in the same
             place. The ones that don't apply to this device say why. */}
         {!chosenTier && !branchForm && view === "pay" && [
-          // On Google Play, buying the plan you're on is the renewal: another year on top.
-          { id: "business", label: tier === "business" && billing ? "Renew Business" : "Activate Business", price: prices.business?.amount, per: "a year",
+          // On Google Play, buying the plan you're on is the renewal: another month on top.
+          { id: "business", label: tier === "business" && billing ? "Renew Business" : "Activate Business", price: prices.business?.amount, per: "a month",
             off: tier === "enterprise" ? "You're on Enterprise" : tier === "business" && !billing ? "You're on Business" : null, go: () => (billing ? playBuy("business") : pick("business")) },
-          { id: "enterprise", label: tier === "enterprise" && billing ? "Renew Enterprise" : "Activate Enterprise", price: prices.enterprise?.amount, per: "a year",
+          { id: "enterprise", label: tier === "enterprise" && billing ? "Renew Enterprise" : "Activate Enterprise", price: prices.enterprise?.amount, per: "a month",
             off: tier === "enterprise" && !billing ? "You're on Enterprise" : tier === "business" ? "You're on Business: use Upgrade below" : null, go: () => (billing ? playBuy("enterprise") : pick("enterprise")) },
-          { id: "upgrade", label: "Upgrade Business → Enterprise", price: tier === "business" && !billing ? priceFor("enterprise") : prices.upgrade_enterprise?.amount, per: "for the rest of your Business year",
+          { id: "upgrade", label: "Upgrade Business → Enterprise", price: tier === "business" && !billing ? priceFor("enterprise") : prices.upgrade_enterprise?.amount, per: "for the rest of your Business month",
             off: tier === "free" ? "For shops already on Business" : tier === "enterprise" ? "You're on Enterprise" : null, go: () => (billing ? playBuy("upgrade") : pick("enterprise")) },
         ].map((o) => (
           <button key={o.id} type="button" onClick={o.go} disabled={!!o.off || !!playBusy}
@@ -444,8 +444,8 @@ export default function ActivationModal({ onClose }) {
               <span className={`block text-xs font-semibold mt-0.5 ${t.textSecondary}`}>
                 {o.off ? o.off
                   : playBusy === o.id ? "Waiting for Google Play…"
-                  : billing ? <>{playPrices[billing.ids[o.id]] || naira(o.price)} {o.per}</>
-                  : testing ? "Free while we test" : <>{naira(o.price)}{withLocal(o.price)} {o.per}</>}
+                  : billing ? <>{playPrices[billing.ids[o.id]] || usd(o.price)} {o.per}</>
+                  : testing ? "Free while we test" : <>{usd(o.price)} {o.per}</>}
               </span>
             </span>
             {!o.off && <ChevronRight className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />}
@@ -462,7 +462,7 @@ export default function ActivationModal({ onClose }) {
             <span className="min-w-0">
               <span className={`block font-semibold ${t.textPrimary}`}>Renew {TIER_META[renewTier].label}</span>
               <span className={`block text-xs mt-0.5 ${t.textMuted}`}>
-                {naira(prices[renewTier]?.amount)} for another year{running ? `, added on after ${humanDate(licence.expiresAt)}` : ""}
+                {usd(prices[renewTier]?.amount)} for another month{running ? `, added on after ${humanDate(licence.expiresAt)}` : ""}
               </span>
             </span>
             <RefreshCw className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
@@ -483,7 +483,7 @@ export default function ActivationModal({ onClose }) {
             <span className="min-w-0">
               <span className={`block font-semibold ${t.textPrimary}`}>Add head-office branches</span>
               <span className={`block text-xs mt-0.5 ${t.textMuted}`}>
-                2 are included. {naira(prices.branch?.amount)} a year for each one after that.
+                2 are included. {usd(prices.branch?.amount)} a month for each one after that.
               </span>
             </span>
             <Building2 className={`w-4 h-4 shrink-0 ${t.textMuted}`} aria-hidden="true" />
@@ -516,7 +516,7 @@ export default function ActivationModal({ onClose }) {
                 className={`w-20 rounded-xl px-3 py-2.5 text-sm outline-none ${t.inputBg}`}
               />
               <span className={`text-sm font-semibold ${t.textPrimary}`}>
-                {naira((prices.branch?.amount || 0) * branchQty)} a year
+                {usd((prices.branch?.amount || 0) * branchQty)} a month
               </span>
             </div>
             {payStep === "idle" && (
@@ -542,7 +542,7 @@ export default function ActivationModal({ onClose }) {
           <>
             {chosenTier && renewing && (
               <div className={`rounded-xl p-4 mb-4 text-sm ${t.insetBg} ${t.textSecondary}`}>
-                Another year of {chosen.label} for {naira(prices[chosenTier]?.amount)}
+                Another month of {chosen.label} for {usd(prices[chosenTier]?.amount)}
                 {running ? `, added on after ${humanDate(licence.expiresAt)} so you lose nothing by renewing early.` : ", starting today."}
               </div>
             )}
@@ -561,9 +561,9 @@ export default function ActivationModal({ onClose }) {
                   {testing
                     ? "Free while TechDesk is being tested."
                     : productFor(chosenTier) === "upgrade" && !renewing
-                      ? `${naira(priceFor(chosenTier))}${withLocal(priceFor(chosenTier))} for the rest of your Business year, then ${naira(prices.enterprise?.amount)} a year.`
-                      : `${naira(prices[chosenTier]?.amount)}${withLocal(prices[chosenTier]?.amount)} a year.`}{" "}
-                  {local(prices[chosenTier]?.amount) ? "You pay in Naira; your bank converts it. " : ""}
+                      ? `${usd(priceFor(chosenTier))} for the rest of your Business month, then ${usd(prices.enterprise?.amount)} a month.`
+                      : `${usd(prices[chosenTier]?.amount)} a month.`}{" "}
+                  {"Charged in Naira at the day\u2019s rate; your bank converts it. "}
                   Your records stay exactly where they are &mdash; nothing to download, nothing to reinstall.
                 </p>
               </div>
@@ -783,7 +783,7 @@ function CodeEntry({ t, pin, showPin = true, open: startOpen, verifyCode, refres
   return (
     <div className={`rounded-xl p-4 mb-4 ${t.insetBg}`}>
       <div className={`text-sm font-semibold ${t.textPrimary}`}>Activation code</div>
-      <p className={`text-xs mt-1 ${t.textSecondary}`}>Type the code TechDesk sent for this PIN. Be online the first time, so your year starts.</p>
+      <p className={`text-xs mt-1 ${t.textSecondary}`}>Type the code TechDesk sent for this PIN. Be online the first time, so your month starts.</p>
       {showPin && <p className={`text-xs mt-2 ${t.textMuted}`}>
         This device&rsquo;s PIN: <span className={`font-mono font-semibold tracking-wider ${t.textPrimary}`}>{pin || "…"}</span>
       </p>}
