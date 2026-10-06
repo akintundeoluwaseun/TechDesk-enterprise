@@ -519,6 +519,20 @@ function pickNudge(user, money) {
 
 const EXAMPLES = ["How much did I sell today?", "Who owes me?", "What's running low?", "Which repairs are ready but not collected?"];
 
+// What the box offers to say while it is empty. A shop that has never used
+// the Assistant can't tell from a mic button whether it types what it hears
+// or actually does the work, so the box shows both kinds in turn: a job it
+// will prepare, and a question it will answer.
+const TRY = [
+  "Sell 2 screen guards to Bola for 12,500",
+  "Who owes me?",
+  "Take in Chidi's laptop, screen replacement, 40k",
+  "What's running low?",
+  "How much did I sell today?",
+  "Add 10 chargers to stock at 2,500 each",
+];
+const TRY_MS = 3600;
+
 let msgSeq = 0;
 const mid = () => `m${Date.now().toString(36)}${(msgSeq++).toString(36)}`;
 
@@ -538,6 +552,7 @@ export default function VoiceOrder() {
   const [practice, setPractice] = useState(null); // null | {step, results}
   const [left, setLeft] = useState(null);
   const [photoMenu, setPhotoMenu] = useState(false);
+  const [tryIdx, setTryIdx] = useState(0);
   const [busyText, setBusyText] = useState("");
   const [nudge, setNudge] = useState(null); // the robot's speech bubble
   const [showExamples, setShowExamples] = useState(false);
@@ -578,6 +593,14 @@ export default function VoiceOrder() {
     const hide = setTimeout(() => setNudge(null), 14000);
     return () => clearTimeout(hide);
   }, [nudge]);
+
+  // The examples move on while the box sits empty, and stop the moment the
+  // shop starts typing or talking, so nothing changes under them.
+  useEffect(() => {
+    if (!open || input || recording || busy) return undefined;
+    const next = setTimeout(() => setTryIdx((i) => (i + 1) % TRY.length), TRY_MS);
+    return () => clearTimeout(next);
+  }, [open, input, recording, busy, tryIdx]);
 
   // Talking and typing need the AI; quick actions don't, so the robot stays
   // even when the console has paused the AI.
@@ -963,7 +986,7 @@ export default function VoiceOrder() {
               <div className="flex-1 min-w-0">
                 <div className="font-semibold leading-tight">TechDesk Assistant</div>
                 <div className="text-xs text-white/80 truncate">
-                  {recording ? "Listening…" : busy ? "Working…" : left != null ? `Here to help · ${Math.max(0, left)} AI uses left today` : "Here to help"}
+                  {recording ? "Listening…" : busy ? "Working…" : left != null ? `Ask. Speak. Get things done. · ${Math.max(0, left)} left today` : "Ask. Speak. Get things done."}
                 </div>
               </div>
               {!practice && aiOn && (
@@ -1251,7 +1274,7 @@ export default function VoiceOrder() {
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Type, or hold the mic and talk…"
+                  placeholder={`Try: ${TRY[tryIdx]}`}
                   aria-label="Message"
                   className={`flex-1 min-w-0 rounded-full px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
                 />
