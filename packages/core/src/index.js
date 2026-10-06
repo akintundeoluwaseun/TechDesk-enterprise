@@ -80,3 +80,4 @@ export { debtors, debtorKey, chaseMessage, markChased, setPromise, recordPayment
 export { answerQuestion, quickIntent, PERIOD_LABEL } from "./assistantAnswers";
 export { assistantHistory, addHistory, clearHistory } from "./assistantHistory";
 export { buildRestockPlan, restockSettings, saveRestockSettings, fitToBudget, orderTotal, orderText, receiveOrder, runRestockUndo, salesRates } from "./restockPlanner";
+export { sendBackToSupplier, settleSupplierReturn, outstandingCredit, creditTotal, RETURN_REASONS } from "./supplierReturns";

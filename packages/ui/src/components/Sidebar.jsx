@@ -17,6 +17,7 @@ import {
   ShieldCheck,
   Sparkles, Sunrise, Wallet, PackageSearch, MoreHorizontal, ChevronDown } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
+import MoreSheet, { moreItems } from "./MoreSheet";
 import { IS_DESKTOP_APP } from "../lib/platform";
 import { useAuth, canAccess } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
@@ -134,11 +135,13 @@ export default function Sidebar({ onOpenActivation }) {
       </div>
 
       <div className="flex flex-col gap-2">
-        {/* The extras sit behind "More" so the sidebar stays short, like the phone menu. */}
+        {/* The extras open as a sheet. They used to expand in place, which
+            made the menu taller than a small phone could show -- and worse in
+            landscape -- so the thing you wanted sat below the fold. */}
         <button
           type="button"
-          onClick={() => setMoreOpen((v) => !v)}
-          aria-expanded={moreOpen}
+          onClick={() => setMoreOpen(true)}
+          aria-haspopup="dialog"
           title={collapsed ? "More" : undefined}
           className={`relative flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium ${collapsed ? "justify-center" : ""} ${
             t.dark ? "text-neutral-300 hover:bg-white/5" : "text-neutral-600 hover:bg-black/5"
@@ -146,8 +149,7 @@ export default function Sidebar({ onOpenActivation }) {
         >
           <MoreHorizontal className="w-[18px] h-[18px] shrink-0" strokeWidth={2} />
           {!collapsed && "More"}
-          {!collapsed && <ChevronDown className={`w-4 h-4 ml-auto transition-transform ${moreOpen ? "rotate-180" : ""}`} />}
-          {unseenUpdate && !moreOpen && (
+          {unseenUpdate && (
             <span className="absolute top-1.5 left-[26px] flex w-2 h-2">
               <span className="absolute inset-0 rounded-full bg-sky-400 animate-ping" />
               <span className="relative w-2 h-2 rounded-full bg-sky-500" />
@@ -155,58 +157,10 @@ export default function Sidebar({ onOpenActivation }) {
           )}
         </button>
         {moreOpen && (
-          <div className={`flex flex-col gap-1 ${collapsed ? "" : "pl-3"}`}>
-        {canAccess(user, "/inventory") && (
-              <button
-                onClick={openRestock}
-                title={collapsed ? "Restock planner" : undefined}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium ${collapsed ? "justify-center" : ""} ${
-                  t.dark ? "text-neutral-300 hover:bg-white/5" : "text-neutral-600 hover:bg-black/5"
-                }`}
-              >
-                <PackageSearch className="w-[18px] h-[18px] shrink-0" strokeWidth={2} />
-                {!collapsed && "Restock planner"}
-              </button>
-            )}
-            {canAccess(user, "/sales") && (
-              <button
-                onClick={() => openChaser()}
-                title={collapsed ? "Money owed" : undefined}
-                className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium ${collapsed ? "justify-center" : ""} ${
-                  t.dark ? "text-neutral-300 hover:bg-white/5" : "text-neutral-600 hover:bg-black/5"
-                }`}
-              >
-                <Wallet className="w-[18px] h-[18px] shrink-0" strokeWidth={2} />
-                {!collapsed && "Money owed"}
-              </button>
-            )}
-            <button
-              onClick={openBrief}
-              title={collapsed ? "Morning brief" : undefined}
-              className={`flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium ${collapsed ? "justify-center" : ""} ${
-                t.dark ? "text-neutral-300 hover:bg-white/5" : "text-neutral-600 hover:bg-black/5"
-              }`}
-            >
-              <Sunrise className="w-[18px] h-[18px] shrink-0" strokeWidth={2} />
-              {!collapsed && "Morning brief"}
-            </button>
-            <button
-              onClick={openWhatsNew}
-              title={collapsed ? "What's new" : undefined}
-              className={`relative flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium ${collapsed ? "justify-center" : ""} ${
-                t.dark ? "text-neutral-300 hover:bg-white/5" : "text-neutral-600 hover:bg-black/5"
-              }`}
-            >
-              <Sparkles className="w-[18px] h-[18px] shrink-0" strokeWidth={2} />
-              {!collapsed && "What’s new"}
-              {unseenUpdate && (
-                <span className="absolute top-1.5 left-[26px] flex w-2 h-2">
-                  <span className="absolute inset-0 rounded-full bg-sky-400 animate-ping" />
-                  <span className="relative w-2 h-2 rounded-full bg-sky-500" />
-                </span>
-              )}
-            </button>
-          </div>
+          <MoreSheet
+            onClose={() => setMoreOpen(false)}
+            items={moreItems({ user, unseenUpdate, openRestock, openChaser: () => openChaser(), openBrief, openWhatsNew })}
+          />
         )}
         <button
           onClick={onOpenActivation}

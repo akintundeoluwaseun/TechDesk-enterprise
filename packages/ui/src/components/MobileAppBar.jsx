@@ -28,6 +28,7 @@ import { useSettings } from "../lib/SettingsContext";
 import { useLicense } from "../lib/LicenseContext";
 import { tierLabel } from "../lib/tier";
 import { useHelp } from "../lib/HelpContext";
+import MoreSheet, { moreItems } from "./MoreSheet";
 import { searchEverything } from "../lib/searchAll";
 import { notificationFeed, notifStyle, timeAgo, isUnread, unreadCount } from "../lib/notifications";
 import { IS_ANDROID_APP, IS_DESKTOP_APP } from "../lib/platform";
@@ -355,81 +356,19 @@ export default function MobileAppBar({ onOpenActivation }) {
             </div>
 
             <div className={`border-t ${t.divider} p-2`}>
-              {/* The extras live behind "More" so the menu stays short. */}
+              {/* The extras open as a sheet. Expanding them in place made
+                  the drawer taller than a small phone can show -- and in
+                  landscape, far taller -- so whatever you were reaching for
+                  ended up below the fold. */}
               <button
                 type="button"
-                onClick={() => setMoreOpen((v) => !v)}
-                aria-expanded={moreOpen}
+                onClick={() => setMoreOpen(true)}
+                aria-haspopup="dialog"
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
               >
                 <MoreHorizontal className="w-[18px] h-[18px] shrink-0" /> More
-                {unseenUpdate && !moreOpen && <span className="w-2 h-2 rounded-full bg-sky-500" aria-label="Something new" />}
-                <ChevronDown className={`w-4 h-4 ml-auto transition-transform ${moreOpen ? "rotate-180" : ""} ${t.textMuted}`} />
+                {unseenUpdate && <span className="w-2 h-2 rounded-full bg-sky-500" aria-label="Something new" />}
               </button>
-              {moreOpen && (
-              <div className="pl-3">
-              <button
-                  onClick={toggleDark}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
-                >
-                  {dark ? <Moon className="w-[18px] h-[18px] shrink-0" /> : <Sun className="w-[18px] h-[18px] shrink-0" />}
-                  {dark ? "Dark mode" : "Light mode"}
-                </button>
-                <button
-                  onClick={() => {
-                    setDrawer(false);
-                    openHelp();
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
-                >
-                  <HelpCircle className="w-[18px] h-[18px] shrink-0" /> Help
-                </button>
-                {canAccess(user, "/inventory") && (
-                  <button
-                    onClick={() => {
-                      setDrawer(false);
-                      openRestock();
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
-                  >
-                    <PackageSearch className="w-[18px] h-[18px] shrink-0" /> Restock planner
-                  </button>
-                )}
-                {canAccess(user, "/sales") && (
-                  <button
-                    onClick={() => {
-                      setDrawer(false);
-                      openChaser();
-                    }}
-                    className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
-                  >
-                    <Wallet className="w-[18px] h-[18px] shrink-0" /> Money owed
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setDrawer(false);
-                    openBrief();
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
-                >
-                  <Sunrise className="w-[18px] h-[18px] shrink-0" /> Morning brief
-                </button>
-                <button
-                  onClick={() => {
-                    setDrawer(false);
-                    openWhatsNew();
-                  }}
-                  className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl text-[15px] font-medium ${t.textPrimary}`}
-                >
-                  <Sparkles className="w-[18px] h-[18px] shrink-0" /> What&rsquo;s new
-                  {unseenUpdate && (
-                    <span className="ml-auto text-[11px] font-semibold px-2 py-0.5 rounded-full bg-sky-500 text-white">New</span>
-                  )}
-                </button>
-
-              </div>
-              )}
 
               {/* Always. This was behind `!activated`, with `activated`
                   hardcoded true a few lines up, so it never rendered once --
@@ -474,6 +413,28 @@ export default function MobileAppBar({ onOpenActivation }) {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Outside the drawer, so closing the drawer doesn't take it with it
+          and the drawer's own height can't clip it. */}
+      {moreOpen && (
+        <MoreSheet
+          onClose={() => setMoreOpen(false)}
+          items={moreItems({
+            user,
+            unseenUpdate,
+            openRestock: () => { setDrawer(false); openRestock(); },
+            openChaser: () => { setDrawer(false); openChaser(); },
+            openBrief: () => { setDrawer(false); openBrief(); },
+            openWhatsNew: () => { setDrawer(false); openWhatsNew(); },
+            extra: [
+              { label: dark ? "Dark mode" : "Light mode", icon: dark ? Moon : Sun, onClick: toggleDark,
+                tone: "bg-sky-500/15 text-sky-600 dark:text-sky-400" },
+              { label: "Help", icon: HelpCircle, onClick: () => { setDrawer(false); openHelp(); },
+                tone: "bg-violet-500/15 text-violet-600 dark:text-violet-400" },
+            ],
+          })}
+        />
       )}
     </>
   );

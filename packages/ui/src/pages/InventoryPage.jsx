@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, Search, Pencil, Trash2, ChevronDown, FileSpreadsheet, PackageSearch } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, ChevronDown, FileSpreadsheet, PackageSearch, PackageMinus } from "lucide-react";
 import Topbar from "../components/Topbar";
 import { openRestock } from "../lib/restock";
 import ProductModal from "../components/ProductModal";
+import SupplierReturnModal from "../components/SupplierReturnModal";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { db } from "../lib/db";
@@ -22,6 +23,7 @@ export default function InventoryPage() {
   const [sort, setSort] = useState("recent");
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [sendingBack, setSendingBack] = useState(false);
   // ?new=1 (from the assistant's quick actions) opens the form straight away,
   // whether or not this page was already showing.
   const [params, setParams] = useSearchParams();
@@ -162,6 +164,12 @@ export default function InventoryPage() {
               className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
             >
               <PackageSearch className="w-4 h-4" /> Restock planner
+            </button>
+            <button
+              onClick={() => setSendingBack(true)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold ${t.pillBg}`}
+            >
+              <PackageMinus className="w-4 h-4" /> Send back
             </button>
             <button
               data-tour="page-export"
@@ -343,6 +351,12 @@ export default function InventoryPage() {
         )}
       </div>
 
+      {sendingBack && (
+        <SupplierReturnModal
+          onClose={() => setSendingBack(false)}
+          onDone={() => setProducts(db.getInventory())}
+        />
+      )}
       {showModal && (
         <ProductModal
           product={editingProduct}

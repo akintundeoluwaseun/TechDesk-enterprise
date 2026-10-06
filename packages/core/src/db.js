@@ -19,6 +19,9 @@ const KEYS = {
   settings: "techdesk_settings",
   users: "techdesk_users",
   counters: "techdesk_counters",
+  // Goods sent back to a supplier. Not a customer return: no invoice, nobody
+  // refunded, no customer involved -- stock leaving for a credit note.
+  supplierReturns: "techdesk_supplier_returns",
   // Deleting a record removes it from the list, which leaves HQ no way to
   // learn it is gone -- the row would sit there forever. A tombstone is the
   // note that says so.
@@ -330,6 +333,27 @@ export const db = {
   },
 
   // ---- Activity log ----
+  // ---- Returns to a supplier ----
+  getSupplierReturns: () => read(KEYS.supplierReturns),
+  addSupplierReturn: (entry) => {
+    const list = read(KEYS.supplierReturns);
+    const record = stamp({ id: uid("sret"), createdAt: new Date().toISOString(), ...entry });
+    list.unshift(record);
+    write(KEYS.supplierReturns, list);
+    return record;
+  },
+  updateSupplierReturn: (id, patch) => {
+    const list = read(KEYS.supplierReturns);
+    const idx = list.findIndex((r) => r.id === id);
+    if (idx < 0) return null;
+    list[idx] = stamp({ ...list[idx], ...patch });
+    write(KEYS.supplierReturns, list);
+    return list[idx];
+  },
+  deleteSupplierReturn: (id) => {
+    write(KEYS.supplierReturns, read(KEYS.supplierReturns).filter((r) => r.id !== id));
+  },
+
   logActivity: dbLogActivity,
   getActivity: () => read(KEYS.activity),
   // Pushes current state to the LAN activity server (if running in Electron)
