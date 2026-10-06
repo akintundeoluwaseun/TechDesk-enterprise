@@ -79,7 +79,17 @@ export default function ActivationModal({ onClose }) {
   const [prices, setPrices] = useState(FALLBACK_PRICES);
   useEffect(() => {
     let live = true;
-    Promise.resolve(checkout.prices?.()).then((p) => { if (live && p && Object.keys(p).length) setPrices({ ...FALLBACK_PRICES, ...p }); });
+    Promise.resolve(checkout.prices?.()).then((p) => {
+      if (!live || !p || !Object.keys(p).length) return;
+      // Everything here is written with a $ in front of it, so a row still
+      // priced in another currency would read as dollars and be wildly wrong
+      // -- 10,000 naira shown as $10,000. Until the server's list is in
+      // dollars, that row keeps the figure above instead.
+      const usdOnly = Object.fromEntries(
+        Object.entries(p).filter(([, v]) => !v.currency || v.currency === "USD"),
+      );
+      setPrices({ ...FALLBACK_PRICES, ...usdOnly });
+    });
     return () => { live = false; };
   }, []);
 

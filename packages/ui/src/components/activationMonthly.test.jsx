@@ -153,3 +153,22 @@ describe("monthly plans", () => {
     expect(verifyCode).not.toHaveBeenCalled();
   });
 });
+
+// The server's price list and the app can be a deploy apart. Everything in
+// this screen is written with a $ in front of it, so a row that is still in
+// another currency must not be shown -- 10,000 naira would read as $10,000.
+describe("a price list that hasn't caught up", () => {
+  it("ignores a row that isn't in dollars and shows the app's own price", async () => {
+    state.tier = "free";
+    prices.mockResolvedValue({
+      business: { amount: 10000, currency: "NGN" },
+      enterprise: { amount: 20000, currency: "NGN" },
+    });
+    open();
+    fireEvent.click(screen.getByRole("button", { name: /Pay online/i }));
+    await waitFor(() => expect(document.body.textContent).toContain("$5 a month"));
+    expect(document.body.textContent).toContain("$10 a month");
+    expect(document.body.textContent).not.toContain("10,000");
+    state.tier = "business";
+  });
+});
