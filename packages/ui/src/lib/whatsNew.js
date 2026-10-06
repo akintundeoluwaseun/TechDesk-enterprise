@@ -9,6 +9,23 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-06e",
+    date: "6 October 2026",
+    title: "TechDesk 4.14: returns, and your customer list stays yours",
+    items: [
+      {
+        icon: "back",
+        title: "A Return button on every sale",
+        text: "Pick the item, say how many came back and what you handed over. The sale, the shelf and your reports all move together.",
+      },
+      {
+        icon: "shield",
+        title: "Staff see a day of sales",
+        text: "Sales older than 24 hours are now the owner's to see. Staff keep today's, so they can still reprint a receipt or take a return. Stock and repairs are unchanged.",
+      },
+    ],
+  },
+  {
     id: "2026-10-06d",
     date: "6 October 2026",
     title: "TechDesk 4.13.1: fixes you asked for",

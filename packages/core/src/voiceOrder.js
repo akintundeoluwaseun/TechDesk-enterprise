@@ -669,24 +669,12 @@ export function apply(drafts, { actor } = {}) {
         log("sale", `Cancelling ${before.invoice} undone`, before.id, actor);
       });
     } else if (d.type === "return") {
-      const before = db.getSales().find((x) => x.id === d.pick.saleId);
-      const item = before?.items?.[d.pick.idx];
-      if (!item) continue;
-      const out = returnPlan(before, d.pick.idx, d.qty, d.refund);
-      db.updateSale(before.id, out.patch);
-      if (item.fromInventory && item.productId) {
-        const p = db.findInventoryItem(item.productId);
-        if (p) db.updateInventoryItem(item.productId, { stock: Number(p.stock || 0) + out.back });
-      }
-      log("sale", `Return: ${out.back} × ${item.name} from ${before.customerName || "a customer"} (${before.invoice}), ${out.refund} refunded`, before.id, actor);
-      undo.unshift(() => {
-        db.updateSale(before.id, { items: before.items, subtotal: before.subtotal, total: before.total, amountPaid: before.amountPaid, paymentStatus: before.paymentStatus, returns: before.returns || [] });
-        if (item.fromInventory && item.productId) {
-          const p = db.findInventoryItem(item.productId);
-          if (p) db.updateInventoryItem(item.productId, { stock: Math.max(0, Number(p.stock || 0) - out.back) });
-        }
-        log("sale", `Return on ${before.invoice} undone`, before.id, actor);
+      const done = recordReturn(d.pick.saleId, d.pick.idx, {
+        qty: d.qty, refund: d.refund, actor,
+        by: logSource === "photo" ? "from a notebook photo" : "by voice",
       });
+      if (!done) continue;
+      undo.unshift(done.undo);
     } else if (d.type === "payment") {
       if (d.target.kind === "sale") {
         const before = db.getSales().find((s) => s.id === d.target.id);
@@ -720,6 +708,50 @@ export function apply(drafts, { actor } = {}) {
  * total drops by its price, and whatever they had now overpaid is the
  * refund -- unless the shop said how much was given back.
  */
+/**
+ * Puts one line of a sale back: the sale's own figures, the stock it came
+ * from, the activity log, and a way to undo all three.
+ *
+ * The Assistant has done returns since it could hear "the laptop John bought
+ * yesterday was returned"; the Sales page had no way to do one at all. Both
+ * go through here, so a return by hand and a return by voice leave the shop
+ * in exactly the same state.
+ */
+export function recordReturn(saleId, idx, { qty, refund, actor, by = "by hand" } = {}) {
+  const before = db.getSales().find((x) => x.id === saleId);
+  const item = before?.items?.[idx];
+  if (!item) return null;
+  const out = returnPlan(before, idx, qty, refund);
+  db.updateSale(before.id, out.patch);
+  if (item.fromInventory && item.productId) {
+    const p = db.findInventoryItem(item.productId);
+    if (p) db.updateInventoryItem(item.productId, { stock: Number(p.stock || 0) + out.back });
+  }
+  db.logActivity({
+    type: "sale",
+    message: `Return: ${out.back} × ${item.name} from ${before.customerName || "a customer"} (${before.invoice}), ${out.refund} refunded (${by})`,
+    refId: before.id,
+    actor,
+  });
+  return {
+    ...out,
+    item,
+    sale: before,
+    undo() {
+      db.updateSale(before.id, {
+        items: before.items, subtotal: before.subtotal, total: before.total,
+        amountPaid: before.amountPaid, paymentStatus: before.paymentStatus,
+        returns: before.returns || [],
+      });
+      if (item.fromInventory && item.productId) {
+        const p = db.findInventoryItem(item.productId);
+        if (p) db.updateInventoryItem(item.productId, { stock: Math.max(0, Number(p.stock || 0) - out.back) });
+      }
+      db.logActivity({ type: "sale", message: `Return on ${before.invoice} undone`, refId: before.id, actor });
+    },
+  };
+}
+
 export function returnPlan(sale, idx, qty, refund) {
   const item = sale.items[idx];
   const back = Math.min(Number(item.qty || 0), qty != null ? Number(qty) : Number(item.qty || 0));

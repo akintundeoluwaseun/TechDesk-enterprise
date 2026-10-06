@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, Search, MessageCircle, Printer, FileText, Receipt, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, MessageCircle, Printer, FileText, Receipt, Pencil, Trash2, Undo2, Lock } from "lucide-react";
 import Topbar from "../components/Topbar";
 import NewSaleModal from "../components/NewSaleModal";
 import PrintSizeModal from "../components/PrintSizeModal";
 import PeriodGroup from "../components/PeriodGroup";
+import ReturnModal from "../components/ReturnModal";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
-import { salesSummary, groupByPeriod } from "@techdesk/core";
+import { salesSummary, groupByPeriod, visibleSales } from "@techdesk/core";
 import { generateInvoicePdf } from "../lib/generateInvoicePdf";
 import { generateThermalReceiptPdf } from "../lib/generateThermalReceipt";
 import { openWhatsApp, saleMessage } from "../lib/share";
@@ -74,12 +75,17 @@ export default function SalesPage() {
   // newest group can start open even when it is "This Month" -- a quiet week
   // otherwise opened on a page of shut headers that looked empty.
   const [flippedGroups, setFlippedGroups] = useState(() => new Set());
+  const [returning, setReturning] = useState(null);
 
   // Today first. The line here said "340 total transactions", which is a
   // number that only goes up and tells a shop nothing about their day.
   const summary = salesSummary(sales);
 
-  const filtered = sales.filter(
+  // A day's worth, for anyone but the owner -- see visibleSales for why.
+  const visible = visibleSales(sales, { isAdmin });
+  const hiddenCount = sales.length - visible.length;
+
+  const filtered = visible.filter(
     (s) =>
       s.invoice?.toLowerCase().includes(search.toLowerCase()) ||
       s.customerName?.toLowerCase().includes(search.toLowerCase())
@@ -258,6 +264,14 @@ export default function SalesPage() {
           >
             <Pencil className="w-4 h-4 shrink-0" /> Edit
           </button>
+          {(sale.items || []).length > 0 && (
+            <button
+              onClick={() => setReturning(sale)}
+              className={`flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium ${t.pillBg}`}
+            >
+              <Undo2 className="w-4 h-4 shrink-0" /> Return
+            </button>
+          )}
           <button
             onClick={() => handleDelete(sale)}
             className="flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium text-red-500 bg-red-500/10"
@@ -310,8 +324,14 @@ export default function SalesPage() {
 
       {filtered.length === 0 ? (
         <div className={`rounded-2xl p-16 text-center ${t.cardBg}`}>
-          <div className={`font-semibold ${t.textPrimary} mb-1`}>No sales yet</div>
-          <div className={`text-sm ${t.textMuted}`}>Sales will appear here</div>
+          <div className={`font-semibold ${t.textPrimary} mb-1`}>
+            {hiddenCount > 0 ? "Nothing from today" : "No sales yet"}
+          </div>
+          <div className={`text-sm ${t.textMuted}`}>
+            {hiddenCount > 0
+              ? "Today's sales show here. Older ones are kept, and the owner can see them."
+              : "Sales will appear here"}
+          </div>
         </div>
       ) : isSearching ? (
         <div className="td-stagger flex flex-col gap-3">{filtered.map(renderSaleCard)}</div>
@@ -331,6 +351,21 @@ export default function SalesPage() {
         </div>
       )}
 
+      {hiddenCount > 0 && (
+        <p className={`flex items-center justify-center gap-2 mt-5 text-xs ${t.textMuted}`}>
+          <Lock className="w-3.5 h-3.5 shrink-0" />
+          {hiddenCount} older sale{hiddenCount === 1 ? "" : "s"} {hiddenCount === 1 ? "is" : "are"} kept
+          for the owner. Nothing is lost.
+        </p>
+      )}
+
+      {returning && (
+        <ReturnModal
+          sale={returning}
+          onClose={() => setReturning(null)}
+          onDone={() => setSales(db.getSales())}
+        />
+      )}
       {printing && (
         <PrintSizeModal
           title={`Print ${printing.invoice || "receipt"}`}

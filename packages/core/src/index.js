@@ -38,8 +38,7 @@ export {
   isToday, startOfDay, startOfWeek, startOfMonth, groupByPeriod,
   repairTotal, repairOwed, saleOwed, isOpenRepair,
   repairsSummary, salesSummary, customerKey, customerTotals, customersSummary,
-  pendingPaymentsSummary,
-} from "./summary";
+  pendingPaymentsSummary, visibleSales, SALES_WINDOW_MS } from "./summary";
 
 export { computeReport, reportToCsv, getRangeStart } from "./reports";
 
@@ -55,7 +54,7 @@ export { searchDestinations, DESTINATIONS } from "./destinations";
 export { rowsToCsv } from "./csv";
 export { checkout } from "./checkout";
 export { readAppControl, saveAppControl, featureOn, pausedResult, FEATURES } from "./appControl";
-export { voiceOrder, matchProduct, matchCustomer, matchRepair, PAYMENT_METHODS as VOICE_PAYMENT_METHODS } from "./voiceOrder";
+export { voiceOrder, matchProduct, matchCustomer, matchRepair, recordReturn, returnPlan, PAYMENT_METHODS as VOICE_PAYMENT_METHODS } from "./voiceOrder";
 export { pdfSafe } from "./pdfSafe";
 export * from "./currency";
 export { DEFAULT_LABELS, BUSINESS_PRESETS } from "./businessPresets";

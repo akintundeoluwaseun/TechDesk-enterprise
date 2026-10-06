@@ -287,3 +287,21 @@ export function pendingPaymentsSummary(sales = [], repairs = []) {
 
   return { count, total, oldestAt };
 }
+
+/**
+ * The sales a given person may look at.
+ *
+ * A sale carries the customer's name and phone number, so a worker who can
+ * scroll back through every sale the shop has ever made can walk out with the
+ * shop's customer list. They keep a day -- long enough to reprint a receipt,
+ * fix a mistake or take a return on what they sold -- and the history stays
+ * with the owner. Stock and repairs are not limited this way: there is
+ * nothing in them to take.
+ */
+export const SALES_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export function visibleSales(sales = [], { isAdmin = false, now = Date.now() } = {}) {
+  if (isAdmin) return sales;
+  const since = (now instanceof Date ? now.getTime() : now) - SALES_WINDOW_MS;
+  return sales.filter((s) => new Date(s?.createdAt || 0).getTime() >= since);
+}
