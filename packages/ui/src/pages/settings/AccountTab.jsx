@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Cloud, CheckCircle2, LogOut, LogIn, ChevronRight } from "lucide-react";
+import { Cloud, CheckCircle2, LogOut, LogIn, ChevronRight, Mail, Lock, KeyRound, User, AlertCircle } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db, CHANGED_EVENT } from "../../lib/db";
 import { account, setAccountGateDecision, getPushCursor, getPullCursor } from "../../lib/account";
@@ -7,6 +7,7 @@ import ConnectHqTab from "./ConnectHqTab";
 import DeveloperTab from "./DeveloperTab";
 import UpgradeLock from "../../components/UpgradeLock";
 import SettingsModal, { SettingsRow } from "../../components/SettingsModal";
+import Field from "../../components/Field";
 import { useAuth } from "../../lib/AuthContext";
 import { SITE_ORIGIN } from "@techdesk/editions";
 
@@ -35,6 +36,10 @@ export default function AccountTab() {
   const [hqOpen, setHqOpen] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [show, setShow] = useState(false);
+  // Set when the email already has an account, so the message can offer the
+  // way out instead of leaving the shop on a dead end. See accountLocal.signUp.
+  const [taken, setTaken] = useState(false);
   const [workerCode, setWorkerCode] = useState("");
   const [workerName, setWorkerName] = useState("");
   // Shared by confirmSignup and resetConfirm -- only one of those is ever
@@ -94,6 +99,8 @@ export default function AccountTab() {
     setError("");
     setCode("");
     setNewPassword("");
+    setTaken(false);
+    setShow(false);
   }
 
   /** The end of every path that lands this device signed in. */
@@ -155,7 +162,10 @@ export default function AccountTab() {
     const res =
       openModal === MODES.signup ? await account.signUp(email, password) : await account.signIn(email, password);
     setBusy(false);
-    if (!res.ok) return setError(res.message || "That didn't work. Try again.");
+    if (!res.ok) {
+      if (res.exists) setTaken(true);
+      return setError(res.message || "That didn't work. Try again.");
+    }
     if (res.needsConfirmation) {
       setError("");
       setOpenModal(MODES.confirmSignup);
@@ -323,101 +333,100 @@ export default function AccountTab() {
       </div>
 
       {openModal && (
-        <SettingsModal title={modalTitle} description={modalDescription} onClose={() => switchModal(null)}>
-          <form onSubmit={submit} className="flex flex-col gap-3">
+        <SettingsModal title={modalTitle} description={modalDescription} hideDone onClose={() => switchModal(null)}>
+          <form onSubmit={submit} className="flex flex-col gap-4">
             {openModal === MODES.worker ? (
               <>
-                <input
-                  type="email"
-                  placeholder="Shop's email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={input}
-                  autoFocus
+                <Field
+                  id="at-email" label="Shop's email" icon={Mail} type="email" autoComplete="email"
+                  inputMode="email" autoFocus placeholder="theshop@example.com"
+                  value={email} onChange={(e) => setEmail(e.target.value)}
                 />
-                <input
-                  value={workerCode}
+                <Field
+                  id="at-wcode" label="Code from the owner" icon={KeyRound} inputMode="numeric"
+                  placeholder="6 digits" value={workerCode}
                   onChange={(e) => setWorkerCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                  placeholder="6-digit code"
-                  inputMode="numeric"
-                  className={input}
                 />
-                <input
-                  value={workerName}
-                  onChange={(e) => setWorkerName(e.target.value)}
-                  placeholder="Your name"
-                  className={input}
+                <Field
+                  id="at-wname" label="Your name" icon={User} placeholder="So the shop knows who sold what"
+                  value={workerName} onChange={(e) => setWorkerName(e.target.value)}
                 />
               </>
             ) : openModal === MODES.confirmSignup ? (
-              <input
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                placeholder="Code from your email"
-                inputMode="numeric"
-                className={input}
-                autoFocus
+              <Field
+                id="at-code" label="Code from your email" icon={KeyRound} inputMode="numeric"
+                autoFocus placeholder="6 digits" value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                hint="It can take a minute to arrive, and it sometimes lands in spam."
               />
             ) : openModal === MODES.resetRequest ? (
-              <input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={input}
-                autoFocus
+              <Field
+                id="at-email" label="Email" icon={Mail} type="email" autoComplete="email"
+                inputMode="email" autoFocus placeholder="you@yourshop.com"
+                value={email} onChange={(e) => setEmail(e.target.value)}
               />
             ) : openModal === MODES.resetConfirm ? (
               <>
-                <input
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                  placeholder="Code from your email"
-                  inputMode="numeric"
-                  className={input}
-                  autoFocus
+                <Field
+                  id="at-code" label="Code from your email" icon={KeyRound} inputMode="numeric"
+                  autoFocus placeholder="6 digits" value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
                 />
-                <input
-                  type="password"
-                  placeholder="New password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className={input}
+                <Field
+                  id="at-newpass" label="New password" icon={Lock}
+                  type={show ? "text" : "password"} autoComplete="new-password"
+                  placeholder="At least 6 characters"
+                  value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
+                  reveal revealed={show} onReveal={() => setShow((v) => !v)}
                 />
               </>
             ) : (
               <>
-                <input
-                  type="email"
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={input}
-                  autoFocus
+                <Field
+                  id="at-email" label="Email" icon={Mail} type="email" autoComplete="email"
+                  inputMode="email" autoFocus placeholder="you@yourshop.com"
+                  value={email} onChange={(e) => { setEmail(e.target.value); setTaken(false); }}
                 />
-                <input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={input}
+                <Field
+                  id="at-pass" label="Password" icon={Lock}
+                  type={show ? "text" : "password"}
+                  autoComplete={openModal === MODES.signup ? "new-password" : "current-password"}
+                  placeholder={openModal === MODES.signup ? "At least 6 characters" : "Your password"}
+                  value={password} onChange={(e) => setPassword(e.target.value)}
+                  reveal revealed={show} onReveal={() => setShow((v) => !v)}
                 />
                 {openModal === MODES.signin && (
                   <button
                     type="button"
                     onClick={() => switchModal(MODES.resetRequest)}
-                    className={`self-start text-sm font-medium ${t.textSecondary}`}
+                    className="self-start text-sm font-medium text-indigo-500"
                   >
                     Forgot password?
                   </button>
                 )}
               </>
             )}
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && (
+              <div className="flex items-start gap-2 text-sm text-red-500">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                  {error}
+                  {taken && (
+                    <button
+                      type="button"
+                      onClick={() => switchModal(MODES.signin)}
+                      className="block mt-1.5 font-semibold underline underline-offset-4 text-indigo-500"
+                    >
+                      Sign in with this email instead
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             <button
               type="submit"
               disabled={busy}
-              className={`px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-60 ${t.pillBg}`}
+              className="py-3.5 rounded-xl font-semibold text-sm text-white bg-gradient-to-br from-indigo-600 to-sky-500 disabled:opacity-50"
             >
               {busy ? "Working…" : submitLabel}
             </button>

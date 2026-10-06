@@ -1,39 +1,13 @@
 import React, { useState } from "react";
-import { HardDrive, Mail, Lock, KeyRound, User, Eye, EyeOff, ArrowLeft, Check, AlertCircle } from "lucide-react";
+import { HardDrive, Mail, Lock, KeyRound, User, ArrowLeft, Check, AlertCircle } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { account, setAccountGateDecision } from "../lib/account";
 import { useAuth } from "../lib/AuthContext";
 import BrandMark from "../components/BrandMark";
+import Field from "../components/Field";
 
 const MODES = { choose: "choose", signup: "signup", signin: "signin", worker: "worker", confirmSignup: "confirmSignup" };
 
-/** A labelled field with its own icon, and a reveal button where it helps. */
-function Field({ t, id, label, icon: Icon, hint, reveal, revealed, onReveal, ...props }) {
-  return (
-    <label htmlFor={id} className="block">
-      <span className={`block text-xs font-semibold mb-1.5 ${t.textSecondary}`}>{label}</span>
-      <span className="relative block">
-        <Icon className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${t.textMuted}`} />
-        <input
-          id={id}
-          {...props}
-          className={`w-full rounded-xl pl-10 ${reveal ? "pr-11" : "pr-3"} py-3 text-sm outline-none border focus:border-indigo-500 ${t.inputBg} ${t.divider}`}
-        />
-        {reveal && (
-          <button
-            type="button"
-            onClick={onReveal}
-            aria-label={revealed ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
-            className={`absolute right-1 top-1/2 -translate-y-1/2 p-2.5 rounded-lg ${t.textMuted}`}
-          >
-            {revealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-        )}
-      </span>
-      {hint && <span className={`block text-xs mt-1.5 ${t.textMuted}`}>{hint}</span>}
-    </label>
-  );
-}
 
 /**
  * Shown once, on a device's very first run: sign in to sync data across
@@ -208,7 +182,7 @@ export default function AccountGateScreen({ onDone, transparent = false }) {
           <form onSubmit={submit} className="flex flex-col gap-4">
             {mode !== MODES.confirmSignup && (
               <Field
-                t={t} id="ag-email" label="Email" icon={Mail} type="email" autoComplete="email"
+                id="ag-email" label="Email" icon={Mail} type="email" autoComplete="email"
                 inputMode="email" autoFocus placeholder="you@yourshop.com"
                 value={email} onChange={(e) => { setEmail(e.target.value); setTaken(false); }}
               />
@@ -217,25 +191,25 @@ export default function AccountGateScreen({ onDone, transparent = false }) {
             {mode === MODES.worker ? (
               <>
                 <Field
-                  t={t} id="ag-wcode" label="Code from the owner" icon={KeyRound} inputMode="numeric"
+                  id="ag-wcode" label="Code from the owner" icon={KeyRound} inputMode="numeric"
                   placeholder="6 digits" value={workerCode}
                   onChange={(e) => setWorkerCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 />
                 <Field
-                  t={t} id="ag-wname" label="Your name" icon={User} placeholder="So the shop knows who sold what"
+                  id="ag-wname" label="Your name" icon={User} placeholder="So the shop knows who sold what"
                   value={workerName} onChange={(e) => setWorkerName(e.target.value)}
                 />
               </>
             ) : mode === MODES.confirmSignup ? (
               <Field
-                t={t} id="ag-code" label="Code from your email" icon={KeyRound} inputMode="numeric"
+                id="ag-code" label="Code from your email" icon={KeyRound} inputMode="numeric"
                 autoFocus placeholder="6 digits" value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
                 hint="It can take a minute to arrive, and it sometimes lands in spam."
               />
             ) : (
               <Field
-                t={t} id="ag-pass" label="Password" icon={Lock}
+                id="ag-pass" label="Password" icon={Lock}
                 type={show ? "text" : "password"}
                 autoComplete={mode === MODES.signup ? "new-password" : "current-password"}
                 placeholder={mode === MODES.signup ? "At least 6 characters" : "Your password"}

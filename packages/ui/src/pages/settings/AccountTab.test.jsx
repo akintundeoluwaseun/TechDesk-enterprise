@@ -58,7 +58,7 @@ describe("a signed-in device", () => {
     fireEvent.click(screen.getByText("Sign in to a different business"));
 
     // Straight to the Sign in form, not back to the teaser card first.
-    expect(screen.getByPlaceholderText("Email")).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
     // And NOT signed out first: backing out of this popup unfinished must
     // leave the device signed in exactly as it was, not stuck signed out.
     expect(account.signOut).not.toHaveBeenCalled();
@@ -78,8 +78,8 @@ describe("signing in says so, plainly", () => {
 
     fireEvent.click(screen.getByText("Sign in"));
     const dialog = screen.getByRole("dialog");
-    fireEvent.change(within(dialog).getByPlaceholderText("Email"), { target: { value: "shop@example.com" } });
-    fireEvent.change(within(dialog).getByPlaceholderText("Password"), { target: { value: "hunter2" } });
+    fireEvent.change(within(dialog).getByLabelText("Email"), { target: { value: "shop@example.com" } });
+    fireEvent.change(within(dialog).getByLabelText("Password"), { target: { value: "hunter2" } });
     account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
     fireEvent.click(within(dialog).getByRole("button", { name: "Sign in" }));
 
@@ -95,9 +95,9 @@ describe("signing in says so, plainly", () => {
     await screen.findByText("Sign in to sync data");
 
     fireEvent.click(screen.getByText(/Joining a shop that already has an account/));
-    fireEvent.change(screen.getByPlaceholderText("Shop's email"), { target: { value: "shop@example.com" } });
-    fireEvent.change(screen.getByPlaceholderText("6-digit code"), { target: { value: "123456" } });
-    fireEvent.change(screen.getByPlaceholderText("Your name"), { target: { value: "Ade" } });
+    fireEvent.change(screen.getByLabelText("Shop's email"), { target: { value: "shop@example.com" } });
+    fireEvent.change(screen.getByLabelText("Code from the owner"), { target: { value: "123456" } });
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Ade" } });
     account.status.mockResolvedValue({ signedIn: true, role: "worker", workerName: "Ade" });
     fireEvent.click(screen.getByRole("button", { name: "Connect to a business" }));
 
@@ -116,8 +116,8 @@ describe("each door shows only its own form", () => {
     fireEvent.click(screen.getByText("Sign in"));
     const dialog = screen.getByRole("dialog");
 
-    expect(within(dialog).getByPlaceholderText("Email")).toBeInTheDocument();
-    expect(within(dialog).getByPlaceholderText("Password")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Email")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("Password")).toBeInTheDocument();
     // No cross-links to the other two doors inside the popup itself -- close
     // it and open a different one from the teaser card instead. (The teaser
     // card's own buttons are still in the DOM behind the popup; what matters
@@ -139,14 +139,14 @@ describe("finishing a fresh signup with the code from the confirmation email", (
 
     fireEvent.click(screen.getByText(/Set up your business/));
     const signupDialog = screen.getByRole("dialog");
-    fireEvent.change(within(signupDialog).getByPlaceholderText("Email"), { target: { value: "shop@example.com" } });
-    fireEvent.change(within(signupDialog).getByPlaceholderText("Password"), { target: { value: "hunter2" } });
+    fireEvent.change(within(signupDialog).getByLabelText("Email"), { target: { value: "shop@example.com" } });
+    fireEvent.change(within(signupDialog).getByLabelText("Password"), { target: { value: "hunter2" } });
     fireEvent.click(within(signupDialog).getByRole("button", { name: "Set up your business" }));
 
     await screen.findByText("Confirm your email");
     const codeDialog = screen.getByRole("dialog");
-    expect(within(codeDialog).queryByPlaceholderText("Email")).not.toBeInTheDocument();
-    fireEvent.change(within(codeDialog).getByPlaceholderText("Code from your email"), { target: { value: "482913" } });
+    expect(within(codeDialog).queryByLabelText("Email")).not.toBeInTheDocument();
+    fireEvent.change(within(codeDialog).getByLabelText("Code from your email"), { target: { value: "482913" } });
     account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
     fireEvent.click(within(codeDialog).getByRole("button", { name: "Confirm" }));
 
@@ -163,12 +163,12 @@ describe("finishing a fresh signup with the code from the confirmation email", (
     render(<ThemeProvider><AuthProvider><AccountTab /></AuthProvider></ThemeProvider>);
     await screen.findByText("Sign in to sync data");
     fireEvent.click(screen.getByText(/Set up your business/));
-    fireEvent.change(screen.getByPlaceholderText("Email"), { target: { value: "shop@example.com" } });
-    fireEvent.change(screen.getByPlaceholderText("Password"), { target: { value: "hunter2" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "shop@example.com" } });
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "hunter2" } });
     fireEvent.click(screen.getByRole("button", { name: "Set up your business" }));
 
     await screen.findByText("Confirm your email");
-    fireEvent.change(screen.getByPlaceholderText("Code from your email"), { target: { value: "000000" } });
+    fireEvent.change(screen.getByLabelText("Code from your email"), { target: { value: "000000" } });
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     await waitFor(() =>
@@ -206,14 +206,14 @@ describe("forgot password", () => {
 
     await screen.findByText("Reset your password");
     const requestDialog = screen.getByRole("dialog");
-    fireEvent.change(within(requestDialog).getByPlaceholderText("Email"), { target: { value: "shop@example.com" } });
+    fireEvent.change(within(requestDialog).getByLabelText("Email"), { target: { value: "shop@example.com" } });
     fireEvent.click(within(requestDialog).getByRole("button", { name: "Send code" }));
 
     await waitFor(() => expect(account.requestPasswordReset).toHaveBeenCalledWith("shop@example.com"));
     await screen.findByText("Choose a new password");
     const confirmDialog = screen.getByRole("dialog");
-    fireEvent.change(within(confirmDialog).getByPlaceholderText("Code from your email"), { target: { value: "112233" } });
-    fireEvent.change(within(confirmDialog).getByPlaceholderText("New password"), { target: { value: "newhunter3" } });
+    fireEvent.change(within(confirmDialog).getByLabelText("Code from your email"), { target: { value: "112233" } });
+    fireEvent.change(within(confirmDialog).getByLabelText("New password"), { target: { value: "newhunter3" } });
     account.status.mockResolvedValue({ signedIn: true, email: "shop@example.com" });
     fireEvent.click(within(confirmDialog).getByRole("button", { name: "Set new password" }));
 
@@ -232,7 +232,7 @@ describe("forgot password", () => {
     await screen.findByText("Sign in to sync data");
     fireEvent.click(screen.getByText("Sign in"));
     fireEvent.click(screen.getByText("Forgot password?"));
-    fireEvent.change(screen.getByPlaceholderText("Email"), { target: { value: "anyone@example.com" } });
+    fireEvent.change(screen.getByLabelText("Email"), { target: { value: "anyone@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Send code" }));
 
     await screen.findByText("Choose a new password");
@@ -263,9 +263,9 @@ describe("not signed in yet", () => {
     await screen.findByText("Sign in to sync data");
 
     fireEvent.click(screen.getByText(/Joining a shop that already has an account/));
-    fireEvent.change(screen.getByPlaceholderText("Shop's email"), { target: { value: "shop@example.com" } });
-    fireEvent.change(screen.getByPlaceholderText("6-digit code"), { target: { value: "123456" } });
-    fireEvent.change(screen.getByPlaceholderText("Your name"), { target: { value: "Ade" } });
+    fireEvent.change(screen.getByLabelText("Shop's email"), { target: { value: "shop@example.com" } });
+    fireEvent.change(screen.getByLabelText("Code from the owner"), { target: { value: "123456" } });
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Ade" } });
     fireEvent.click(screen.getByRole("button", { name: "Connect to a business" }));
 
     await waitFor(() => expect(account.workerJoin).toHaveBeenCalledWith("shop@example.com", "123456", "Ade"));

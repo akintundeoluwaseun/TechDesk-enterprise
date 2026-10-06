@@ -14,8 +14,13 @@ import { useCloseOnBack } from "../lib/useCloseOnBack";
  * Changes save as they are made, the same as they did inline; Done just puts
  * the panel away. There is no Cancel because there is nothing to roll back,
  * and offering one would promise something this does not do.
+ *
+ * `hideDone` is for a panel that is a form rather than a set of switches.
+ * Signing in has its own button that does the thing; a Done beside it that
+ * only closes the panel reads as the way to finish, and people pressed it
+ * instead of the one that signs them in.
  */
-export default function SettingsModal({ title, description, onClose, children }) {
+export default function SettingsModal({ title, description, onClose, hideDone = false, children }) {
   useCloseOnBack(true, onClose);
 
   // Escape closes, and the page behind must not scroll under the panel.
@@ -66,6 +71,7 @@ export default function SettingsModal({ title, description, onClose, children })
 
         <div className="px-6 py-5">{children}</div>
 
+        {!hideDone && (
         <div className={`px-6 pb-6 pt-1 flex justify-end`}>
           <button
             onClick={onClose}
@@ -76,6 +82,7 @@ export default function SettingsModal({ title, description, onClose, children })
             Done
           </button>
         </div>
+        )}
       </div>
     </div>
   );

@@ -35,11 +35,18 @@ describe("the More sheet", () => {
 
   it("closes on the X and on the backdrop", () => {
     const onClose = vi.fn();
-    const { container } = show({ onClose, items: [] });
+    show({ onClose, items: [] });
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledTimes(1);
-    fireEvent.click(container.querySelector(".td-overlay"));
+    // Through a portal, so it hangs off the body rather than the container.
+    fireEvent.click(document.body.querySelector(".td-overlay"));
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("hangs off the body, not the sidebar that opened it", () => {
+    const { container } = show({ items: [] });
+    expect(container.querySelector(".td-overlay")).toBeNull();
+    expect(document.body.querySelector(".td-overlay")).not.toBeNull();
   });
 
   it("takes whatever extra a surface adds, like the phone's theme switch", () => {

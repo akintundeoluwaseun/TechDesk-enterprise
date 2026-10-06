@@ -9,6 +9,23 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-06g",
+    date: "6 October 2026",
+    title: "TechDesk 4.15.1: the More sheet, and a tidier sign-in",
+    items: [
+      {
+        icon: "shield",
+        title: "More opens in front of the app",
+        text: "On a computer the sheet was coming out behind the page. It now sits over it, as it already did on a phone.",
+      },
+      {
+        icon: "sparkles",
+        title: "Signing in looks the same everywhere",
+        text: "Settings now matches the welcome screen: labelled boxes, a button to show your password, and no stray Done beside the button that actually signs you in.",
+      },
+    ],
+  },
+  {
     id: "2026-10-06f",
     date: "6 October 2026",
     title: "TechDesk 4.15: send stock back, and a shorter menu",

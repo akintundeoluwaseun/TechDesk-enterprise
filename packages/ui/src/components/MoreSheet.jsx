@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { X, Sparkles, Sunrise, Wallet, PackageSearch, Sun, Moon, HelpCircle } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth, canAccess } from "../lib/AuthContext";
@@ -17,7 +18,12 @@ export default function MoreSheet({ onClose, items }) {
   const t = useThemeTokens();
   useCloseOnBack(true, onClose);
 
-  return (
+  // Through a portal to the body. Both surfaces that open this render it from
+  // inside themselves -- the sidebar is a sticky <aside>, the phone menu is a
+  // fixed drawer -- and a fixed child is confined to whatever stacking
+  // context its ancestors make, so on a desktop the sheet came out behind the
+  // page. Hanging it off the body puts it where every other dialog lives.
+  const sheet = (
     <div
       className="td-overlay fixed inset-0 z-[66] flex items-end sm:items-center justify-center bg-black/60 sm:p-6"
       onClick={(e) => e.target === e.currentTarget && onClose()}
@@ -62,6 +68,8 @@ export default function MoreSheet({ onClose, items }) {
       </div>
     </div>
   );
+
+  return typeof document === "undefined" ? sheet : createPortal(sheet, document.body);
 }
 
 /**
