@@ -201,6 +201,16 @@ describe("things the shop sells that aren't in its stock", () => {
     expect(sale.items[0]).toMatchObject({ name: "Phone pouch", productId: null, fromInventory: false });
     expect(db.getInventory().map((p) => p.stock).join()).toBe(stockBefore);
   });
+  it("keeps the serial that was said and the customer's signature for the receipt", () => {
+    seed();
+    const [d] = resolve([{ type: "sale", customerName: "John", items: [{ product: "HP EliteBook 840 G3", qty: 1, price: 500000, serial: " 11131245 " }] }]);
+    expect(d.items[0]).toMatchObject({ oneOff: true, imei: "11131245" });
+    d.signature = "data:image/png;base64,AAA";
+    apply([d]);
+    const sale = db.getSales()[0];
+    expect(sale.items[0].imei).toBe("11131245");
+    expect(sale.signature).toBe("data:image/png;base64,AAA");
+  });
 });
 
 describe("a photo of the old notebook", () => {

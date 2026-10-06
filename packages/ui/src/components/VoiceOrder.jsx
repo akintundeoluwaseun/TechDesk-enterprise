@@ -4,6 +4,7 @@ import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn, answerQuestion, quickInte
 import { useNavigate } from "react-router-dom";
 import AssistantBot from "./AssistantBot";
 import MoneyInput from "./MoneyInput";
+import SignatureField from "./SignatureField";
 import { platform } from "@techdesk/platform";
 
 // Live speech-to-text where the device has it; off for good on this device
@@ -129,6 +130,17 @@ function AnswerCard({ a, t, settings, chase }) {
   );
 }
 
+// The close matches, or when nothing came close, every product: the AI
+// may have missed what the shop meant.
+function pickable(it) {
+  if (it.candidates.length) return it.candidates;
+  return db.getInventory()
+    .slice()
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    .slice(0, 300)
+    .map((c) => ({ id: c.id, name: c.name, price: c.price, costPrice: c.costPrice, stock: c.stock }));
+}
+
 function DraftCard({ d, update, settings, t, allowed, practice }) {
   const problems = voiceOrder.issues(d);
   const set = (patch) => update({ ...d, ...patch });
@@ -177,21 +189,32 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
           return (
             <div key={idx} className={`mt-2 rounded-xl p-2 ${t.insetBg}`}>
               <div className={`text-sm font-medium ${t.textPrimary}`}>{it.productId ? it.name : `"${it.said}"`}</div>
+              {it.productId && (
+                <Picker
+                  t={t}
+                  value=""
+                  placeholder={`From your stock · ${it.stock ?? 0} left`}
+                  options={[{ value: "__oneoff", label: `Not in my stock: sell "${it.said || it.name}" as a one-off item` }]}
+                  onChange={(v) => {
+                    if (v === "__oneoff") setItem({ productId: null, name: it.said || it.name, said: it.said || it.name, stock: null, costPrice: 0, candidates: [], oneOff: true });
+                  }}
+                />
+              )}
               {!it.productId && it.oneOff && (
                 <p className={`text-xs ${t.textMuted}`}>Not in your stock: sold as a one-off item. Stock isn't changed.</p>
               )}
-              {!it.productId && (
+              {!it.productId && (!it.oneOff || pickable(it).length > 0) && (
                 <Picker
                   t={t}
                   value=""
                   placeholder={it.oneOff ? "Or pick one of your products…" : "Which product?"}
                   options={[
-                    ...it.candidates.map((c) => ({ value: c.id, label: `${c.name} · ${fmt(c.price)} · ${c.stock} left` })),
-                    ...(it.oneOff ? [] : [{ value: "__oneoff", label: `Sell "${it.said}" as a one-off item` }]),
+                    ...(it.oneOff ? [] : [{ value: "__oneoff", label: `Not in my stock: sell "${it.said}" as a one-off item` }]),
+                    ...pickable(it).map((c) => ({ value: c.id, label: `${c.name} · ${fmt(c.price)} · ${c.stock} left` })),
                   ]}
                   onChange={(v) => {
                     if (v === "__oneoff") return setItem({ oneOff: true });
-                    const c = it.candidates.find((x) => x.id === v);
+                    const c = pickable(it).find((x) => x.id === v);
                     if (c) setItem({ productId: c.id, name: c.name, price: it.price != null ? it.price : Number(c.price) || 0, stock: Number(c.stock || 0), costPrice: Number(c.costPrice || 0), candidates: [] });
                   }}
                 />
@@ -199,6 +222,9 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
               <div className="flex gap-2 mt-1">
                 <NumberField t={t} label="Qty" value={it.qty} onChange={(v) => setItem({ qty: Math.max(1, Math.round(v || 1)) })} />
                 <NumberField t={t} label="Price each" value={it.price} onChange={(v) => setItem({ price: v })} />
+              </div>
+              <div className="flex mt-1">
+                <TextField t={t} label="IMEI / Serial number (if it has one)" value={it.imei} onChange={(v) => setItem({ imei: v })} />
               </div>
             </div>
           );
@@ -213,6 +239,14 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
           <NumberField t={t} label="Amount paid (empty = all)" value={d.amountPaid} onChange={(v) => set({ amountPaid: v })} />
         </div>
         <p className={`text-sm font-semibold mt-2 ${t.textPrimary}`}>Total {fmt(voiceOrder.saleTotal(d))}</p>
+        {d.source !== "photo" && (
+          <div className="mt-3">
+            <SignatureField value={d.signature} onChange={(v) => set({ signature: v })} />
+            {!settings?.ownerSignature && (
+              <p className={`text-xs mt-1.5 ${t.textMuted}`}>Your own signature isn't on receipts yet. Add it once in Settings → Shop.</p>
+            )}
+          </div>
+        )}
         {d.source === "photo" && d.items.some((i) => i.productId) && (
           <label className={`flex items-start gap-2 text-xs mt-2 ${t.textSecondary}`}>
             <input type="checkbox" checked={d.takeFromStock !== false} onChange={(e) => set({ takeFromStock: e.target.checked })} className="w-4 h-4 mt-px accent-emerald-500" />
@@ -234,7 +268,10 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
           <TextField t={t} label="Device" value={d.device} onChange={(v) => set({ device: v })} />
           <NumberField t={t} label="Cost" value={d.cost} onChange={(v) => set({ cost: v })} />
         </div>
-        <TextField t={t} label="Fault" value={d.problem} onChange={(v) => set({ problem: v })} />
+<div className="flex gap-2 flex-wrap mt-1">
+          <TextField t={t} label="Fault" value={d.problem} onChange={(v) => set({ problem: v })} />
+          <TextField t={t} label="IMEI / Serial" value={d.serial} onChange={(v) => set({ serial: v })} />
+        </div>
         {d.source === "photo" && (
           <label className={`text-xs ${t.textMuted} block mt-1`}>
             Status

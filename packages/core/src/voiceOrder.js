@@ -365,6 +365,8 @@ export function resolve(actions, data = {}, { source = "voice", now = new Date()
           price: i.price != null ? Number(i.price) : p ? Number(p.price) || 0 : null,
           costPrice: p ? Number(p.costPrice || 0) : 0,
           stock: p ? Number(p.stock || 0) : null,
+          // The IMEI or serial if it was said; the card asks for it too.
+          imei: typeof i.serial === "string" ? i.serial.trim().slice(0, 60) : "",
           candidates: p ? [] : m.candidates.map((c) => ({ id: c.id, name: c.name, price: c.price, costPrice: c.costPrice, stock: c.stock })),
           // Not in stock at all: sold as a one-off item (no stock to draw
           // down), unless the person picks one of their products instead.
@@ -380,6 +382,8 @@ export function resolve(actions, data = {}, { source = "voice", now = new Date()
         // From the notebook: these goods left the shelf long ago, and the
         // stock count in TechDesk already reflects that.
         takeFromStock: source !== "photo",
+        // The customer signs on the card, the same as a sale made by hand.
+        signature: null,
       };
     }
     if (a.type === "repair") {
@@ -389,6 +393,7 @@ export function resolve(actions, data = {}, { source = "voice", now = new Date()
         device: a.device || "",
         problem: a.problem || "",
         cost: a.cost != null ? Number(a.cost) : 0,
+        serial: typeof a.serial === "string" ? a.serial.trim().slice(0, 60) : "",
         status: source === "photo" && REPAIR_STATUSES.includes(a.status) ? a.status : "received",
       };
     }
@@ -553,7 +558,7 @@ export function apply(drafts, { actor } = {}) {
         price: Number(i.price) || 0,
         costPrice: Number(i.costPrice) || 0,
         qty: i.qty,
-        imei: "",
+        imei: String(i.imei || "").trim(),
         fromInventory: !!i.productId && d.takeFromStock !== false,
       }));
       const rec = db.createSale({
@@ -569,6 +574,7 @@ export function apply(drafts, { actor } = {}) {
         amountPaid: paid,
         paymentMethod: d.paymentMethod,
         paymentStatus: paid >= total && total > 0 ? "Paid" : "Pending",
+        ...(d.signature ? { signature: d.signature } : {}),
         actor,
         ...when,
       });
@@ -586,7 +592,7 @@ export function apply(drafts, { actor } = {}) {
         customerPhone: customer?.phone || d.customer.phone || "",
         device: d.device,
         imei: "",
-        serial: "",
+        serial: String(d.serial || "").trim(),
         problem: d.problem,
         status: d.status || "received",
         repairCost: Number(d.cost) || 0,
