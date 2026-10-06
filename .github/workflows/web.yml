@@ -82,9 +82,28 @@ jobs:
         id: cfg
         env:
           TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          DEPLOY_REPO: akintundeoluwaseun/techdesk-webaapp-
         run: |
-          if [ -n "$TOKEN" ]; then echo "ready=true" >> "$GITHUB_OUTPUT"; else
+          # Being set is not the same as being allowed. RELEASES_TOKEN can push
+          # to the releases repository and still have no write access to this
+          # one, which is what happened: the push 403'd on every release, and a
+          # red cross that means "not set up" reads exactly like one that means
+          # "you broke it" -- the thing the comment at the top of this file
+          # says to avoid. So ask GitHub whether this token may actually push,
+          # and skip loudly when it may not.
+          if [ -z "$TOKEN" ]; then
             echo "::warning::No RELEASES_TOKEN, so the web app was built and not published."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          PUSH=$(curl -sf -H "Authorization: Bearer $TOKEN" \
+                   -H "Accept: application/vnd.github+json" \
+                   "https://api.github.com/repos/$DEPLOY_REPO" \
+                 | python3 -c "import json,sys; print(json.load(sys.stdin).get('permissions',{}).get('push', False))" 2>/dev/null) || PUSH=False
+          if [ "$PUSH" = "True" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::RELEASES_TOKEN cannot push to $DEPLOY_REPO, so the web app was built and not published. Give that token write access to the repository (a fine-grained token needs Contents: read and write on it), or publish apps/web/dist by hand."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
 
@@ -92,8 +111,9 @@ jobs:
         if: steps.cfg.outputs.ready == 'true'
         env:
           TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          DEPLOY_REPO: akintundeoluwaseun/techdesk-webaapp-
         run: |
-          git clone --depth 1 "https://x-access-token:$TOKEN@github.com/akintundeoluwaseun/techdesk-webaapp-.git" deploy
+          git clone --depth 1 "https://x-access-token:$TOKEN@github.com/$DEPLOY_REPO.git" deploy
           cd deploy
           # Everything except the repository's own metadata and its README.
           find . -mindepth 1 -maxdepth 1 ! -name .git ! -name README.md ! -name .gitignore -exec rm -rf {} +
