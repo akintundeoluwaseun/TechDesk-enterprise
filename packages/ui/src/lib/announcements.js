@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { IS_ANDROID_APP } from "./platform";
+import { onAppForeground } from "./foreground";
 
 // Notifications pushed from the TechDesk console, per version.
 //
@@ -111,11 +112,11 @@ export function useAnnouncementCheck(onNew) {
     }
     run();
     const timer = setInterval(run, EVERY);
-    window.addEventListener("focus", run);
+    const offForeground = onAppForeground(run);
     return () => {
       alive = false;
       clearInterval(timer);
-      window.removeEventListener("focus", run);
+      offForeground();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

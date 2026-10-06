@@ -1,10 +1,39 @@
 import React, { useState } from "react";
-import { Cloud, HardDrive } from "lucide-react";
+import { HardDrive, Mail, Lock, KeyRound, User, Eye, EyeOff, ArrowLeft, Check, AlertCircle } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { account, setAccountGateDecision } from "../lib/account";
 import { useAuth } from "../lib/AuthContext";
+import BrandMark from "../components/BrandMark";
 
 const MODES = { choose: "choose", signup: "signup", signin: "signin", worker: "worker", confirmSignup: "confirmSignup" };
+
+/** A labelled field with its own icon, and a reveal button where it helps. */
+function Field({ t, id, label, icon: Icon, hint, reveal, revealed, onReveal, ...props }) {
+  return (
+    <label htmlFor={id} className="block">
+      <span className={`block text-xs font-semibold mb-1.5 ${t.textSecondary}`}>{label}</span>
+      <span className="relative block">
+        <Icon className={`pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 ${t.textMuted}`} />
+        <input
+          id={id}
+          {...props}
+          className={`w-full rounded-xl pl-10 ${reveal ? "pr-11" : "pr-3"} py-3 text-sm outline-none border focus:border-indigo-500 ${t.inputBg} ${t.divider}`}
+        />
+        {reveal && (
+          <button
+            type="button"
+            onClick={onReveal}
+            aria-label={revealed ? `Hide ${label.toLowerCase()}` : `Show ${label.toLowerCase()}`}
+            className={`absolute right-1 top-1/2 -translate-y-1/2 p-2.5 rounded-lg ${t.textMuted}`}
+          >
+            {revealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+          </button>
+        )}
+      </span>
+      {hint && <span className={`block text-xs mt-1.5 ${t.textMuted}`}>{hint}</span>}
+    </label>
+  );
+}
 
 /**
  * Shown once, on a device's very first run: sign in to sync data across
@@ -26,10 +55,22 @@ export default function AccountGateScreen({ onDone, transparent = false }) {
   const [workerName, setWorkerName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  // Set when the email already has an account, so the message can offer the
+  // way out instead of leaving the shop on a dead end.
+  const [taken, setTaken] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [show, setShow] = useState(false);
 
   function continueLocally() {
     setAccountGateDecision("local");
     onDone();
+  }
+
+  function goTo(next) {
+    setMode(next);
+    setError("");
+    setTaken(false);
+    setNotice("");
   }
 
   async function finish() {
@@ -42,9 +83,23 @@ export default function AccountGateScreen({ onDone, transparent = false }) {
     onDone();
   }
 
+  // What the button needs before it will do anything. A one-field form is
+  // submitted by the phone keyboard's Done key, so an incomplete one has to
+  // refuse here rather than call out and fail in a way nobody can read.
+  const emailLooksReal = /\S+@\S+\.\S+/.test(email.trim());
+  const ready =
+    mode === MODES.worker
+      ? emailLooksReal && workerCode.length === 6 && workerName.trim().length > 0
+      : mode === MODES.confirmSignup
+      ? code.length >= 6
+      : emailLooksReal && password.length >= 6;
+
   async function submit(e) {
     e.preventDefault();
+    if (!ready || busy) return;
     setError("");
+    setNotice("");
+    setTaken(false);
     setBusy(true);
 
     if (mode === MODES.worker) {
@@ -57,13 +112,16 @@ export default function AccountGateScreen({ onDone, transparent = false }) {
     if (mode === MODES.confirmSignup) {
       const res = await account.confirmSignUp(email, code);
       setBusy(false);
-      if (!res.ok) return setError(res.message || "That didn't work. Try again.");
+      if (!res.ok) return setError(res.message || "That code didn't match. Check it and try again.");
       return finish();
     }
 
     const res = mode === MODES.signup ? await account.signUp(email, password) : await account.signIn(email, password);
     setBusy(false);
-    if (!res.ok) return setError(res.message || "That didn't work. Try again.");
+    if (!res.ok) {
+      if (res.exists) setTaken(true);
+      return setError(res.message || "That didn't work. Try again.");
+    }
     if (res.needsConfirmation) {
       setError("");
       setCode("");
@@ -73,164 +131,180 @@ export default function AccountGateScreen({ onDone, transparent = false }) {
     return finish();
   }
 
-  const input = `w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`;
+  async function resend() {
+    setBusy(true);
+    setError("");
+    const res = await account.signUp(email, password);
+    setBusy(false);
+    if (res.exists) { setTaken(true); return setError(res.message); }
+    setNotice(`Sent again to ${email}. It can take a minute, and it may land in spam.`);
+  }
+
+  const title =
+    mode === MODES.signup ? "Set up your business"
+      : mode === MODES.worker ? "Join as a worker"
+      : mode === MODES.confirmSignup ? "Check your email"
+      : "Welcome back";
+  const subtitle =
+    mode === MODES.signup ? "One account keeps this shop's records on all your devices."
+      : mode === MODES.worker ? "Ask the owner for the shop's email and the code they made for you."
+      : mode === MODES.confirmSignup ? `We sent a 6-digit code to ${email}.`
+      : "Sign in with the email and password for this shop.";
 
   return (
-    <div className={`min-h-screen w-full flex items-center justify-center py-16 ${transparent ? "" : t.bg}`}>
-      <div className="w-full max-w-sm px-6">
+    <div className={`min-h-screen w-full flex items-center justify-center px-5 py-10 ${transparent ? "" : t.bg}`}>
+      <div className="w-full max-w-sm">
+        <div className="flex flex-col items-center text-center mb-7">
+          <BrandMark className="w-12 h-12 rounded-2xl mb-4" title="TechDesk" />
+          <h1 className={`text-2xl font-bold tracking-tight ${t.textPrimary}`}>
+            {mode === MODES.choose ? "Set up TechDesk" : title}
+          </h1>
+          <p className={`text-sm mt-2 leading-relaxed ${t.textSecondary}`}>
+            {mode === MODES.choose
+              ? "An account keeps this shop's records on all your devices. You can also run TechDesk entirely on this one."
+              : subtitle}
+          </p>
+        </div>
+
         {mode === MODES.choose ? (
-          <>
-            <div className="flex flex-col items-center mb-8 text-center">
-              <Cloud className={`w-8 h-8 mb-2 ${t.dark ? "text-white" : "text-blue-500"}`} />
-              <h1 className={`text-xl font-bold ${t.textPrimary}`}>Sign in to sync data, or continue locally</h1>
-              <p className={`text-sm mt-2 ${t.textSecondary}`}>
-                Signing in is only for syncing your data later. Everything about how you use
-                TechDesk day to day stays exactly the same either way.
-              </p>
+          <div className="flex flex-col gap-2.5">
+            <button
+              type="button"
+              onClick={() => goTo(MODES.signup)}
+              className="py-3.5 rounded-xl font-semibold text-sm text-white bg-gradient-to-br from-indigo-600 to-sky-500"
+            >
+              Set up a new business
+            </button>
+            <button
+              type="button"
+              onClick={() => goTo(MODES.signin)}
+              className={`py-3.5 rounded-xl font-semibold text-sm border ${t.divider} ${t.textPrimary}`}
+            >
+              Sign in to an existing one
+            </button>
+            <button
+              type="button"
+              onClick={() => goTo(MODES.worker)}
+              className={`py-3.5 rounded-xl font-semibold text-sm border ${t.divider} ${t.textPrimary}`}
+            >
+              Join a shop as a worker
+            </button>
+            <div className={`flex items-center gap-3 my-2 text-xs ${t.textMuted}`}>
+              <span className={`flex-1 h-px ${t.dark ? "bg-white/10" : "bg-black/10"}`} />or<span className={`flex-1 h-px ${t.dark ? "bg-white/10" : "bg-black/10"}`} />
             </div>
-            <div className="flex flex-col gap-3">
-              <button
-                onClick={() => setMode(MODES.signup)}
-                className={`flex items-center justify-center gap-2 py-3 rounded-xl font-semibold ${
-                  t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
-                }`}
-              >
-                <Cloud className="w-4 h-4" /> Set up your business
-              </button>
-              <button
-                onClick={() => setMode(MODES.signin)}
-                className={`py-3 rounded-xl font-semibold text-sm ${t.pillBg} ${t.textPrimary}`}
-              >
-                Sign in to your business
-              </button>
-              <button
-                onClick={() => setMode(MODES.worker)}
-                className={`py-3 rounded-xl font-semibold text-sm ${t.pillBg} ${t.textPrimary}`}
-              >
-                Joining as a worker, with a code
-              </button>
-              <button
-                onClick={continueLocally}
-                className={`flex items-center justify-center gap-2 py-3 mt-2 text-sm underline underline-offset-4 ${t.textSecondary}`}
-              >
-                <HardDrive className="w-4 h-4" /> Continue locally, no account
-              </button>
-            </div>
-            <p className={`mt-4 text-xs text-center ${t.textMuted}`}>
-              Setting up a new shop for the first time? Choose "Set up your business". Getting a
-              new device of your own for a shop that already has an account? Choose "Sign in to your
-              business" and use its email and password. Handed a shop's email and a code
-              by its owner, to work there without their password? Choose "Joining as a worker".
+            <button
+              type="button"
+              onClick={continueLocally}
+              className={`flex items-center justify-center gap-2 py-3 text-sm font-medium ${t.textSecondary}`}
+            >
+              <HardDrive className="w-4 h-4" /> Use this device only
+            </button>
+            <p className={`mt-3 text-xs text-center leading-relaxed ${t.textMuted}`}>
+              Nothing leaves this device unless you sign in, and you can create an account later
+              from Settings without losing anything.
             </p>
-          </>
+          </div>
         ) : (
-          <>
-            <div className="flex flex-col items-center mb-6 text-center">
-              <Cloud className={`w-8 h-8 mb-2 ${t.dark ? "text-white" : "text-blue-500"}`} />
-              <h1 className={`text-xl font-bold ${t.textPrimary}`}>
-                {mode === MODES.signup
-                  ? "Set up your business"
-                  : mode === MODES.worker
-                  ? "Joining as a worker"
-                  : mode === MODES.confirmSignup
-                  ? "Confirm your email"
-                  : "Sign in to your business"}
-              </h1>
-              {mode === MODES.worker && (
-                <p className={`text-sm mt-2 ${t.textSecondary}`}>
-                  Ask the shop's owner for its email and the code they generated for you.
-                </p>
-              )}
-              {mode === MODES.confirmSignup && (
-                <p className={`text-sm mt-2 ${t.textSecondary}`}>
-                  We sent a code to {email || "your email"}. Enter it to finish setting up your account.
-                </p>
-              )}
-            </div>
-            <form onSubmit={submit} className="flex flex-col gap-3">
-              {mode !== MODES.confirmSignup && (
-                <input
-                  type="email"
-                  autoFocus
-                  placeholder="Email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={input}
+          <form onSubmit={submit} className="flex flex-col gap-4">
+            {mode !== MODES.confirmSignup && (
+              <Field
+                t={t} id="ag-email" label="Email" icon={Mail} type="email" autoComplete="email"
+                inputMode="email" autoFocus placeholder="you@yourshop.com"
+                value={email} onChange={(e) => { setEmail(e.target.value); setTaken(false); }}
+              />
+            )}
+
+            {mode === MODES.worker ? (
+              <>
+                <Field
+                  t={t} id="ag-wcode" label="Code from the owner" icon={KeyRound} inputMode="numeric"
+                  placeholder="6 digits" value={workerCode}
+                  onChange={(e) => setWorkerCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                 />
-              )}
-              {mode === MODES.worker ? (
-                <>
-                  <input
-                    value={workerCode}
-                    onChange={(e) => setWorkerCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="6-digit code"
-                    inputMode="numeric"
-                    className={input}
-                  />
-                  <input
-                    value={workerName}
-                    onChange={(e) => setWorkerName(e.target.value)}
-                    placeholder="Your name"
-                    className={input}
-                  />
-                </>
-              ) : mode === MODES.confirmSignup ? (
-                <input
-                  autoFocus
-                  value={code}
-                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                  placeholder="Code from your email"
-                  inputMode="numeric"
-                  className={input}
+                <Field
+                  t={t} id="ag-wname" label="Your name" icon={User} placeholder="So the shop knows who sold what"
+                  value={workerName} onChange={(e) => setWorkerName(e.target.value)}
                 />
-              ) : (
-                <input
-                  type="password"
-                  placeholder="Password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={input}
-                />
-              )}
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <button
-                type="submit"
-                disabled={busy}
-                className={`py-3 rounded-xl font-semibold disabled:opacity-60 ${
-                  t.dark ? "bg-white text-black" : "bg-neutral-900 text-white"
-                }`}
-              >
-                {busy
-                  ? "Working…"
-                  : mode === MODES.signup
-                  ? "Set up your business"
-                  : mode === MODES.worker
-                  ? "Join"
-                  : mode === MODES.confirmSignup
-                  ? "Confirm"
-                  : "Sign in to your business"}
+              </>
+            ) : mode === MODES.confirmSignup ? (
+              <Field
+                t={t} id="ag-code" label="Code from your email" icon={KeyRound} inputMode="numeric"
+                autoFocus placeholder="6 digits" value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                hint="It can take a minute to arrive, and it sometimes lands in spam."
+              />
+            ) : (
+              <Field
+                t={t} id="ag-pass" label="Password" icon={Lock}
+                type={show ? "text" : "password"}
+                autoComplete={mode === MODES.signup ? "new-password" : "current-password"}
+                placeholder={mode === MODES.signup ? "At least 6 characters" : "Your password"}
+                value={password} onChange={(e) => setPassword(e.target.value)}
+                reveal revealed={show} onReveal={() => setShow((v) => !v)}
+              />
+            )}
+
+            {notice && (
+              <p className="flex items-start gap-2 text-sm text-emerald-600 dark:text-emerald-400">
+                <Check className="w-4 h-4 mt-0.5 shrink-0" /> {notice}
+              </p>
+            )}
+            {error && (
+              <div className="flex items-start gap-2 text-sm text-red-500">
+                <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                <div>
+                  {error}
+                  {taken && (
+                    <button
+                      type="button"
+                      onClick={() => { const keep = email; goTo(MODES.signin); setEmail(keep); }}
+                      className="block mt-1.5 font-semibold underline underline-offset-4 text-indigo-500"
+                    >
+                      Sign in with this email instead
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={busy || !ready}
+              className="py-3.5 rounded-xl font-semibold text-sm text-white bg-gradient-to-br from-indigo-600 to-sky-500 disabled:opacity-50"
+            >
+              {busy ? "Working…"
+                : mode === MODES.signup ? "Create account"
+                : mode === MODES.worker ? "Join this shop"
+                : mode === MODES.confirmSignup ? "Confirm"
+                : "Sign in"}
+            </button>
+
+            {mode === MODES.confirmSignup && (
+              <button type="button" onClick={resend} disabled={busy} className={`text-sm font-medium ${t.textSecondary}`}>
+                Didn&rsquo;t get it? Send the code again
               </button>
-              {mode !== MODES.worker && mode !== MODES.confirmSignup && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMode(mode === MODES.signup ? MODES.signin : MODES.signup);
-                    setError("");
-                  }}
-                  className={`text-sm ${t.textSecondary}`}
-                >
-                  {mode === MODES.signup ? "Already have one? Sign in to your business" : "Setting up a new one? Set up your business"}
-                </button>
-              )}
+            )}
+
+            {(mode === MODES.signup || mode === MODES.signin) && (
               <button
                 type="button"
-                onClick={() => setMode(MODES.choose)}
-                className={`text-sm underline underline-offset-4 ${t.textMuted}`}
+                onClick={() => goTo(mode === MODES.signup ? MODES.signin : MODES.signup)}
+                className={`text-sm ${t.textSecondary}`}
               >
-                Back
+                {mode === MODES.signup
+                  ? <>Already have an account? <span className="font-semibold text-indigo-500">Sign in</span></>
+                  : <>New to TechDesk? <span className="font-semibold text-indigo-500">Set up a business</span></>}
               </button>
-            </form>
-          </>
+            )}
+
+            <button
+              type="button"
+              onClick={() => goTo(MODES.choose)}
+              className={`flex items-center justify-center gap-1.5 text-sm ${t.textMuted}`}
+            >
+              <ArrowLeft className="w-4 h-4" /> Back
+            </button>
+          </form>
         )}
       </div>
     </div>

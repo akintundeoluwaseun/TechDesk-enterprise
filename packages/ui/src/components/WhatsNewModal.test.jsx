@@ -63,3 +63,20 @@ describe("the What's new card", () => {
     expect(onClose).toHaveBeenCalled();
   });
 });
+
+// The X looked dead on a phone: it is positioned absolutely, and the card's
+// content block -- positioned too, and later in the markup -- painted on top
+// of it and took the taps. It needs to stay above that block.
+describe("the close button", () => {
+  it("closes the card", () => {
+    const onClose = vi.fn();
+    render(<ThemeProvider><WhatsNewModal onClose={onClose} /></ThemeProvider>);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("sits above the content that would otherwise cover it", () => {
+    render(<ThemeProvider><WhatsNewModal onClose={() => {}} /></ThemeProvider>);
+    expect(screen.getByRole("button", { name: "Close" }).className).toContain("z-10");
+  });
+});

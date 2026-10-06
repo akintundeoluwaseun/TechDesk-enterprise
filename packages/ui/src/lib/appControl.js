@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { readAppControl, saveAppControl } from "@techdesk/core";
 import { SITE_ORIGIN } from "@techdesk/editions";
 import { appPlatform, appVersion } from "./announcements";
+import { onAppForeground } from "./foreground";
 
 // The owner's console, as this app sees it (migration 0037's app_control):
 // a minimum version, a maintenance notice, and the feature switches. Asked
@@ -45,11 +46,11 @@ export function useAppControl() {
     }
     run();
     const timer = setInterval(run, EVERY);
-    window.addEventListener("focus", run);
+    const offForeground = onAppForeground(run);
     return () => {
       alive = false;
       clearInterval(timer);
-      window.removeEventListener("focus", run);
+      offForeground();
     };
   }, []);
   return control;

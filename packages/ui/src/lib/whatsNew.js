@@ -9,6 +9,33 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-06d",
+    date: "6 October 2026",
+    title: "TechDesk 4.13.1: fixes you asked for",
+    items: [
+      {
+        icon: "shield",
+        title: "The close button works again",
+        text: "The X on What's new, the morning brief and notices was being covered by the card behind it, so taps did nothing.",
+      },
+      {
+        icon: "sparkles",
+        title: "A proper sign-in",
+        text: "Clearer screens, a button to show what you typed, and it now tells you when an email already has an account instead of promising a code that never comes.",
+      },
+      {
+        icon: "shield",
+        title: "Your takings stay yours",
+        text: "Staff no longer see what the shop took or made in the morning brief. They still see who owes, so they can chase it.",
+      },
+      {
+        icon: "sync",
+        title: "The phone keeps up",
+        text: "The Android app now checks for prices, notices and new versions whenever you come back to it, not only when it starts cold.",
+      },
+    ],
+  },
+  {
     id: "2026-10-06c",
     date: "6 October 2026",
     title: "TechDesk 4.13: plans are monthly now",

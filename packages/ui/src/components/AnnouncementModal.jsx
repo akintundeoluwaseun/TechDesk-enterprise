@@ -28,7 +28,11 @@ export default function AnnouncementModal({ announcement, onClose }) {
             className="pointer-events-none absolute rounded-full"
             style={{ width: 300, height: 300, left: -100, top: -160, background: `radial-gradient(circle, ${tone.glow}, transparent 65%)` }}
           />
-          <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10">
+          <button type="button" onClick={onClose} aria-label="Close"
+            /* z-10: the card's content sits in its own positioned block below this
+               in the markup, so without it that block paints over the X and takes
+               the taps -- the close button looked dead on a phone. */
+            className="absolute top-4 right-4 z-10 p-2 -m-0.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10">
             <X className="w-5 h-5" />
           </button>
           <div className="relative">

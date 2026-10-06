@@ -218,6 +218,19 @@ export const accountLocal = {
     const res = await authFetch("/signup", { email: trimmed, password });
     if (!res.ok) return res;
     if (!res.data.access_token) {
+      // Supabase answers a repeat signup with the same shape as a brand new
+      // one, so that this endpoint can't be used to find out which emails
+      // have accounts. The one tell is that it hands back no identities --
+      // without checking for it the app says "we sent you a code" and no
+      // email ever arrives, which is exactly what it used to do.
+      const user = res.data.user || res.data;
+      if (Array.isArray(user.identities) && user.identities.length === 0) {
+        return {
+          ok: false,
+          exists: true,
+          message: "This email already has a TechDesk account. Sign in with it instead, or use Forgot password if you can't remember it.",
+        };
+      }
       // Email confirmation is required before there is a session to store.
       return { ok: true, needsConfirmation: true };
     }

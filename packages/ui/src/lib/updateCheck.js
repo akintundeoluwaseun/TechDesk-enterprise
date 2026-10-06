@@ -3,6 +3,7 @@ import { appPlatform, appVersion } from "./announcements";
 import { PLAY_STORE } from "./store";
 import { platform } from "@techdesk/platform";
 import { updateLink } from "./appControl";
+import { onAppForeground } from "./foreground";
 
 // "A new version is out." Installed apps (desktop and the website's Android
 // APK) had no way to hear about one: the only notice was the console's
@@ -83,7 +84,8 @@ export function useUpdateAvailable({ fetchImpl = typeof fetch !== "undefined" ? 
     check();
     const timer = setInterval(check, EVERY);
     window.addEventListener("online", check);
-    return () => { alive = false; clearInterval(timer); window.removeEventListener("online", check); };
+    const offForeground = onAppForeground(check);
+    return () => { alive = false; clearInterval(timer); window.removeEventListener("online", check); offForeground(); };
   }, [eligible, plat]);
 
   // The desktop app's own updater (Windows, Linux AppImage) reports here.

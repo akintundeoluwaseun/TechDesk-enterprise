@@ -146,10 +146,13 @@ export function buildBrief(data = {}, now = new Date()) {
 }
 
 /** The brief as plain text, to send to WhatsApp or anywhere else. */
-export function briefText(b, { shop = "", money = (n) => String(Math.round(n)), showProfit = true } = {}) {
+export function briefText(b, { shop = "", money = (n) => String(Math.round(n)), showProfit = true, showTakings = true } = {}) {
   const lines = [`*${shop ? `${shop}: ` : ""}morning brief*`, new Date(`${b.day}T12:00:00`).toDateString(), ""];
-  lines.push(`${b.last.label}: ${money(b.last.total)} from ${b.last.sales} sale${b.last.sales === 1 ? "" : "s"}${b.last.repairs ? ` and ${b.last.repairs} repair${b.last.repairs === 1 ? "" : "s"}` : ""}${showProfit ? `, profit ${money(b.last.profit)}` : ""}`);
-  lines.push(`This week so far: ${money(b.week.total)}`);
+  // A worker's copy counts the work without naming the takings.
+  lines.push(showTakings
+    ? `${b.last.label}: ${money(b.last.total)} from ${b.last.sales} sale${b.last.sales === 1 ? "" : "s"}${b.last.repairs ? ` and ${b.last.repairs} repair${b.last.repairs === 1 ? "" : "s"}` : ""}${showProfit ? `, profit ${money(b.last.profit)}` : ""}`
+    : `${b.last.label}: ${b.last.sales} sale${b.last.sales === 1 ? "" : "s"}${b.last.repairs ? ` and ${b.last.repairs} repair${b.last.repairs === 1 ? "" : "s"}` : ""}`);
+  if (showTakings) lines.push(`This week so far: ${money(b.week.total)}`);
   if (b.owed.total > 0) lines.push(`Owed to you: ${money(b.owed.total)} by ${b.owed.people} customer${b.owed.people === 1 ? "" : "s"}`);
   if (b.ready.length) lines.push(`Ready, not collected: ${b.ready.length}`);
   if (b.lowCount) lines.push(`Running low: ${b.lowCount} product${b.lowCount === 1 ? "" : "s"}`);

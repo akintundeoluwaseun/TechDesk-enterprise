@@ -481,7 +481,7 @@ const QUICK_DO = [
   { id: "brief", label: "Today's brief", icon: Sunrise, page: null, tone: "bg-rose-500/15 text-rose-600 dark:text-rose-400" },
 ];
 const QUICK_ASK = [
-  { label: "Sales today", icon: Coins, intent: "sales_total", period: "today", page: "/sales" },
+  { label: "Sales today", icon: Coins, intent: "sales_total", period: "today", page: "/reports" },
   { label: "Profit this week", icon: TrendingUp, intent: "profit", period: "this_week", page: "/reports" },
   { label: "Who owes me?", icon: Users, intent: "who_owes", page: "/sales" },
   { label: "Running low", icon: PackageX, intent: "low_stock", page: "/inventory" },

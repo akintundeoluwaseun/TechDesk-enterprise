@@ -66,9 +66,9 @@ describe("first run walks through its steps, not straight to the dashboard", () 
     show();
     toGate();
     // AccountGateScreen's own screen -- unmodified, just reached a different way.
-    expect(screen.getByText("Set up your business")).toBeInTheDocument();
-    expect(screen.getByText("Sign in to your business")).toBeInTheDocument();
-    expect(screen.getByText("Continue locally, no account")).toBeInTheDocument();
+    expect(screen.getByText("Set up a new business")).toBeInTheDocument();
+    expect(screen.getByText("Sign in to an existing one")).toBeInTheDocument();
+    expect(screen.getByText("Use this device only")).toBeInTheDocument();
   });
 
   it("Back on the showcase returns to Welcome", () => {
@@ -91,7 +91,7 @@ describe("first run walks through its steps, not straight to the dashboard", () 
       done = true;
     });
     toGate();
-    fireEvent.click(screen.getByText("Continue locally, no account"));
+    fireEvent.click(screen.getByText("Use this device only"));
     expect(done).toBe(true);
   });
 
@@ -100,7 +100,7 @@ describe("first run walks through its steps, not straight to the dashboard", () 
     expect(getAccountGateDecision()).toBeFalsy();
     show();
     toGate();
-    fireEvent.click(screen.getByText("Continue locally, no account"));
+    fireEvent.click(screen.getByText("Use this device only"));
     // App.jsx only shows onboarding while this is empty (and the device has
     // no records of its own), so once it's set the app opens straight in.
     expect(getAccountGateDecision()).toBe("local");

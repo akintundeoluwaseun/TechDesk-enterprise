@@ -47,7 +47,12 @@ export default function MorningBrief({ onClose, now }) {
   const b = useMemo(() => buildBrief({}, now || new Date()), [now]);
   const fmt = (n) => money(n || 0, settings);
   const can = (page) => canAccess(user, page);
-  const showProfit = can("/reports");
+  // What the shop took and what it made are the owner's business, not the
+  // counter's. Reports access is what marks someone as allowed to see the
+  // shop's money; a worker with the sales page still sees who owes, because
+  // chasing payment is their job, and the amount owed is what to chase for.
+  const showMoney = can("/reports");
+  const showProfit = showMoney;
   const todo = b.todo.filter((x) => can(x.page));
   const dateLabel = new Date(`${b.day}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
   const name = first(user?.name);
@@ -58,7 +63,7 @@ export default function MorningBrief({ onClose, now }) {
   }
 
   function share() {
-    openWhatsApp("", briefText(b, { shop: settings.shopName, money: fmt, showProfit }));
+    openWhatsApp("", briefText(b, { shop: settings.shopName, money: fmt, showProfit, showTakings: showMoney }));
   }
 
   const up = b.last.change != null && b.last.change >= 0;
@@ -71,7 +76,11 @@ export default function MorningBrief({ onClose, now }) {
             <div className="absolute rounded-full" style={{ width: 320, height: 320, right: -110, bottom: -230, background: "radial-gradient(circle, rgba(251,146,60,.65), rgba(244,63,94,.25) 45%, transparent 70%)" }} />
             <div className="absolute rounded-full" style={{ width: 220, height: 220, left: -90, top: -120, background: "radial-gradient(circle, rgba(99,102,241,.4), transparent 65%)" }} />
           </div>
-          <button onClick={onClose} aria-label="Close" className="absolute top-4 right-4 p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10">
+          <button type="button" onClick={onClose} aria-label="Close"
+            /* z-10: the card's content sits in its own positioned block below this
+               in the markup, so without it that block paints over the X and takes
+               the taps -- the close button looked dead on a phone. */
+            className="absolute top-4 right-4 z-10 p-2 -m-0.5 rounded-full text-neutral-400 hover:text-white hover:bg-white/10">
             <X className="w-5 h-5" />
           </button>
           <div className="relative">
@@ -81,7 +90,7 @@ export default function MorningBrief({ onClose, now }) {
             <h2 className="text-2xl font-bold text-white mt-1">{b.greeting}{name ? `, ${name}` : ""}</h2>
             <div className="text-sm text-neutral-400">{dateLabel}</div>
 
-            {can("/sales") && (
+            {showMoney && (
               <div className="mt-4">
                 <div className="text-xs text-neutral-400">{b.last.label} you took</div>
                 <div className="flex items-baseline gap-2 flex-wrap">
@@ -105,12 +114,14 @@ export default function MorningBrief({ onClose, now }) {
 
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
           {can("/sales") && (
-            <div className={`grid grid-cols-2 gap-2`}>
+            <div className={`grid gap-2 ${showMoney ? "grid-cols-2" : "grid-cols-1"}`}>
+              {showMoney && (
               <div className={`rounded-2xl p-3 ${t.insetBg}`}>
                 <div className={`text-xs ${t.textMuted}`}>This week so far</div>
                 <div className={`text-lg font-bold tabular-nums ${t.textPrimary}`}>{fmt(b.week.total)}</div>
                 <div className={`text-xs ${t.textMuted}`}>{b.week.lastWeek > 0 ? `Same days last week: ${fmt(b.week.lastWeek)}` : `${b.week.sales} sales`}</div>
               </div>
+              )}
               <button type="button" onClick={() => { onClose(); openChaser(); }} className={`text-left rounded-2xl p-3 ${t.insetBg}`}>
                 <div className={`text-xs ${t.textMuted}`}>Owed to you</div>
                 <div className={`text-lg font-bold tabular-nums ${b.owed.total > 0 ? "text-amber-500" : t.textPrimary}`}>{fmt(b.owed.total)}</div>

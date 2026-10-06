@@ -90,3 +90,15 @@ describe("the morning brief", () => {
     expect(briefDue(new Date(2026, 9, 8, 7, 0), buildBrief({ sales: [], repairs: [], inventory: [] }, NOW))).toBe(false);
   });
 });
+
+// Takings and profit are the owner's business. A worker sees the work and who
+// owes -- chasing payment is their job -- but not what the shop took.
+it("leaves the takings out of a worker's copy", () => {
+  const b = buildBrief(shop(), NOW);
+  const theirs = briefText(b, { showProfit: false, showTakings: false, money: (n) => `N${n}` });
+  expect(theirs).not.toMatch(/N33000/);
+  expect(theirs).not.toMatch(/This week so far/);
+  expect(theirs).not.toMatch(/profit/);
+  expect(theirs).toMatch(/2 sales/);
+  expect(theirs).toMatch(/Owed to you: N25000/);
+});
