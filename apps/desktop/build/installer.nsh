@@ -115,3 +115,43 @@
     IDYES +2
   Abort
 !macroend
+
+; ------------------------------------------------------------- the slideshow
+;
+; The install page used to be a progress bar over a list of file names. It is
+; now a slideshow of what TechDesk does, because that minute is the only time
+; a shop watches us with nothing else to look at.
+;
+; Three hooks, each the only place electron-builder lets this happen:
+;
+;   customInit               runs inside .onInit -- where the bitmaps are
+;                            unpacked, before any page can ask for one.
+;   customPageAfterChangeDir expanded immediately before MUI_PAGE_INSTFILES,
+;                            which is what lets the page's SHOW function be
+;                            named in time. It adds no page of its own.
+;   customInstall            the end of the install section, with the page
+;                            still up: the timer stops, the last slide stays.
+;
+; The code is in build/slideshow.nsh; electron-builder puts build resources on
+; the include path. All of it is written to fail quietly -- a missing file or
+; an unexpected dialog leaves the ordinary log page exactly as it was.
+!ifndef BUILD_UNINSTALLER
+  !include "slideshow.nsh"
+!endif
+
+!macro customInit
+  ; $PLUGINSDIR is this instance's own temporary folder, and is cleaned up for
+  ; us. Extracting here rather than into $INSTDIR keeps three megabytes of
+  ; artwork off the shop's disk once the install is done.
+  InitPluginsDir
+  File "/oname=$PLUGINSDIR\td-slides.avi"  "${BUILD_RESOURCES_DIR}\slides.avi"
+  File "/oname=$PLUGINSDIR\td-slidebg.bmp" "${BUILD_RESOURCES_DIR}\slidebg.bmp"
+!macroend
+
+!macro customPageAfterChangeDir
+  !define MUI_PAGE_CUSTOMFUNCTION_SHOW tdSlideshowShow
+!macroend
+
+!macro customInstall
+  Call tdSlideshowStop
+!macroend
