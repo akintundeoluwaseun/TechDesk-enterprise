@@ -116,36 +116,46 @@
   Abort
 !macroend
 
-; ------------------------------------------------------------- the slideshow
+; ---------------------------------------------------------------- the skin
 ;
-; The install page used to be a progress bar over a list of file names. It is
-; now a slideshow of what TechDesk does, because that minute is the only time
-; a shop watches us with nothing else to look at.
+; Both pages a shop sees are one picture edge to edge: a still on the welcome
+; page, and on the install page a slideshow of what TechDesk does, with the
+; progress underneath it. That minute is the only time a shop watches us with
+; nothing else to look at, and MUI's own wizard spends it on a white header
+; band, a margin, and a scrolling list of file names.
 ;
-; Three hooks, each the only place electron-builder lets this happen:
+; Four hooks, each the only place electron-builder lets this happen:
 ;
-;   customInit               runs inside .onInit -- where the bitmaps are
+;   customInit               runs inside .onInit -- where the artwork is
 ;                            unpacked, before any page can ask for one.
+;   customWelcomePage        replaces the welcome page, so its SHOW function
+;                            can be named. It still inserts MUI's own page.
 ;   customPageAfterChangeDir expanded immediately before MUI_PAGE_INSTFILES,
-;                            which is what lets the page's SHOW function be
+;                            which is what lets THAT page's SHOW function be
 ;                            named in time. It adds no page of its own.
 ;   customInstall            the end of the install section, with the page
-;                            still up: the timer stops, the last slide stays.
+;                            still up: the artwork's bitmap is handed back.
 ;
 ; The code is in build/slideshow.nsh; electron-builder puts build resources on
 ; the include path. All of it is written to fail quietly -- a missing file or
-; an unexpected dialog leaves the ordinary log page exactly as it was.
+; an unexpected dialog leaves MUI's ordinary page exactly as it was.
 !ifndef BUILD_UNINSTALLER
   !include "slideshow.nsh"
 !endif
 
 !macro customInit
   ; $PLUGINSDIR is this instance's own temporary folder, and is cleaned up for
-  ; us. Extracting here rather than into $INSTDIR keeps three megabytes of
-  ; artwork off the shop's disk once the install is done.
+  ; us. Extracting here rather than into $INSTDIR keeps the artwork off the
+  ; shop's disk once the install is done.
   InitPluginsDir
-  File "/oname=$PLUGINSDIR\td-slides.avi"  "${BUILD_RESOURCES_DIR}\slides.avi"
-  File "/oname=$PLUGINSDIR\td-slidebg.bmp" "${BUILD_RESOURCES_DIR}\slidebg.bmp"
+  File "/oname=$PLUGINSDIR\td-slides.avi"   "${BUILD_RESOURCES_DIR}\slides.avi"
+  File "/oname=$PLUGINSDIR\td-slidebg.bmp"  "${BUILD_RESOURCES_DIR}\slidebg.bmp"
+  File "/oname=$PLUGINSDIR\td-welcome.bmp"  "${BUILD_RESOURCES_DIR}\welcome.bmp"
+!macroend
+
+!macro customWelcomePage
+  !define MUI_PAGE_CUSTOMFUNCTION_SHOW tdWelcomeShow
+  !insertmacro MUI_PAGE_WELCOME
 !macroend
 
 !macro customPageAfterChangeDir
