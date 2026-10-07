@@ -13,3 +13,4 @@ keystore-base64.txt
 # Python bytecode from the installer art generator.
 __pycache__/
 *.pyc
+apps/desktop/build/preview-slides.png

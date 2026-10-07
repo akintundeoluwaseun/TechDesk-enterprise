@@ -37,10 +37,14 @@
 !define TD_IMAGE_BITMAP       0
 !define TD_LR_LOADFROMFILE    0x00000010
 
-; Animation control: centre the frames, start as soon as it is opened, and
-; paint nothing of its own behind them.
+; Animation control: centre the frames and start as soon as it is opened.
+;
+; Not ACS_TRANSPARENT. It sounds harmless and it is not: the control then
+; blends each frame against the PARENT's background colour, which is the
+; dialog's grey, and every anti-aliased edge in the artwork -- every headline
+; -- came out speckled with it. The frames are opaque and fill the control;
+; there is nothing to see through.
 !define TD_ACS_CENTER    0x0001
-!define TD_ACS_TRANSPARENT 0x0002
 !define TD_ACS_AUTOPLAY  0x0004
 !define TD_ACM_OPENA     0x0464   ; WM_USER+100
 !define TD_ACM_OPENW     0x0467   ; WM_USER+103
@@ -105,7 +109,7 @@ Function tdSlideshowShow
 
   ; The slideshow itself, over the top.
   System::Call 'user32::CreateWindowEx(i 0, t "SysAnimate32", t "", \
-    i ${TD_WS_CHILD}|${TD_WS_VISIBLE}|${TD_ACS_CENTER}|${TD_ACS_TRANSPARENT}|${TD_ACS_AUTOPLAY}, \
+    i ${TD_WS_CHILD}|${TD_WS_VISIBLE}|${TD_ACS_CENTER}|${TD_ACS_AUTOPLAY}, \
     i $R3, i $R4, i $R5, i $R6, i $R0, i 0, i 0, i 0) i .R9'
   StrCmp $R9 0 no_anim
 
