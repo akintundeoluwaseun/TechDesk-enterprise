@@ -1,23 +1,25 @@
 """Painting helpers: gradients, glass, soft shadows, and the TechDesk helper.
 
-This is the part that makes the installer look drawn rather than diagrammed.
-The first attempt was flat dark panels and hairline icons -- correct, legible,
-and about as inviting as a settings screen. What a shop should see is bright,
-rounded, lit from somewhere, with a character in it.
-
-Everything here is raster, in Pillow, because the installer can only play
-bitmaps. The tricks are the usual ones: a vertical ramp for the ground, a
-blurred black shape under everything that should sit above the page, a lighter
-ellipse across the top of a round thing to make it read as glossy.
+Everything here draws at the supersampled size (see supersample.py) and hands
+back an image the scene code pastes through SImage, which scales the position
+for it. So a caller still says `mascot(118)` and `(6, 44)` and gets a figure
+118 pixels tall in the finished picture, drawn three times that and resampled
+down with smooth edges.
 
 A note on the ground. The background is a VERTICAL ramp on purpose: each row
-is close to one colour, so a run-length encoder stores a whole row in a few
-bytes. A radial or diagonal ground looks no better and costs several times
-the size, which is the whole budget for the animation.
+is close to one colour, which a run-length encoder stores in a few bytes. A
+radial or diagonal ground looks no better and costs several times the size.
 """
 import math
 
 from PIL import Image, ImageDraw, ImageFilter
+
+import supersample
+from supersample import SS
+
+
+def S(v):
+    return max(1, round(v * supersample.SS))
 
 
 def clamp01(v):
@@ -30,170 +32,185 @@ def mix(a, b, t):
 
 
 def vgradient(size, top, bottom, steps=None):
-    """A vertical ramp. One flat row per step keeps the runs long."""
-    w, h = size
-    im = Image.new("RGB", size, top)
+    """A vertical ramp, at drawing size. One flat row per step."""
+    w, h = round(size[0] * supersample.SS), round(size[1] * supersample.SS)
+    im = Image.new("RGB", (w, h), top)
     d = ImageDraw.Draw(im)
     steps = steps or h
     for i in range(steps):
         y0 = round(h * i / steps)
-        y1 = round(h * (i + 1) / steps)
+        y1 = round(h * (i + 1) / steps) + 1
         d.rectangle([0, y0, w, y1], fill=mix(top, bottom, i / max(1, steps - 1)))
     return im
 
 
 def glow(img, centre, radius, colour, strength=0.5):
-    """A soft bloom, blended in rather than added, so it never clips to white."""
+    """A soft bloom, blended in rather than added, so it never clips to white.
+
+    `centre` and `radius` are in unscaled coordinates; the image is not.
+    """
+    cx, cy, r = S(centre[0]), S(centre[1]), S(radius)
     layer = Image.new("RGB", img.size, colour)
     mask = Image.new("L", img.size, 0)
-    ImageDraw.Draw(mask).ellipse(
-        [centre[0] - radius, centre[1] - radius, centre[0] + radius, centre[1] + radius],
-        fill=round(255 * strength),
-    )
-    mask = mask.filter(ImageFilter.GaussianBlur(radius * 0.45))
+    ImageDraw.Draw(mask).ellipse([cx - r, cy - r, cx + r, cy + r],
+                                 fill=round(255 * strength))
+    mask = mask.filter(ImageFilter.GaussianBlur(r * 0.45))
     return Image.composite(layer, img, mask)
 
 
-def shadow(size, shape, blur=8, offset=(0, 5), alpha=90):
-    """A blurred black copy of a shape, to sit under it.
-
-    `shape` draws the silhouette into an L mask handed to it.
-    """
-    pad = blur * 3
-    m = Image.new("L", (size[0] + pad * 2, size[1] + pad * 2), 0)
-    shape(ImageDraw.Draw(m), pad)
-    m = m.filter(ImageFilter.GaussianBlur(blur)).point(lambda v: round(v * alpha / 255))
-    return m, pad, offset
-
-
-def paste_shadow(dst, size, shape, at, blur=8, offset=(0, 5), alpha=90):
-    m, pad, off = shadow(size, shape, blur, offset, alpha)
-    black = Image.new("RGB", m.size, (0, 0, 0))
-    dst.paste(black, (at[0] - pad + off[0], at[1] - pad + off[1]), m)
-
-
 def rounded(size, radius, fill):
-    im = Image.new("RGBA", size, (0, 0, 0, 0))
-    ImageDraw.Draw(im).rounded_rectangle([0, 0, size[0] - 1, size[1] - 1], radius, fill=fill)
+    w, h = S(size[0]), S(size[1])
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(im).rounded_rectangle([0, 0, w - 1, h - 1], S(radius), fill=fill)
     return im
 
 
-def glossy_card(size, radius, top, bottom, sheen=70):
-    """A rounded panel with a vertical ramp and a sheen across its top half."""
+def glossy_card(size, radius, top, bottom, sheen=70, rim=None):
+    """A rounded panel: a vertical ramp, a sheen over the top, a light rim.
+
+    The rim is the part that reads as three-dimensional. A flat shape with a
+    gradient still looks like a sticker; one pixel of brighter edge along the
+    top makes it look lit from above.
+    """
+    w, h = S(size[0]), S(size[1])
+    r = S(radius)
     body = vgradient(size, top, bottom).convert("RGBA")
-    mask = Image.new("L", size, 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, size[0] - 1, size[1] - 1], radius, fill=255)
+    mask = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([0, 0, w - 1, h - 1], r, fill=255)
     body.putalpha(mask)
 
-    gloss = Image.new("RGBA", size, (0, 0, 0, 0))
-    ImageDraw.Draw(gloss).ellipse(
-        [-size[0] * 0.3, -size[1] * 0.95, size[0] * 1.3, size[1] * 0.55],
-        fill=(255, 255, 255, sheen),
-    )
-    gloss.putalpha(Image.composite(gloss.getchannel("A"), Image.new("L", size, 0), mask))
-    return Image.alpha_composite(body, gloss)
+    gloss = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(gloss).ellipse([-w * 0.3, -h * 0.95, w * 1.3, h * 0.55],
+                                  fill=(255, 255, 255, sheen))
+    gloss = gloss.filter(ImageFilter.GaussianBlur(S(1.2)))
+    gloss.putalpha(Image.composite(gloss.getchannel("A"), Image.new("L", (w, h), 0), mask))
+    out = Image.alpha_composite(body, gloss)
+
+    edge = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(edge).rounded_rectangle(
+        [0, 0, w - 1, h - 1], r, outline=(rim or mix(top, (255, 255, 255), 0.55)) + (190,),
+        width=max(1, S(0.7)))
+    return Image.alpha_composite(out, edge)
 
 
 def orb(size, colour, light=(255, 255, 255)):
-    """A sphere: flat fill, a darker rim, and a highlight up and to the left.
-
-    A size of zero or one is a thing that has not grown in yet, not an error,
-    so it comes back as an empty image rather than throwing.
-    """
-    size = round(size)
-    if size < 2:
+    """A sphere: a ramp from rim to centre, with a highlight up and to the left."""
+    if size < 1:
         return Image.new("RGBA", (1, 1), (0, 0, 0, 0))
-    im = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    n = S(size)
+    im = Image.new("RGBA", (n, n), (0, 0, 0, 0))
     d = ImageDraw.Draw(im)
-    d.ellipse([0, 0, size - 1, size - 1], fill=colour + (255,))
-    d.ellipse([size * 0.12, size * 0.08, size * 0.95, size * 0.92],
-              fill=mix(colour, light, 0.18) + (255,))
-    hi = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    ImageDraw.Draw(hi).ellipse([size * 0.18, size * 0.10, size * 0.62, size * 0.46],
-                               fill=light + (150,))
-    hi = hi.filter(ImageFilter.GaussianBlur(size * 0.05))
+    rim = mix(colour, (0, 0, 0), 0.18)
+    # Concentric rings from the rim colour to a lighter core: a cheap sphere.
+    rings = max(6, n // 3)
+    for i in range(rings):
+        t = i / (rings - 1)
+        inset = t * n * 0.42
+        d.ellipse([inset, inset * 0.86, n - 1 - inset, n - 1 - inset * 1.14],
+                  fill=mix(rim, mix(colour, light, 0.30), t) + (255,))
+    hi = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+    ImageDraw.Draw(hi).ellipse([n * 0.20, n * 0.11, n * 0.60, n * 0.44],
+                               fill=light + (165,))
+    hi = hi.filter(ImageFilter.GaussianBlur(n * 0.07))
+    hi.putalpha(Image.composite(
+        hi.getchannel("A"),
+        Image.new("L", (n, n), 0),
+        Image.new("L", (n, n), 0) if False else _disc_mask(n)))
     return Image.alpha_composite(im, hi)
+
+
+def _disc_mask(n):
+    m = Image.new("L", (n, n), 0)
+    ImageDraw.Draw(m).ellipse([0, 0, n - 1, n - 1], fill=255)
+    return m
+
+
+def drop_shadow(size, radius, blur=7, alpha=80, colour=(10, 32, 86)):
+    """A blurred silhouette to put under a rounded box. Returns (image, pad)."""
+    w, h, r = S(size[0]), S(size[1]), S(radius)
+    pad = S(blur) * 3
+    m = Image.new("L", (w + pad * 2, h + pad * 2), 0)
+    ImageDraw.Draw(m).rounded_rectangle([pad, pad, pad + w, pad + h], r, fill=alpha)
+    m = m.filter(ImageFilter.GaussianBlur(S(blur)))
+    sh = Image.new("RGBA", m.size, colour + (0,))
+    sh.putalpha(m)
+    return sh, pad
 
 
 # --------------------------------------------------------------------- Desky
 #
 # The assistant, drawn rather than hired. TechDesk's whole pitch is that you
 # can talk to it, so the thing a shop meets first should have a face.
-#
-# Built from circles and rounded boxes with a highlight on each, which is all
-# "3D" means at this size: white body, dark visor, two lights for eyes, and an
-# aerial with a bead on the end that blinks in the brand colours.
 
-VISOR = (24, 28, 54)
 BODY_HI = (255, 255, 255)
-BODY_LO = (206, 220, 240)
+BODY_LO = (196, 212, 238)
+VISOR_HI = (58, 66, 112)
+VISOR_LO = (22, 26, 52)
 
 
 def mascot(h=120, bob=0.0, blink=0.0, look=0.0, arm=0.0, accent=(56, 189, 248)):
-    """A character `h` pixels tall. All arguments are 0..1 animation phases."""
-    s = h / 120.0
-    W = round(104 * s)
-    H = round(h)
-    im = Image.new("RGBA", (W, H + round(16 * s)), (0, 0, 0, 0))
-    d = ImageDraw.Draw(im)
+    """A character `h` pixels tall in the finished picture. Phases are 0..1."""
+    u = h / 120.0                       # unscaled design unit
+    W, H = 104 * u, h + 16 * u
+    im = Image.new("RGBA", (S(W), S(H)), (0, 0, 0, 0))
 
-    def S(v):
-        return round(v * s)
+    def P(x, y):
+        return (round(x * u * supersample.SS), round(y * u * supersample.SS))
 
-    dy = round(math.sin(bob * math.tau) * 4 * s)
+    dy = math.sin(bob * math.tau) * 4
 
     # The shadow it floats above, which is what sells the floating.
+    squash = 1 - abs(math.sin(bob * math.tau)) * 0.16
     sh = Image.new("L", im.size, 0)
-    squash = 1 - abs(math.sin(bob * math.tau)) * 0.15
     ImageDraw.Draw(sh).ellipse(
-        [W / 2 - S(30) * squash, H - S(4), W / 2 + S(30) * squash, H + S(10)], fill=70)
-    im.paste(Image.new("RGB", im.size, (10, 30, 70)),
-             (0, 0), sh.filter(ImageFilter.GaussianBlur(S(5))))
+        [S(W / 2 - 30 * u * squash), S(H - 14 * u),
+         S(W / 2 + 30 * u * squash), S(H - 2 * u)], fill=86)
+    im.paste(Image.new("RGB", im.size, (10, 34, 86)), (0, 0),
+             sh.filter(ImageFilter.GaussianBlur(S(4 * u))))
 
-    # Arms, behind the body.
-    swing = math.sin(arm * math.tau) * S(7)
+    # Arms, behind the body, with a rim so they read against white.
+    swing = math.sin(arm * math.tau) * 7
     for side in (-1, 1):
-        ax = W / 2 + side * S(34)
-        ay = S(62) + dy + (swing if side > 0 else 0)
-        a = rounded((S(16), S(30)), S(8), BODY_HI + (255,))
-        im.alpha_composite(a, (round(ax - S(8)), round(ay)))
+        a = glossy_card((16 * u, 30 * u), 8 * u, BODY_HI, BODY_LO, sheen=60,
+                        rim=(170, 190, 224))
+        im.alpha_composite(a, P(W / 2 / u + side * 34 - 8, 62 + dy + (swing if side > 0 else 0)))
 
-    # Body: a rounded capsule with a ramp down it.
-    bw, bh = S(74), S(78)
-    bx, by = round(W / 2 - bw / 2), round(S(34) + dy)
-    im.alpha_composite(glossy_card((bw, bh), S(30), BODY_HI, BODY_LO, sheen=90), (bx, by))
-
-    # Head, overlapping the body a little so they read as one object.
-    hw, hh = S(80), S(62)
-    hx, hy = round(W / 2 - hw / 2), round(S(6) + dy)
-    im.alpha_composite(glossy_card((hw, hh), S(26), BODY_HI, (226, 236, 250), sheen=110), (hx, hy))
+    # Body and head, overlapping so they read as one object.
+    im.alpha_composite(glossy_card((74 * u, 78 * u), 30 * u, BODY_HI, BODY_LO,
+                                   sheen=96, rim=(206, 222, 246)),
+                       P(W / 2 / u - 37, 34 + dy))
+    im.alpha_composite(glossy_card((80 * u, 62 * u), 26 * u, BODY_HI, (216, 229, 248),
+                                   sheen=118, rim=(212, 228, 250)),
+                       P(W / 2 / u - 40, 6 + dy))
 
     # Visor.
-    vw, vh = S(62), S(36)
-    vx, vy = round(W / 2 - vw / 2), round(S(18) + dy)
-    im.alpha_composite(glossy_card((vw, vh), S(17), (40, 46, 84), VISOR, sheen=55), (vx, vy))
+    im.alpha_composite(glossy_card((62 * u, 36 * u), 17 * u, VISOR_HI, VISOR_LO,
+                                   sheen=58, rim=(96, 108, 170)),
+                       P(W / 2 / u - 31, 18 + dy))
 
-    # Eyes. They slide a little with `look`, and close for `blink`.
-    ex = W / 2 + look * S(6)
-    ey = vy + vh / 2
-    er = S(7)
-    d2 = ImageDraw.Draw(im)
+    # Eyes: they slide a little with `look`, and close for `blink`.
+    d = ImageDraw.Draw(im)
+    ey = (18 + 18 + dy) * u
+    er = 7 * u
     for side in (-1, 1):
-        cx = ex + side * S(13)
+        cx = (W / 2 / u + look * 6 + side * 13) * u
         if blink > 0.5:
-            d2.rounded_rectangle([cx - er, ey - S(2), cx + er, ey + S(2)], S(2),
-                                 fill=(255, 255, 255, 255))
+            d.rounded_rectangle([S(cx - er), S(ey - 2 * u), S(cx + er), S(ey + 2 * u)],
+                                S(2 * u), fill=(255, 255, 255, 255))
         else:
-            d2.ellipse([cx - er, ey - er, cx + er, ey + er], fill=(255, 255, 255, 255))
-            d2.ellipse([cx - er * 0.4, ey - er * 0.7, cx + er * 0.25, ey - er * 0.05],
-                       fill=accent + (210,))
+            e = orb(14 * u, (255, 255, 255), light=(255, 255, 255))
+            im.alpha_composite(e, (S(cx - er), S(ey - er)))
+            d.ellipse([S(cx - er * 0.42), S(ey - er * 0.72),
+                       S(cx + er * 0.28), S(ey - er * 0.04)], fill=accent + (220,))
 
-    # Aerial.
-    d2.line([W / 2, hy - S(2), W / 2, hy - S(13)], fill=BODY_LO + (255,), width=S(3))
-    bead = orb(S(11), accent)
-    im.alpha_composite(bead, (round(W / 2 - S(5.5)), round(hy - S(19))))
+    # Aerial and bead.
+    d.line([S(W / 2), S((6 + dy) * u - S(2) / supersample.SS),
+            S(W / 2), S((6 + dy) * u - 13 * u)],
+           fill=(206, 222, 246, 255), width=S(2.6 * u))
+    bead = orb(11 * u, accent)
+    im.alpha_composite(bead, (S(W / 2 - 5.5 * u), S((6 + dy) * u - 19 * u)))
 
     # A badge, so it belongs to us.
-    d2.ellipse([W / 2 - S(11), by + S(22), W / 2 + S(11), by + S(44)],
-               fill=mix(accent, (255, 255, 255), 0.15) + (255,))
+    badge = orb(22 * u, mix(accent, (255, 255, 255), 0.10))
+    im.alpha_composite(badge, (S(W / 2 - 11 * u), S((34 + dy + 22) * u)))
     return im

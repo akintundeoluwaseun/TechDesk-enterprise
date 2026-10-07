@@ -15,8 +15,9 @@
     "test": "vitest run",
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"npm:dev\" \"wait-on tcp:5173 && electron .\"",
-    "electron:build": "npm run build && electron-builder",
-    "dist": "npm run build && electron-builder --publish=never"
+    "electron:build": "npm run art && npm run build && electron-builder",
+    "dist": "npm run art && npm run build && electron-builder --publish=never",
+    "art": "python3 build/art/make-installer-art.py"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",

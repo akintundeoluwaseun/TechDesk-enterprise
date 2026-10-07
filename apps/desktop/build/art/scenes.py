@@ -19,7 +19,9 @@ import pathlib
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 import paint
+import supersample
 from paint import clamp01, glossy_card, glow, mascot, mix, orb, rounded, vgradient
+from supersample import SDraw, SImage
 
 HERE = pathlib.Path(__file__).resolve().parent
 FONT_DIR = pathlib.Path("/usr/share/fonts/truetype/liberation")
@@ -59,21 +61,20 @@ def out_back(t):
 
 
 def logo(px):
-    if px not in _logo_cache:
+    """The mark, at drawing size, so it lands on a supersampled canvas."""
+    n = round(px * supersample.SS)
+    if n not in _logo_cache:
         im = Image.open(HERE.parent / "icon.png").convert("RGBA")
-        _logo_cache[px] = im.resize((px, px), Image.LANCZOS)
-    return _logo_cache[px]
+        _logo_cache[n] = im.resize((n, n), Image.LANCZOS)
+    return _logo_cache[n]
 
 
-def soft_drop(dst, box, radius, blur=7, alpha=70, offset=(0, 5)):
+def soft_drop(dst, box, radius, blur=7, alpha=80, offset=(0, 5)):
     """A blurred silhouette under a rounded box, so it lifts off the ground."""
-    pad = blur * 3
     w, h = box[2] - box[0], box[3] - box[1]
-    m = Image.new("L", (w + pad * 2, h + pad * 2), 0)
-    ImageDraw.Draw(m).rounded_rectangle([pad, pad, pad + w, pad + h], radius, fill=alpha)
-    m = m.filter(ImageFilter.GaussianBlur(blur))
-    dst.paste(Image.new("RGB", m.size, (12, 40, 96)),
-              (box[0] - pad + offset[0], box[1] - pad + offset[1]), m)
+    sh, pad = paint.drop_shadow((w, h), radius, blur=blur, alpha=alpha)
+    pad_u = pad / supersample.SS
+    dst.alpha_composite(sh, (box[0] - pad_u + offset[0], box[1] - pad_u + offset[1]))
 
 
 # ------------------------------------------------------------------- scene 1
@@ -185,9 +186,9 @@ def scene_repairs(im, d, t, accent):
         crack = [(px + 20, py + 18), (px + 34, py + 44), (px + 22, py + 56), (px + 40, py + 86)]
         d.line(crack, fill=(255, 255, 255, a) if a else None, width=2, joint="curve")
     if healed > 0.4:
-        s = orb(round(26 * ease((healed - 0.4) / 0.6)), MINT)
-        if s.width > 4:
-            im.alpha_composite(s, (px + pw - 16, py + ph - 24))
+        d_ = 26 * ease((healed - 0.4) / 0.6)
+        if d_ > 4:
+            im.alpha_composite(orb(d_, MINT), (px + pw - 16, py + ph - 24))
 
     # The track.
     x0, x1, y = 92, 168, 44
@@ -197,8 +198,9 @@ def scene_repairs(im, d, t, accent):
     for i, name in enumerate(("Booked", "Repairing", "Ready")):
         cx = x0 + (x1 - x0) * i / 2
         lit = head >= i / 2 - 0.02
-        k = orb(16 if lit else 12, MINT if lit else (150, 190, 240))
-        im.alpha_composite(k, (round(cx - k.width / 2), round(y - k.height / 2)))
+        kd = 16 if lit else 12
+        im.alpha_composite(orb(kd, MINT if lit else (150, 190, 240)),
+                           (cx - kd / 2, y - kd / 2))
         d.text((cx, y + 13), name, font=font(8, bold=False),
                fill=WHITE if lit else (190, 214, 245), anchor="ma")
 
@@ -276,22 +278,7 @@ def scene_offline(im, d, t, accent):
         if sw > 10:
             sh = round(sw * 1.12)
             sx, sy = round(210 - sw / 2), round(104 - sh / 2)
-            shield = Image.new("RGBA", (sw, sh), (0, 0, 0, 0))
-            sd = ImageDraw.Draw(shield)
-            body = [(sw / 2, 0), (sw - 1, sw * 0.20), (sw - 1, sh * 0.55),
-                    (sw / 2, sh - 1), (0, sh * 0.55), (0, sw * 0.20)]
-            sd.polygon(body, fill=GREEN + (255,))
-            inner = Image.new("RGBA", (sw, sh), (0, 0, 0, 0))
-            ImageDraw.Draw(inner).polygon(
-                [(sw / 2, 4), (sw - 5, sw * 0.22), (sw - 5, sh * 0.54),
-                 (sw / 2, sh - 6), (5, sh * 0.54), (5, sw * 0.22)],
-                fill=MINT + (255,))
-            shield = Image.alpha_composite(shield, inner)
-            sheen = Image.new("RGBA", (sw, sh), (0, 0, 0, 0))
-            ImageDraw.Draw(sheen).ellipse([-sw * 0.3, -sh * 0.8, sw * 1.3, sh * 0.42],
-                                          fill=(255, 255, 255, 80))
-            shield = Image.alpha_composite(shield, Image.composite(
-                sheen, Image.new("RGBA", (sw, sh), (0, 0, 0, 0)), shield.getchannel("A")))
+            shield = _shield(sw, sh)
             im.alpha_composite(shield, (sx, sy))
 
             q = clamp01((t - 0.44) * 3)
@@ -327,9 +314,38 @@ SCENES = (
 )
 
 
+def _shield(w, h):
+    """A rounded shield, drawn at the canvas's real size and lit from above."""
+    W_, H_ = paint.S(w), paint.S(h)
+    body = [(W_ / 2, 0), (W_ - 1, W_ * 0.20), (W_ - 1, H_ * 0.55),
+            (W_ / 2, H_ - 1), (0, H_ * 0.55), (0, W_ * 0.20)]
+    im = Image.new("RGBA", (W_, H_), (0, 0, 0, 0))
+    ImageDraw.Draw(im).polygon(body, fill=GREEN + (255,))
+
+    inner = Image.new("RGBA", (W_, H_), (0, 0, 0, 0))
+    ImageDraw.Draw(inner).polygon(
+        [(W_ / 2, H_ * 0.03), (W_ * 0.95, W_ * 0.23), (W_ * 0.95, H_ * 0.54),
+         (W_ / 2, H_ * 0.94), (W_ * 0.05, H_ * 0.54), (W_ * 0.05, W_ * 0.23)],
+        fill=MINT + (255,))
+    im = Image.alpha_composite(im, inner)
+
+    sheen = Image.new("RGBA", (W_, H_), (0, 0, 0, 0))
+    ImageDraw.Draw(sheen).ellipse([-W_ * 0.3, -H_ * 0.8, W_ * 1.3, H_ * 0.42],
+                                  fill=(255, 255, 255, 90))
+    sheen = sheen.filter(ImageFilter.GaussianBlur(paint.S(1.5)))
+    return Image.alpha_composite(im, Image.composite(
+        sheen, Image.new("RGBA", (W_, H_), (0, 0, 0, 0)), im.getchannel("A")))
+
+
 def render_panel(index, t):
-    """One scene's drawing, in its own image so nothing can leave its half."""
+    """One scene's drawing, in its own image so nothing can leave its half.
+
+    The image is secretly three times the size it says it is -- see
+    supersample.py -- which is what gives every curve in here a smooth edge
+    instead of a staircase. The scene code is written in ordinary
+    coordinates and never has to know.
+    """
     _, _, (top, _), draw_scene = SCENES[index]
-    panel = Image.new("RGBA", (PW, PH), (0, 0, 0, 0))
-    draw_scene(panel, ImageDraw.Draw(panel), t, top)
+    panel = SImage((PW, PH))
+    draw_scene(panel, panel.draw(), t, top)
     return panel

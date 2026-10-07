@@ -18,28 +18,30 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
-import rle8
+import make_avi
 import scenes
+import supersample
 from scenes import (H, INK, PANEL_BOX, PAPER, SCENES, W, WHITE, clamp01, ease,
                     font, glossy_card, glow, logo, mix, out_back, render_panel,
                     soft_drop, vgradient)
+from supersample import SImage
 
 OUT = pathlib.Path(__file__).resolve().parent.parent
 
 SIDEBAR = (164, 314)
 HEADER = (150, 57)
 WELCOME = (500, 280)
-FPS = 10
-SCENE_FRAMES = 22          # 2.2 seconds each, so a short install still turns over
+FPS = 8
+SCENE_FRAMES = 18          # 2.25 seconds each, so a short install still turns over
 
 
 # --------------------------------------------------------------- the animation
 def ground(size, top, bottom, lit=True):
-    """The lit ramp everything is drawn on."""
-    im = vgradient(size, top, bottom, steps=min(size[1], 96))
+    """The lit ramp everything is drawn on, at drawing size."""
+    im = vgradient(size, top, bottom, steps=size[1] * supersample.SS)
     if lit:
-        im = glow(im, (round(size[0] * 0.26), -round(size[1] * 0.10)),
-                  round(size[1] * 1.15), mix(top, (255, 255, 255), 0.45), 0.42)
+        im = glow(im, (size[0] * 0.26, -size[1] * 0.10),
+                  size[1] * 1.15, mix(top, (255, 255, 255), 0.45), 0.42)
     return im
 
 
@@ -74,13 +76,13 @@ def frame(scene_index, k):
     title, sub, (top, bottom), _ = SCENES[scene_index]
     t = k / (SCENE_FRAMES - 1)
 
-    im = ground((W, H), top, bottom).convert("RGBA")
+    im = SImage.wrap(ground((W, H), top, bottom).convert("RGBA"), (W, H))
 
     # The drawing lives in its own image, so nothing it does can land outside
     # its half of the picture. See scenes.py.
     im.alpha_composite(render_panel(scene_index, t), (PANEL_BOX[0], PANEL_BOX[1]))
 
-    d = ImageDraw.Draw(im)
+    d = im.draw()
     chrome(d, im, scene_index)
 
     # The words arrive: the rule draws itself, the headline settles onto its
@@ -104,88 +106,25 @@ def frame(scene_index, k):
                fill=(226, 238, 255, round(255 * a2)))
         y += 17
 
-    return im.convert("RGB")
-
-
-def build_palette():
-    """The 256 colours the animation is allowed, chosen rather than found.
-
-    Median cut picks colours by how much area they cover. The grounds are five
-    different blues and oranges covering most of every frame, so they took the
-    whole palette and the white text on top of them got a handful of greys --
-    headlines came out mottled, like a bad screenshot of themselves.
-
-    So the ramps are declared: every ground gets its own, every text colour
-    gets a run against the ground it is actually drawn on, and the props get
-    what is left.
-    """
-    out = []
-    per_ground = 30
-    for _, _, (top, bottom), _ in SCENES:
-        lit = mix(top, (255, 255, 255), 0.45)
-        for i in range(per_ground):
-            out.append(mix(top, bottom, i / (per_ground - 1)))
-        for i in range(10):
-            out.append(mix(top, lit, i / 9))
-        # White type sits on the ground, so it needs the steps in between.
-        for i in range(10):
-            out.append(mix(mix(top, bottom, 0.35), WHITE, i / 9))
-
-    # The props: paper, ink on paper, and the accents.
-    for a, b, n in ((PAPER, INK, 12), (WHITE, PAPER, 4), (PAPER, (100, 116, 160), 8),
-                    (scenes.GREEN, scenes.MINT, 8), (PAPER, scenes.GREEN, 6),
-                    (scenes.AMBER, scenes.ORANGE, 8), (PAPER, scenes.AMBER, 6),
-                    (WHITE, scenes.SKY, 8), (WHITE, (206, 220, 240), 10),
-                    ((40, 46, 84), (24, 28, 54), 6), (WHITE, scenes.ROSE, 6),
-                    (WHITE, (96, 165, 250), 8), (WHITE, scenes.INDIGO, 6)):
-        for i in range(n):
-            out.append(mix(a, b, i / (n - 1)))
-
-    seen, uniq = set(), []
-    for c in out:
-        if c not in seen:
-            seen.add(c)
-            uniq.append(c)
-    uniq = uniq[:256] + [(0, 0, 0)] * max(0, 256 - len(uniq))
-
-    pal = Image.new("P", (1, 1))
-    flat = [v for c in uniq for v in c]
-    pal.putpalette(flat)
-    return pal, flat
+    return im.resolve()
 
 
 def build_animation(preview=False):
     raw = [frame(s, k) for s in range(len(SCENES)) for k in range(SCENE_FRAMES)]
-    pal_img, palette = build_palette()
-
-    chunks = []
-    for f in raw:
-        indices = f.quantize(palette=pal_img, dither=Image.Dither.NONE).tobytes()
-        chunk = rle8.encode_frame(indices, W, H)
-        # The encoder is hand-written and its failures are silent -- a frame
-        # that decodes one pixel short skews every row after it into a smear
-        # that still plays. Every frame is decoded back and compared.
-        if rle8.decode_frame(chunk, W, H) != indices:
-            raise AssertionError("RLE8 encoding is not lossless")
-        chunks.append(chunk)
-
-    nbytes = rle8.write_avi(OUT / "slides.avi", chunks, palette, (W, H), fps=FPS)
+    nbytes = make_avi.write_avi(OUT / "slides.avi", raw, fps=FPS)
 
     if preview:
-        # The frames AS THEY WILL PLAY -- quantised, not the originals. A
-        # preview is only worth looking at if it shows the same damage the
-        # installer will.
         sel = [raw[s * SCENE_FRAMES + int(SCENE_FRAMES * 0.82)] for s in range(len(SCENES))]
         sheet = Image.new("RGB", (W, H * len(sel) + 8 * (len(sel) - 1)), (32, 32, 38))
         for i, f in enumerate(sel):
-            sheet.paste(f.quantize(palette=pal_img, dither=Image.Dither.NONE).convert("RGB"),
-                        (0, i * (H + 8)))
+            sheet.paste(f, (0, i * (H + 8)))
         sheet.save(OUT / "preview-slides.png")
 
     # One still behind the animation, stretched, so a display scaled above
     # 100% shows our own colour rather than the dialog's grey.
     top, bottom = SCENES[0][2]
-    ground((W, H), top, bottom).save(OUT / "slidebg.bmp", "BMP")
+    SImage.wrap(ground((W, H), top, bottom).convert("RGBA"),
+                (W, H)).resolve().save(OUT / "slidebg.bmp", "BMP")
     return nbytes, len(raw)
 
 
@@ -198,8 +137,8 @@ def make_welcome():
     Desky on it, and gets out of the way.
     """
     top, bottom = (56, 132, 255), (21, 64, 196)
-    im = ground(WELCOME, top, bottom).convert("RGBA")
-    d = ImageDraw.Draw(im)
+    im = SImage.wrap(ground(WELCOME, top, bottom).convert("RGBA"), WELCOME)
+    d = im.draw()
 
     mark = logo(54)
     im.paste(mark, (40, 36), mark)
@@ -222,14 +161,14 @@ def make_welcome():
 
     d.text((42, 250), "Free to use  -  nothing leaves this PC unless you sign in",
            font=font(11, bold=False), fill=(176, 208, 250))
-    return im.convert("RGB")
+    return im.resolve()
 
 
 def make_sidebar():
     """Still used by the finish page and the uninstaller, which we do not skin."""
     top, bottom = (56, 132, 255), (21, 64, 196)
-    im = ground(SIDEBAR, top, bottom).convert("RGBA")
-    d = ImageDraw.Draw(im)
+    im = SImage.wrap(ground(SIDEBAR, top, bottom).convert("RGBA"), SIDEBAR)
+    d = im.draw()
     mark = logo(46)
     im.paste(mark, (22, 28), mark)
     d.text((22, 86), "TechDesk", font=font(23), fill=WHITE)
@@ -237,13 +176,13 @@ def make_sidebar():
     d.text((22, 131), "Just ask.", font=font(12), fill=(186, 240, 255))
     bot = scenes.mascot(96, bob=0.1, accent=scenes.SKY)
     im.alpha_composite(bot, (28, 178))
-    return im.convert("RGB")
+    return im.resolve()
 
 
 def make_header():
     top, bottom = (56, 132, 255), (21, 64, 196)
-    im = ground(HEADER, top, bottom).convert("RGBA")
-    d = ImageDraw.Draw(im)
+    im = SImage.wrap(ground(HEADER, top, bottom).convert("RGBA"), HEADER)
+    d = im.draw()
     mark = logo(30)
     im.paste(mark, (12, 13), mark)
     d.text((50, 13), "TechDesk", font=font(16), fill=WHITE)
@@ -251,7 +190,7 @@ def make_header():
     while d.textlength(tag, font=f) > HEADER[0] - 56 and len(tag) > 8:
         tag = tag.rsplit(" ", 1)[0]
     d.text((50, 34), tag, font=f, fill=(198, 224, 255))
-    return im.convert("RGB")
+    return im.resolve()
 
 
 def main():

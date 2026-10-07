@@ -56,6 +56,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # The Windows installer plays an animation drawn by a Python script.
+      # It is thirty megabytes of true-colour frames -- too big to keep in
+      # the repository, and about 0.2 MB once the installer compresses it --
+      # so it is drawn here instead. Only Windows has an installer that shows
+      # it; the other two runners would be drawing it for nothing.
+      - name: Draw the installer artwork (Windows)
+        if: runner.os == 'Windows'
+        working-directory: apps/desktop
+        run: |
+          python -m pip install --disable-pip-version-check pillow
+          python build/art/make-installer-art.py
+
       - name: Build renderer
         run: npm run build
 
