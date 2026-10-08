@@ -61,11 +61,16 @@ jobs:
       # the repository, and about 0.2 MB once the installer compresses it --
       # so it is drawn here instead. Only Windows has an installer that shows
       # it; the other two runners would be drawing it for nothing.
+      #
+      # Pillow is pinned. Every panel is fitted to the pixel, and the two
+      # things that decide where a pixel lands are the font (committed under
+      # build/art/fonts) and the renderer: an unpinned image library moves
+      # the drawing on an afternoon nobody touched this repo.
       - name: Draw the installer artwork (Windows)
         if: runner.os == 'Windows'
         working-directory: apps/desktop
         run: |
-          python -m pip install --disable-pip-version-check pillow
+          python -m pip install --disable-pip-version-check pillow==12.3.0
           python build/art/make-installer-art.py
 
       - name: Build renderer

@@ -24,7 +24,16 @@ from paint import clamp01, glossy_card, glow, mascot, mix, orb, rounded, vgradie
 from supersample import SDraw, SImage
 
 HERE = pathlib.Path(__file__).resolve().parent
-FONT_DIR = pathlib.Path("/usr/share/fonts/truetype/liberation")
+
+# Liberation Sans ships with this repo, in fonts/, rather than being looked up
+# on the machine doing the drawing. Every panel below is fitted to this face's
+# metrics -- where a line breaks, what fits in a pill, how wide a label is --
+# so drawing with whatever font a build agent happens to have installed moves
+# text the layout was measured around. The Windows runner has no Liberation
+# Sans at all, which is how the 4.16.0 build found this: an absolute
+# /usr/share/fonts path works on exactly one of the three platforms we release
+# from.
+FONT_DIR = HERE / "fonts"
 
 W, H = 500, 228
 PANEL_BOX = (210, 0, 500, 228)          # the half the drawing lives in
@@ -46,7 +55,19 @@ _logo_cache = {}
 
 def font(size, bold=True):
     name = "LiberationSans-Bold.ttf" if bold else "LiberationSans-Regular.ttf"
-    return ImageFont.truetype(str(FONT_DIR / name), size)
+    path = FONT_DIR / name
+    if not path.is_file():
+        # Pillow's own error for this is "cannot open resource", which says
+        # nothing about which file or why. Say both: a missing vendored font
+        # means a partial checkout, not a broken drawing.
+        raise SystemExit(
+            f"installer artwork: {path} is missing.\n"
+            "The Liberation Sans faces are committed under build/art/fonts/. "
+            "Restore them (git checkout apps/desktop/build/art/fonts) rather "
+            "than pointing this at a system font: the panel layouts are fitted "
+            "to these metrics."
+        )
+    return ImageFont.truetype(str(path), size)
 
 
 def ease(t):
