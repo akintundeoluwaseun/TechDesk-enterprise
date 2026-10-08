@@ -37,6 +37,10 @@
 !define TD_LR_LOADFROMFILE    0x00000010
 !define TD_SWP_NOZORDER       0x0004
 !define TD_SWP_NOACTIVATE     0x0010
+; Our own, rather than WinMessages.nsh's: this file is included near the
+; top of the generated script, and what is defined by then is not ours to
+; assume.
+!define TD_WM_SETTEXT         0x000C
 
 ; Animation control: centre the frames and start as soon as it is opened.
 ;
@@ -263,6 +267,18 @@ Function tdSlideshowShow
   ; The animation, unpacked now rather than in .onInit: see installer.nsh.
   ; A second here, with the page already up, is invisible; the same second
   ; before the first window is a shop wondering if they double-clicked.
+  ;
+  ; Silently. NSIS writes "Extract: <path>... 100%" into the status line for
+  ; every File it runs, and the install section turns that off for itself --
+  ; but this runs in the page's SHOW callback, BEFORE the section, while it
+  ; is still on. 4.16.0 shipped with
+  ;
+  ;     Extract: C:\users\<name>\Temp\nsv1387.tmp\td-slides.avi... 100%
+  ;
+  ; sitting under the artwork for the whole install: the exact kind of
+  ; machine noise this page was built to get rid of, naming a temporary
+  ; folder that means nothing to a shop.
+  SetDetailsPrint none
   File "/oname=$PLUGINSDIR\td-slides.avi" "${BUILD_RESOURCES_DIR}\slides.avi"
 
   ; The banner: everything above the strip.
@@ -310,10 +326,18 @@ Function tdSlideshowShow
   IntOp $R4 $tdPageW - 32
 
   GetDlgItem $R9 $R6 1006                      ; the current-step text
-  StrCmp $R9 0 +4
+  ; A label, not an offset. A relative jump counts compiled instructions, and
+  ; System::Call below is a plugin call that compiles to two of them -- which
+  ; is why the count here was 4 for three statements before this one grew.
+  StrCmp $R9 0 no_status
     IntOp $R3 $R5 + 6
     System::Call 'user32::SetWindowPos(i $R9, i 0, i 16, i $R3, i $R4, i 14, \
       i ${TD_SWP_NOZORDER}|${TD_SWP_NOACTIVATE})'
+    ; Whatever the last File left in it, replaced with the one true thing.
+    ; The install section prints nothing after this, so it is what a shop
+    ; reads for the whole minute.
+    SendMessage $R9 ${TD_WM_SETTEXT} 0 "STR:Setting up TechDesk on this PC..."
+  no_status:
 
   GetDlgItem $R9 $R6 1004                      ; the progress bar
   StrCmp $R9 0 +4

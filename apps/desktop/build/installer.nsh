@@ -1,5 +1,34 @@
 ; Custom NSIS hooks, wired in via build.nsis.include in package.json.
 
+; ------------------------------------------------------------ compression
+;
+; electron-builder hard-codes `SetCompressor zlib` -- it is not reachable
+; through the `compression` option, which only chooses between this and no
+; compression at all. The reasoning is sound for an ordinary Electron app:
+; the whole payload is one app-64.7z that is already LZMA-compressed and is
+; stored with compression off, so the only thing zlib ever sees is a few
+; small DLLs and bitmaps, and zlib unpacks them faster.
+;
+; It stops being sound once this installer carries a thirty-megabyte
+; animation. Deflate works in a 32 KB window, which is a tenth of ONE frame,
+; so it cannot see that frame 2 is nearly frame 1 and stores all ninety of
+; them nearly whole:
+;
+;     zlib   td-slides.avi -> 5,183,592 bytes   (measured in 4.16.0)
+;     lzma   td-slides.avi ->   874,731 bytes
+;
+; 4.3 MB, on a download a shop in Lagos may be paying for by the megabyte.
+;
+; makensis takes the last SetCompressor it is given, and electron-builder
+; passes theirs as a -X command line argument, which runs before the script;
+; this file is included near the top of the script, before any File. So this
+; line wins, and `makensis -WX` -- warnings as errors, which electron-builder
+; also turns on -- compiles it without complaint. Verified both ways.
+;
+; Not /SOLID: solid compression makes NSIS unpack to a temporary file first,
+; and it buys 776 bytes here. Measured, not assumed.
+SetCompressor lzma
+
 ; ---------------------------------------------------------------- installing
 ;
 ; "TechDesk is running. Close it." -- on a PC where it was not.
@@ -102,6 +131,22 @@
 ; electron-builder calls this during the uninstaller, before any files are
 ; removed.
 ;
+; /SD IDYES, because this macro does not only run when somebody chose to
+; uninstall. Installing an update runs the OLD version's uninstaller first,
+; silently, to clear the previous files -- and an NSIS MessageBox without a
+; silent-mode default is shown anyway, even to a silent uninstaller. So every
+; update stopped on "Have you backed up your TechDesk data? ... Continue
+; uninstalling now?", over a frozen progress bar, in the middle of an UPDATE
+; that the shop never thought of as an uninstall. Answering No aborted it.
+;
+; With the default, an uninstaller nobody started answers itself and carries
+; on; a person uninstalling from Add/Remove Programs still gets the question,
+; which is the only time it was ever meant for them.
+;
+; (Found by running the installer over a previous install. It is not new in
+; 4.16.0 -- the same macro and the same missing default shipped in 4.15.1 and
+; before, where the update was one-click and the dialog even less expected.)
+;
 ; Uninstalling does NOT delete the app's data folder (userData) -- this app
 ; never sets deleteAppDataOnUninstall, so sales, repairs, inventory and
 ; customers are safe either way. This dialog exists because most people do
@@ -112,6 +157,7 @@
 !macro customUnInstall
   MessageBox MB_YESNO|MB_ICONQUESTION \
     "Have you backed up your TechDesk data?$\r$\n$\r$\nUninstalling will NOT delete your saved sales, repairs, inventory, or customer data -- it stays on this PC. But if you're about to wipe this device or want a safety copy, back up first via Settings -> Device -> Download backup.$\r$\n$\r$\nContinue uninstalling now?" \
+    /SD IDYES \
     IDYES +2
   Abort
 !macroend
@@ -156,6 +202,27 @@
   InitPluginsDir
   File "/oname=$PLUGINSDIR\td-slidebg.bmp"  "${BUILD_RESOURCES_DIR}\slidebg.bmp"
   File "/oname=$PLUGINSDIR\td-welcome.bmp"  "${BUILD_RESOURCES_DIR}\welcome.bmp"
+!macroend
+
+; --------------------------------------------------- who it installs for
+;
+; Turning the one-click installer into a wizard brought a page with it that
+; nobody asked for: "Choose Installation Options -- who should this
+; application be installed for?", with "Anyone who uses this computer" and
+; "Only for me". electron-builder adds it whenever an assisted installer is
+; not pinned to per-machine.
+;
+; It is the wrong question to put to a shop. The person at the counter does
+; not know which answer is right, both answers work, and "all users" quietly
+; needs an administrator -- so the honest-looking choice is the one that can
+; fail. Up to 4.15.1 the one-click installer never asked: it installed for
+; the person running it. This keeps that exactly, and skips the page.
+;
+; electron-builder provides this hook for it. Setting the flag makes the
+; page's own PRE function choose per-user and Abort, which is how NSIS skips
+; a page -- it is not hidden, it is never shown.
+!macro customInstallMode
+  StrCpy $isForceCurrentInstall "1"
 !macroend
 
 !macro customWelcomePage
