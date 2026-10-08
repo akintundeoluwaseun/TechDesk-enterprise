@@ -260,6 +260,11 @@ Function tdSlideshowShow
   StrCmp $R9 0 +2
     ShowWindow $R9 ${SW_HIDE}
 
+  ; The animation, unpacked now rather than in .onInit: see installer.nsh.
+  ; A second here, with the page already up, is invisible; the same second
+  ; before the first window is a shop wondering if they double-clicked.
+  File "/oname=$PLUGINSDIR\td-slides.avi" "${BUILD_RESOURCES_DIR}\slides.avi"
+
   ; The banner: everything above the strip.
   IntOp $R7 $tdPageH - ${TD_STRIP_H}
   IntCmp $R7 60 done done 0

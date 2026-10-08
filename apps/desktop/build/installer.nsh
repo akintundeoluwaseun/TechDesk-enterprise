@@ -147,8 +147,13 @@
   ; $PLUGINSDIR is this instance's own temporary folder, and is cleaned up for
   ; us. Extracting here rather than into $INSTDIR keeps the artwork off the
   ; shop's disk once the install is done.
+  ;
+  ; The two STILLS only. The animation is thirty megabytes, and unpacking it
+  ; here -- inside .onInit, before any window exists -- bought several seconds
+  ; of nothing at all happening after a shop double-clicks the installer. It
+  ; is unpacked by the install page instead, which is the first moment anyone
+  ; needs it and by which time there is a window to look at.
   InitPluginsDir
-  File "/oname=$PLUGINSDIR\td-slides.avi"   "${BUILD_RESOURCES_DIR}\slides.avi"
   File "/oname=$PLUGINSDIR\td-slidebg.bmp"  "${BUILD_RESOURCES_DIR}\slidebg.bmp"
   File "/oname=$PLUGINSDIR\td-welcome.bmp"  "${BUILD_RESOURCES_DIR}\welcome.bmp"
 !macroend

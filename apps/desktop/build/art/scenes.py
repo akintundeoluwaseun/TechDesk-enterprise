@@ -81,9 +81,12 @@ def soft_drop(dst, box, radius, blur=7, alpha=80, offset=(0, 5)):
 def scene_ask(im, d, t, accent):
     """Desky listening: a speech bubble, a waveform, and a sale falling out."""
     bob = t
+    reach = ease(clamp01(t * 4)) * 0.92
     bot = mascot(118, bob=bob, blink=1.0 if 0.42 < t < 0.5 else 0.0,
-                 look=math.sin(t * 4) * 0.5, arm=t, accent=SKY)
-    im.alpha_composite(bot, (6, 44))
+                 look=math.sin(t * 4) * 0.5, arm=t, reach=reach, accent=SKY)
+    im.alpha_composite(bot, (2, 44))
+    hx, hy = paint.hand(118, bob, reach)
+    im.alpha_composite(_mic(), (2 + hx - 10, 44 + hy - 30))
 
     # The bubble it is listening into.
     p = ease(clamp01((t - 0.06) * 3))
@@ -126,11 +129,15 @@ def scene_ask(im, d, t, accent):
 # ------------------------------------------------------------------- scene 2
 def scene_sell(im, d, t, accent):
     """A receipt printing itself, with Desky holding the counter."""
-    bot = mascot(104, bob=t, blink=1.0 if 0.70 < t < 0.78 else 0.0, arm=t * 0.8, accent=SKY)
-    im.alpha_composite(bot, (0, 66))
+    # Its hand comes up to the receipt's edge, so it is holding the thing the
+    # scene is about rather than floating beside it.
+    reach = ease(clamp01((t - 0.05) * 3)) * 0.88
+    bot = mascot(104, bob=t, blink=1.0 if 0.70 < t < 0.78 else 0.0, arm=t * 0.8,
+                 reach=reach, accent=SKY)
+    im.alpha_composite(bot, (0, 62))
 
-    rw, rh = 140, 150
-    rx, ry = 96, 20
+    rw, rh = 142, 150
+    rx, ry = 88, 20
     soft_drop(im, (rx, ry, rx + rw, ry + rh), 16)
     im.alpha_composite(glossy_card((rw, rh), 16, WHITE, PAPER, sheen=0), (rx, ry))
 
@@ -168,9 +175,14 @@ def scene_sell(im, d, t, accent):
 # ------------------------------------------------------------------- scene 3
 def scene_repairs(im, d, t, accent):
     """A phone on the bench, moving from booked to ready."""
+    reach = ease(clamp01((t - 0.04) * 3)) * 0.92
     bot = mascot(100, bob=t, blink=1.0 if 0.30 < t < 0.37 else 0.0,
-                 look=0.4, arm=t, accent=MINT)
+                 look=0.4, arm=t, reach=reach, accent=MINT)
     im.alpha_composite(bot, (0, 70))
+    hx, hy = paint.hand(100, t, reach)
+    w = _wrench(-24 + math.sin(t * math.tau * 2) * 12)
+    im.alpha_composite(w, (hx - w.width / supersample.SS / 2,
+                           70 + hy - w.height / supersample.SS / 2))
 
     # The phone, with a crack that heals.
     pw, ph = 56, 100
@@ -219,9 +231,12 @@ def scene_repairs(im, d, t, accent):
 # ------------------------------------------------------------------- scene 4
 def scene_stock(im, d, t, accent):
     """Boxes on the shelf, and the one that is running out."""
+    reach = 0.42 + math.sin(t * math.tau) * 0.06
     bot = mascot(100, bob=t, blink=1.0 if 0.55 < t < 0.62 else 0.0,
-                 look=-0.4, arm=t * 1.2, accent=AMBER)
+                 look=-0.4, arm=t * 1.2, reach=reach, accent=AMBER)
     im.alpha_composite(bot, (0, 70))
+    hx, hy = paint.hand(100, t, reach)
+    im.alpha_composite(_box(), (hx - 8, 70 + hy - 20))
 
     base = 150
     for i, v in enumerate((0.95, 0.62, 0.22, 0.80)):
@@ -257,19 +272,21 @@ def scene_stock(im, d, t, accent):
 # ------------------------------------------------------------------- scene 5
 def scene_offline(im, d, t, accent):
     """The shield: the cloud goes, the shop keeps selling."""
-    bot = mascot(100, bob=t, blink=1.0 if 0.20 < t < 0.27 else 0.0, arm=t, accent=MINT)
+    reach = ease(clamp01((t - 0.24) * 2.4)) * 0.95
+    bot = mascot(100, bob=t, blink=1.0 if 0.20 < t < 0.27 else 0.0, arm=t,
+                 reach=reach, accent=MINT)
     im.alpha_composite(bot, (0, 70))
 
     # The cloud, dimming and struck through.
     gone = clamp01((t - 0.08) * 2.4)
     cc = mix(WHITE, (120, 170, 230), gone)
-    cx, cy = 116, 54
+    cx, cy = 206, 42
     d.ellipse([cx - 24, cy - 8, cx + 4, cy + 16], fill=cc)
     d.ellipse([cx - 8, cy - 20, cx + 26, cy + 14], fill=cc)
     d.rounded_rectangle([cx - 22, cy + 2, cx + 24, cy + 16], 7, fill=cc)
     n = clamp01((t - 0.10) * 3.5)
     if n > 0:
-        d.line([cx - 30, cy - 24, cx - 30 + 64 * n, cy + 24 * n], fill=ROSE, width=5)
+        d.line([cx - 28, cy - 22, cx - 28 + 58 * n, cy + 22 * n], fill=ROSE, width=5)
 
     # The shield, which is the point of the scene.
     p = ease(clamp01((t - 0.26) * 2.2))
@@ -277,7 +294,7 @@ def scene_offline(im, d, t, accent):
         sw = round(104 * out_back(clamp01((t - 0.26) * 2.2)))
         if sw > 10:
             sh = round(sw * 1.12)
-            sx, sy = round(210 - sw / 2), round(104 - sh / 2)
+            sx, sy = round(138 - sw / 2), round(96 - sh / 2)
             shield = _shield(sw, sh)
             im.alpha_composite(shield, (sx, sy))
 
@@ -312,6 +329,52 @@ SCENES = (
     ("No internet? Fine.", "It all stays on this PC.",
      ((102, 96, 230), (56, 42, 150)), scene_offline),
 )
+
+
+def _mic():
+    """A stick microphone, for the scene about talking to it.
+
+    Dark, because the hand holding it is white and the body behind it is
+    white: a pale mic in that gap is a smudge, not an object.
+    """
+    im = SImage((20, 38))
+    d = im.draw()
+    im.alpha_composite(glossy_card((16, 23), 8, (72, 86, 136), (30, 38, 74),
+                                   sheen=80, rim=(130, 150, 206)), (2, 0))
+    for i in range(3):                       # the grille
+        d.line([5, 7 + i * 4, 15, 7 + i * 4], fill=(150, 170, 220), width=1)
+    d.rounded_rectangle([8, 21, 12, 33], 2, fill=(96, 112, 160))
+    d.rounded_rectangle([4, 32, 16, 37], 2, fill=(60, 74, 118))
+    return im
+
+
+def _wrench(angle=0.0):
+    """A spanner, for the scene about repairs.
+
+    Returned at drawing size and already turned, because rotating it after
+    it has been shrunk is what puts stair-steps back on an edge the whole
+    supersampling exercise was meant to smooth.
+    """
+    im = SImage((22, 42))
+    d = im.draw()
+    d.rounded_rectangle([8, 9, 14, 40], 3, fill=(206, 220, 244))
+    d.rounded_rectangle([8.6, 10, 11, 39], 1.5, fill=(246, 250, 255))
+    d.ellipse([3, 0, 19, 17], fill=(206, 220, 244))
+    # The jaw, cut straight out of the head so whatever is behind shows.
+    d.ellipse([7, 3, 15, 13], fill=(0, 0, 0, 0))
+    d.polygon([(7, 0), (15, 0), (15, 6), (7, 6)], fill=(0, 0, 0, 0))
+    return im.im.rotate(angle, resample=Image.BICUBIC, expand=True)
+
+
+def _box(w=36, h=30):
+    """A carton, for the scene about stock."""
+    im = SImage((w, h))
+    d = im.draw()
+    im.alpha_composite(glossy_card((w, h), 4, (253, 206, 128), (226, 145, 56),
+                                   sheen=70, rim=(255, 226, 170)), (0, 0))
+    d.line([2, h * 0.3, w - 2, h * 0.3], fill=(255, 232, 186), width=2)
+    d.line([w / 2, 0, w / 2, h * 0.3], fill=(255, 232, 186), width=2)
+    return im
 
 
 def _shield(w, h):

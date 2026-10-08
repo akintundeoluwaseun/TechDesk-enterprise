@@ -148,8 +148,25 @@ VISOR_HI = (58, 66, 112)
 VISOR_LO = (22, 26, 52)
 
 
-def mascot(h=120, bob=0.0, blink=0.0, look=0.0, arm=0.0, accent=(56, 189, 248)):
-    """A character `h` pixels tall in the finished picture. Phases are 0..1."""
+def hand(h=120, bob=0.0, reach=0.0):
+    """Where the raised hand ends up, in the mascot image's own coordinates.
+
+    Scenes place what it is holding from this rather than guessing, so the
+    wrench stays in its grip when it bobs.
+    """
+    u = h / 120.0
+    dy = math.sin(bob * math.tau) * 4
+    return (104 * u / 2 + 44 * u, (60 - reach * 40 + dy + 4) * u)
+
+
+def mascot(h=120, bob=0.0, blink=0.0, look=0.0, arm=0.0, reach=0.0,
+           accent=(56, 189, 248)):
+    """A character `h` pixels tall in the finished picture. Phases are 0..1.
+
+    `reach` lifts the right arm, so it can be given something to hold. A
+    mascot that only floats is an ornament; one holding the thing the scene
+    is about is doing the job.
+    """
     u = h / 120.0                       # unscaled design unit
     W, H = 104 * u, h + 16 * u
     im = Image.new("RGBA", (S(W), S(H)), (0, 0, 0, 0))
@@ -168,12 +185,12 @@ def mascot(h=120, bob=0.0, blink=0.0, look=0.0, arm=0.0, accent=(56, 189, 248)):
     im.paste(Image.new("RGB", im.size, (10, 34, 86)), (0, 0),
              sh.filter(ImageFilter.GaussianBlur(S(4 * u))))
 
-    # Arms, behind the body, with a rim so they read against white.
+    # Arms. The left one swings idly; the right one lifts with `reach` and
+    # gets longer as it goes, so it reads as reaching rather than shrinking.
     swing = math.sin(arm * math.tau) * 7
-    for side in (-1, 1):
-        a = glossy_card((16 * u, 30 * u), 8 * u, BODY_HI, BODY_LO, sheen=60,
-                        rim=(170, 190, 224))
-        im.alpha_composite(a, P(W / 2 / u + side * 34 - 8, 62 + dy + (swing if side > 0 else 0)))
+    left = glossy_card((16 * u, 30 * u), 8 * u, BODY_HI, BODY_LO, sheen=60,
+                       rim=(170, 190, 224))
+    im.alpha_composite(left, P(W / 2 / u - 34 - 8, 62 + dy + swing))
 
     # Body and head, overlapping so they read as one object.
     im.alpha_composite(glossy_card((74 * u, 78 * u), 30 * u, BODY_HI, BODY_LO,
@@ -213,4 +230,16 @@ def mascot(h=120, bob=0.0, blink=0.0, look=0.0, arm=0.0, accent=(56, 189, 248)):
     # A badge, so it belongs to us.
     badge = orb(22 * u, mix(accent, (255, 255, 255), 0.10))
     im.alpha_composite(badge, (S(W / 2 - 11 * u), S((34 + dy + 22) * u)))
+
+    # The working arm, last, so it is IN FRONT of the body. Drawn behind it,
+    # white on white, the reach was happening and could not be seen at all.
+    arm_len = 34 + reach * 14
+    shoulder_y = 56 + dy
+    hand_y = 60 - reach * 40 + dy
+    right = glossy_card((17 * u, arm_len * u), 8.5 * u, BODY_HI, (182, 200, 230),
+                        sheen=70, rim=(150, 172, 212))
+    im.alpha_composite(right, P(W / 2 / u + 44 - 8.5, min(shoulder_y, hand_y)))
+    # A hand at the end of it, so what it holds has something to hold on to.
+    im.alpha_composite(orb(19 * u, (252, 253, 255)),
+                       (S((W / 2 / u + 44 - 9.5) * u), S((hand_y - 4) * u)))
     return im
