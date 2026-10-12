@@ -3,6 +3,7 @@ import { X, Search, Plus, Minus, Trash2 } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { db } from "../lib/db";
+import { salePaymentStatus } from "@techdesk/core";
 import { currencySymbol, money } from "../lib/currency";
 import { useSettings } from "../lib/SettingsContext";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
@@ -237,7 +238,14 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
       total,
       amountPaid: Number(amountPaid) || 0,
       paymentMethod: payment,
-      paymentStatus: (Number(amountPaid) || 0) >= total && total > 0 ? "Paid" : "Pending",
+      // Worked out by the same rule the sales list reads its badge from, so
+      // the two cannot disagree. This was a comparison written out here, and
+      // it differed from that rule in two ways a shop would actually meet: a
+      // sale paid to the last kobo could still be written down as "Pending"
+      // when floating point had left the total a fraction above the amount
+      // typed, and a sale discounted to nothing stayed "Pending" forever,
+      // with no payment that could ever clear it.
+      paymentStatus: salePaymentStatus({ total, amountPaid: Number(amountPaid) || 0 }),
       signature,
     };
 

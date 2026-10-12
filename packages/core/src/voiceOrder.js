@@ -24,7 +24,7 @@ import { installId } from "./hqStore";
 import { featureOn, pausedResult } from "./appControl";
 import { answerQuestion, periodRange } from "./assistantAnswers";
 import { addHistory } from "./assistantHistory";
-import { repairOwed } from "./summary";
+import { repairOwed, salePaymentStatus } from "./summary";
 
 const SUPABASE_URL = "https://wuwerzyydtvargvqjufb.supabase.co";
 const PUBLISHABLE_KEY = "sb_publishable_aiiQjedgBx4Tq-NX_jIGtw_ekAYgxV_";
@@ -573,7 +573,7 @@ export function apply(drafts, { actor } = {}) {
         total,
         amountPaid: paid,
         paymentMethod: d.paymentMethod,
-        paymentStatus: paid >= total && total > 0 ? "Paid" : "Pending",
+        paymentStatus: salePaymentStatus({ total, amountPaid: paid }),
         ...(d.signature ? { signature: d.signature } : {}),
         actor,
         ...when,
@@ -680,7 +680,7 @@ export function apply(drafts, { actor } = {}) {
         const before = db.getSales().find((s) => s.id === d.target.id);
         const total = Number(before.total || 0);
         const paid = Math.min(total, Number(before.amountPaid || 0) + Number(d.amount));
-        db.updateSale(before.id, { amountPaid: paid, paymentStatus: paid >= total ? "Paid" : "Pending" });
+        db.updateSale(before.id, { amountPaid: paid, paymentStatus: salePaymentStatus({ total, amountPaid: paid }) });
         log("sale", `Payment of ${d.amount} recorded on ${before.invoice}`, before.id, actor);
         undo.unshift(() => {
           db.updateSale(before.id, { amountPaid: before.amountPaid, paymentStatus: before.paymentStatus });
@@ -769,7 +769,7 @@ export function returnPlan(sale, idx, qty, refund) {
       subtotal: Math.max(0, Number(sale.subtotal ?? sale.total ?? 0) - value),
       total,
       amountPaid,
-      paymentStatus: amountPaid >= total ? "Paid" : "Pending",
+      paymentStatus: salePaymentStatus({ total, amountPaid }),
       returns: [...(sale.returns || []), { at: new Date().toISOString(), name: item.name, qty: back, refund: given }],
     },
   };
@@ -797,7 +797,7 @@ export function editPlan(sale, d) {
   if (c.amountPaid != null) what.push(`paid ${paid}`);
   if (patch.total != null || c.amountPaid != null) {
     patch.amountPaid = paid;
-    patch.paymentStatus = paid >= total && total > 0 ? "Paid" : "Pending";
+    patch.paymentStatus = salePaymentStatus({ total, amountPaid: paid });
   }
   if (c.paymentMethod) { patch.paymentMethod = c.paymentMethod; what.push(`paid by ${c.paymentMethod}`); }
   if (c.customer) {

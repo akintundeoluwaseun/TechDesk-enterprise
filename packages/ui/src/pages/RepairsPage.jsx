@@ -12,7 +12,7 @@ import { money } from "../lib/currency";
 import { toast } from "../lib/toast";
 import { requestTour, ticketDownloaded } from "../lib/setupTours";
 import { useAuth } from "../lib/AuthContext";
-import { repairsSummary, repairTotal, repairOwed, groupByPeriod } from "@techdesk/core";
+import { repairsSummary, repairTotal, repairOwed, groupByPeriod, repairPaymentStatus } from "@techdesk/core";
 import { generateRepairTicketPdf, generateBlankRepairFormPdf } from "../lib/generateRepairPdf";
 import { IS_ANDROID_APP } from "../lib/platform";
 
@@ -113,6 +113,22 @@ export default function RepairsPage() {
     refresh();
   }
 
+  /**
+   * The payment dropdown, which has to move the money with the word -- the
+   * pill beside it is worked out from the amount now (repairPaymentStatus),
+   * so writing only the word would leave a control that visibly does nothing.
+   * Same bargain as the sales list: "Paid" fills the amount to the bill,
+   * "Unpaid" empties it, "Partial" leaves whatever is there, because only the
+   * shop knows how much of it came in.
+   */
+  function updatePaymentStatus(repair, value) {
+    const patch = { paymentStatus: value };
+    if (value === "Paid") patch.amountPaid = repairTotal(repair);
+    else if (value === "Unpaid") patch.amountPaid = 0;
+    db.updateRepair(repair.id, patch);
+    refresh();
+  }
+
   function handleDelete(id) {
     const gone = repairs.find((r) => r.id === id);
     db.deleteRepair(id);
@@ -136,12 +152,12 @@ export default function RepairsPage() {
             </span>
             <span
               className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-                r.paymentStatus === "Paid"
+                repairPaymentStatus(r) === "Paid"
                   ? "bg-emerald-100 text-emerald-700"
                   : "bg-red-100 text-red-600"
               }`}
             >
-              {r.paymentStatus?.toLowerCase()}
+              {repairPaymentStatus(r).toLowerCase()}
             </span>
             {/* What the job comes to: labour plus whatever was fitted.
                 The card showed a paid/unpaid pill and no number at
@@ -158,7 +174,7 @@ export default function RepairsPage() {
                 }`}
               >
                 {money(repairTotal(r), settings)}
-                {r.paymentStatus === "Partial" && (
+                {repairPaymentStatus(r) === "Partial" && (
                   <span className={t.textMuted}> &middot; {Number(r.amountPaid) > 0 ? `${money(Number(r.amountPaid), settings)} paid` : "part paid"}</span>
                 )}
               </span>
@@ -208,8 +224,8 @@ export default function RepairsPage() {
           <div>
             <label className={`text-xs font-medium block mb-1.5 ${t.textPrimary}`}>Payment</label>
             <select
-              value={r.paymentStatus}
-              onChange={(e) => updateField(r.id, "paymentStatus", e.target.value)}
+              value={repairPaymentStatus(r)}
+              onChange={(e) => updatePaymentStatus(r, e.target.value)}
               className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none ${t.inputBg}`}
             >
               {PAYMENTS.map((p) => (

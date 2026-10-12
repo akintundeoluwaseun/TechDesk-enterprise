@@ -9,6 +9,23 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
+    id: "2026-10-12a",
+    date: "12 October 2026",
+    title: "TechDesk 4.17: a paid sale says Paid",
+    items: [
+      {
+        icon: "sparkles",
+        title: "Paid in full stops saying Pending",
+        text: "A sale showed whatever was written on it the moment you saved it, so one you had been paid for in full could sit in the list saying Pending. The badge now follows the money: put in what the customer paid and it says Paid by itself. Repairs too, where the bill is labour plus parts.",
+      },
+      {
+        icon: "printer",
+        title: "A receipt that is not settled asks first",
+        text: "Print, save or send a receipt for a sale still showing Pending and TechDesk tells you what is owed and asks before it goes out. If they are paying later, carry on -- it is one tap and nothing stops you.",
+      },
+    ],
+  },
+  {
     id: "2026-10-06g",
     date: "6 October 2026",
     title: "TechDesk 4.15.1: the More sheet, and a tidier sign-in",

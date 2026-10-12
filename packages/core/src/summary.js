@@ -118,7 +118,9 @@ export function repairOwed(repair) {
   // say how much is left; older "Partial" jobs without one still read as
   // the whole bill, for the reason above.
   const paid = num(repair?.amountPaid);
-  return Math.max(0, repairTotal(repair) - paid);
+  const total = repairTotal(repair);
+  if (settles(paid, total)) return 0;
+  return Math.max(0, total - paid);
 }
 
 /**
@@ -130,7 +132,73 @@ export function repairOwed(repair) {
  */
 export function saleOwed(sale) {
   if (sale?.paymentStatus === "Paid") return 0;
+  if (settles(num(sale?.amountPaid), num(sale?.total))) return 0;
   return Math.max(0, num(sale?.total) - num(sale?.amountPaid));
+}
+
+/**
+ * Does this much money settle that bill?
+ *
+ * Compared in whole minor units -- kobo, cents -- because the alternative is
+ * comparing the two sums as typed, and money that is right to the last unit
+ * can still fail that test. Three items at 3.30 come to 9.899999999999999 in
+ * binary floating point, so a customer who hands over exactly 9.90 reads as
+ * still owing, by a hundred-billionth of a naira, for as long as the sale
+ * exists.
+ */
+function settles(paid, total) {
+  return Math.round(paid * 100) >= Math.round(total * 100);
+}
+
+/**
+ * What a sale's payment badge should say, worked out from the money rather
+ * than read back from the word stored beside it.
+ *
+ * These were two separate facts: `paymentStatus`, written once when the sale
+ * was saved, and `amountPaid`, a number anything could change afterwards --
+ * an edit, a part payment, the assistant. Every figure in the app that
+ * involves money comes off the number, but the badge on the sale showed the
+ * word, so a sale could sit in the list saying "Pending" while the app itself
+ * already counted it as settled and left it out of what the shop was owed.
+ * A shop reads the badge.
+ *
+ * So the number decides, with one exception kept on purpose: a sale marked
+ * "Paid" by hand stays paid even with nothing recorded against it. That is a
+ * shop saying "settled, but not in cash" -- a swap, a debt forgiven, a favour
+ * -- which is a statement about the world, not a sum to be second-guessed.
+ * There is no matching exception the other way: marking a fully-paid sale
+ * "Pending" would be contradicted by its own amount on the next render, so
+ * the places that offer that choice write the amount to match instead.
+ */
+export function salePaymentStatus(sale) {
+  return paymentWord(num(sale?.total), num(sale?.amountPaid), sale?.paymentStatus, "Pending");
+}
+
+/**
+ * The same, for a repair, whose bill is labour plus parts.
+ *
+ * Repairs have always called an unpaid one "Unpaid" where sales call it
+ * "Pending". Two words for one idea is not worth a migration over every
+ * existing record, but each screen's dropdown only offers its own, so this
+ * has to answer in the vocabulary of the page that asked -- hand a <select>
+ * a value that is not one of its options and it shows nothing at all.
+ */
+export function repairPaymentStatus(repair) {
+  return paymentWord(repairTotal(repair), num(repair?.amountPaid), repair?.paymentStatus, "Unpaid");
+}
+
+function paymentWord(total, paid, stored, unpaid) {
+  if (stored === "Paid") return "Paid";
+  // Nothing to collect is not an unpaid bill. A sale discounted to zero, or a
+  // repair done as a favour, would otherwise sit in the list as "Pending"
+  // with no amount anyone could ever pay to clear it.
+  if (total <= 0) return "Paid";
+  if (settles(paid, total)) return "Paid";
+  if (paid > 0) return "Partial";
+  // "Partial" with no amount against it is an older record from before part
+  // payments carried one. It says something was paid without saying how much,
+  // and answering "unpaid" would throw away the part it does say.
+  return stored === "Partial" ? "Partial" : unpaid;
 }
 
 const DONE = new Set(["completed", "delivered"]);

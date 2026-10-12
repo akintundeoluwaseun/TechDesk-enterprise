@@ -37,6 +37,7 @@ export { rememberRevoke, pendingRevoke, clearRevoke } from "./hqStore";
 export {
   isToday, startOfDay, startOfWeek, startOfMonth, groupByPeriod,
   repairTotal, repairOwed, saleOwed, isOpenRepair,
+  salePaymentStatus, repairPaymentStatus,
   repairsSummary, salesSummary, customerKey, customerTotals, customersSummary,
   pendingPaymentsSummary, visibleSales, SALES_WINDOW_MS } from "./summary";
 

@@ -147,7 +147,11 @@ describe("saving, and undoing", () => {
     drafts[1].include = false;
     expect(apply(drafts).saved).toBe(1);
     const sale = db.getSales().find((x) => x.total === 50000);
-    expect(sale).toMatchObject({ amountPaid: 30000, paymentStatus: "Pending" });
+    // "Partial", not "Pending". 30,000 of 50,000 has come in, and this used to
+    // be written down as though none of it had -- the app knew it was owed
+    // 20,000 while the sale itself still read as untouched. Recording the part
+    // payment is the whole reason that word exists.
+    expect(sale).toMatchObject({ amountPaid: 30000, paymentStatus: "Partial" });
     expect(db.getSales()).toHaveLength(1);
   });
 });

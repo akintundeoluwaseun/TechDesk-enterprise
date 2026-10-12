@@ -10,7 +10,8 @@ import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
-import { salesSummary, groupByPeriod, visibleSales } from "@techdesk/core";
+import { salesSummary, groupByPeriod, visibleSales, salePaymentStatus, saleOwed } from "@techdesk/core";
+import UnpaidReceiptModal from "../components/UnpaidReceiptModal";
 import { generateInvoicePdf } from "../lib/generateInvoicePdf";
 import { generateThermalReceiptPdf } from "../lib/generateThermalReceipt";
 import { openWhatsApp, saleMessage } from "../lib/share";
@@ -64,6 +65,8 @@ export default function SalesPage() {
   // The sale waiting on a paper size, or null. Print asks rather than
   // assuming A4: a counter with a thermal roll wants the other one.
   const [printing, setPrinting] = useState(null);
+  // { sale, action, run } -- the receipt waiting on "is this really settled?"
+  const [unpaid, setUnpaid] = useState(null);
   const [editingSale, setEditingSale] = useState(null);
   const [search, setSearch] = useState("");
   const [sales, setSales] = useState(() => db.getSales());
@@ -126,8 +129,48 @@ export default function SalesPage() {
     );
   }
 
+  /**
+   * Every way a receipt leaves the shop goes through here first.
+   *
+   * Print, Save A4, Save 58mm and WhatsApp are four buttons but one act: the
+   * customer ends up holding the shop's word that the sale is settled. So the
+   * check belongs on the act, not on the one button that happens to say
+   * "Print" -- guarding that one and leaving the other three open would just
+   * teach a shop to use the other three.
+   *
+   * Paid sales are untouched. This is the overwhelming majority of receipts,
+   * and a confirm on every single one is the fastest way to train a shop to
+   * dismiss it without reading.
+   */
+  function withPaidCheck(sale, action, run) {
+    if (salePaymentStatus(sale) === "Paid") return run();
+    setUnpaid({ sale, action, run });
+  }
+
   function updateStatus(id, field, value) {
     db.updateSale(id, { [field]: value });
+    refresh();
+  }
+
+  /**
+   * The payment dropdown, which now has to move the money as well as the word.
+   *
+   * The badge beside it reads the amount (salePaymentStatus), so writing only
+   * the word would be a control that visibly does nothing: pick "Paid" on a
+   * sale with nothing recorded and the badge says Paid -- that case is kept,
+   * it is how a shop records "settled, but not in cash" -- but pick "Pending"
+   * on a sale already paid in full and the badge would snap straight back.
+   *
+   * So the choice writes the amount it implies. "Paid" fills it to the total,
+   * "Pending" empties it. "Partial" leaves whatever is there alone: the shop
+   * is saying some of it came in, and only they know how much.
+   */
+  function updatePaymentStatus(sale, value) {
+    const total = Number(sale.total) || 0;
+    const patch = { paymentStatus: value };
+    if (value === "Paid") patch.amountPaid = total;
+    else if (value === "Pending") patch.amountPaid = 0;
+    db.updateSale(sale.id, patch);
     refresh();
   }
 
@@ -179,21 +222,23 @@ export default function SalesPage() {
           <span className={`text-lg font-bold ${t.textPrimary}`}>
             {money(sale.total, settings)}
           </span>
+          {/* What the money says, not what was written down beside it when
+              the sale was saved. See salePaymentStatus. */}
           <span
             className={`text-xs font-semibold px-3 py-1 rounded-full ${
-              sale.paymentStatus === "Paid"
+              salePaymentStatus(sale) === "Paid"
                 ? "bg-emerald-100 text-emerald-700"
                 : "bg-amber-100 text-amber-700"
             }`}
           >
-            {sale.paymentStatus}
+            {salePaymentStatus(sale)}
           </span>
         </div>
 
         <div data-tour="sale-status" className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
           <select
-            value={sale.paymentStatus}
-            onChange={(e) => updateStatus(sale.id, "paymentStatus", e.target.value)}
+            value={salePaymentStatus(sale)}
+            onChange={(e) => updatePaymentStatus(sale, e.target.value)}
             className={`w-full rounded-lg px-3 py-1.5 text-xs outline-none ${t.inputBg}`}
           >
             {PAYMENT_STATUSES.map((s) => (
@@ -230,27 +275,27 @@ export default function SalesPage() {
           <LockedButton
             feature="receiptShare"
             title="WhatsApp"
-            onClick={() => sendWhatsApp(sale)}
+            onClick={() => withPaidCheck(sale, "send", () => sendWhatsApp(sale))}
             className={`flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium ${t.pillBg}`}
           >
             <MessageCircle className="w-4 h-4 shrink-0" /> WhatsApp
           </LockedButton>
           <PrintButton
-            onPrint={() => setPrinting(sale)}
+            onPrint={() => withPaidCheck(sale, "print", () => setPrinting(sale))}
             className={`flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium ${t.pillBg}`}
           >
             <Printer className="w-4 h-4 shrink-0" /> Print
           </PrintButton>
           <PdfSaveButton
             title="Save A4"
-            onSave={() => generateInvoicePdf(sale)}
+            onSave={() => withPaidCheck(sale, "print", () => generateInvoicePdf(sale))}
             className={`flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium ${t.pillBg}`}
           >
             <FileText className="w-4 h-4 shrink-0" /> Save A4
           </PdfSaveButton>
           <PdfSaveButton
             title="Save 58mm"
-            onSave={() => generateThermalReceiptPdf(sale)}
+            onSave={() => withPaidCheck(sale, "print", () => generateThermalReceiptPdf(sale))}
             className={`flex items-center gap-1.5 h-9 px-3 rounded-full text-xs font-medium ${t.pillBg}`}
           >
             <Receipt className="w-4 h-4 shrink-0" /> 58mm
@@ -364,6 +409,19 @@ export default function SalesPage() {
           sale={returning}
           onClose={() => setReturning(null)}
           onDone={() => setSales(db.getSales())}
+        />
+      )}
+      {unpaid && (
+        <UnpaidReceiptModal
+          status={salePaymentStatus(unpaid.sale)}
+          owed={saleOwed(unpaid.sale)}
+          action={unpaid.action}
+          onClose={() => setUnpaid(null)}
+          onConfirm={() => {
+            const go = unpaid.run;
+            setUnpaid(null);
+            go();
+          }}
         />
       )}
       {printing && (
