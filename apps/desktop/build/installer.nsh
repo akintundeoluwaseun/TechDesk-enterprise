@@ -29,6 +29,104 @@
 ; and it buys 776 bytes here. Measured, not assumed.
 SetCompressor lzma
 
+; ------------------------------------------------- retiring an old install
+;
+; How a shop ends up with two TechDesks, and why the new installer has to
+; take this job off the old one.
+;
+; Updating runs the PREVIOUS version's uninstaller first, silently, to clear
+; its files. Every uninstaller up to and including 4.16.0 asks "Have you
+; backed up your TechDesk data? ... Continue uninstalling now?" from a
+; MessageBox with no silent-mode default, and NSIS shows such a box even
+; under /S. 4.16.1 fixed that -- but the fix is in the NEW uninstaller, and
+; the one that blocks is the OLD one, already on the shop's disk. Nothing we
+; ship can reach it. Measured, 4.15.1 -> 4.16.1 with /S:
+;
+;     t=10s  running=2 windows=[TechDesk Uninstall]
+;     ...
+;     t=300s running=2 windows=[TechDesk Uninstall]
+;
+; It never times out. electron-updater installs on app quit with /S, so a
+; shop that simply closes TechDesk gets that question with no installer
+; window behind it; answer No and nothing installs, while the app goes on
+; saying an update is waiting.
+;
+; So this removes the old version itself, and clears its registry entry
+; BEFORE electron-builder goes looking for one: uninstallOldVersion reads
+; UninstallString, finds nothing, and returns without running anything.
+;
+; What it deletes is exactly what that uninstaller would have: the install
+; folder, the desktop and Start Menu shortcuts, and the two registry keys.
+; Nothing else exists to remove -- this app registers no file associations
+; and no protocol handlers (build.fileAssociations and build.protocols are
+; both unset), which is what makes taking the job over safe to do completely.
+;
+; It is NOT a general replacement for the uninstaller. It runs only when the
+; installed version predates the fix; from 4.16.1 on, the old uninstaller
+; answers itself and is left to its own job. This is a bridge over one hop,
+; not a second copy of uninstall logic to keep in step forever.
+;
+; The shop's data is not touched, and never was by any of this: sales,
+; repairs, stock and customers live in %APPDATA%\TechDesk, which no
+; uninstaller here deletes.
+
+!include WordFunc.nsh
+!insertmacro VersionCompare
+
+; ROOT is the registry root to retire from. TAG only makes the labels unique,
+; because this is expanded once per root. Shortcut paths come from $DESKTOP
+; and $SMPROGRAMS, which follow SetShellVarContext -- so the caller sets the
+; context to match ROOT before expanding this.
+!macro tdRetireFrom ROOT TAG
+  ; $0 the version found, $1 the comparison, $2 the folder, $3 shortcut name.
+  ClearErrors
+  ReadRegStr $0 ${ROOT} "${UNINSTALL_REGISTRY_KEY}" DisplayVersion
+  StrCmp $0 "" td_retired_${TAG}
+
+  ; Only versions from before the uninstaller could answer itself.
+  ; VersionCompare returns 2 when the SECOND argument is the newer one.
+  ${VersionCompare} "$0" "4.16.1" $1
+  StrCmp $1 2 0 td_retired_${TAG}
+
+  ReadRegStr $2 ${ROOT} "${INSTALL_REGISTRY_KEY}" InstallLocation
+  StrCmp $2 "" td_retired_${TAG}
+
+  ; The guard, and the reason this is safe to do at all. $2 comes out of the
+  ; registry and the next thing done with it removes a folder, so it has to be
+  ; PROVEN to be a TechDesk folder, not merely non-empty. A folder with our
+  ; executable in it is ours. Anything else is left exactly where it is, and
+  ; the ordinary path runs instead.
+  IfFileExists "$2\${APP_EXECUTABLE_FILENAME}" 0 td_retired_${TAG}
+
+  DetailPrint "Removing TechDesk $0..."
+
+  ; The shortcut may have been renamed; the uninstaller reads the name back
+  ; the same way rather than assuming it.
+  ReadRegStr $3 ${ROOT} "${INSTALL_REGISTRY_KEY}" ShortcutName
+  StrCmp $3 "" 0 +2
+    StrCpy $3 "${PRODUCT_FILENAME}"
+
+  WinShell::UninstAppUserModelId "${APP_ID}"
+  WinShell::UninstShortcut "$DESKTOP\$3.lnk"
+  Delete "$DESKTOP\$3.lnk"
+  WinShell::UninstShortcut "$SMPROGRAMS\$3.lnk"
+  Delete "$SMPROGRAMS\$3.lnk"
+
+  RMDir /r "$2"
+
+  DeleteRegKey ${ROOT} "${UNINSTALL_REGISTRY_KEY}"
+  !ifdef UNINSTALL_REGISTRY_KEY_2
+    DeleteRegKey ${ROOT} "${UNINSTALL_REGISTRY_KEY_2}"
+  !endif
+  DeleteRegKey ${ROOT} "${INSTALL_REGISTRY_KEY}"
+
+  ; So the desktop drops the icon without waiting for a refresh.
+  System::Call 'shell32::SHChangeNotify(i, i, i, i) v (0x08000000, 0, 0, 0)'
+
+  td_retired_${TAG}:
+  ClearErrors
+!macroend
+
 ; ---------------------------------------------------------------- installing
 ;
 ; "TechDesk is running. Close it." -- on a PC where it was not.
@@ -124,6 +222,58 @@ SetCompressor lzma
     Goto td_check
 
   td_clear:
+
+  ; ---- the old version, retired here rather than left to its own uninstaller
+  ;
+  ; This sits at the top of the install section, immediately before
+  ; electron-builder's uninstallOldVersion -- the only point that exists
+  ; between "the shop pressed Install" and "the old uninstaller is launched".
+  ; It is not what a macro called customCheckAppRunning is for, and there is
+  ; nowhere else it can go: the hooks either run in .onInit, before the shop
+  ; has committed to anything, or after the old uninstaller has already
+  ; blocked. See the long note at the top of this file for why it has to
+  ; happen before.
+  ; Both hives, named outright, rather than SHELL_CONTEXT and whatever
+  ; $installMode happens to be. The first version of this cleaned
+  ; SHELL_CONTEXT and then the other hive only when $installMode was
+  ; "CurrentUser" -- and on a PC that had BOTH copies it cleaned the
+  ; per-machine one and left the per-user one, because install mode had
+  ; resolved to "all" and neither branch covered the per-user copy.
+  ; electron-builder then ran that old uninstaller and the update blocked on
+  ; the same dialog this whole release exists to get past.
+  ;
+  ; There are only two places a TechDesk can be registered, we want both gone
+  ; whichever one this install is replacing, and tdRetireFrom is a no-op when
+  ; a hive holds nothing. So there is no reason to work it out: say both.
+  SetShellVarContext current
+  !insertmacro tdRetireFrom HKCU user
+
+  ; The all-users copy. Removing it writes to HKLM and Program Files, so it
+  ; happens only with administrator rights; without them it is left alone and
+  ; named at the end instead (see customInstall), because a shop that cannot
+  ; see why there are two of everything cannot fix it.
+  ;
+  ; Choosing "Anyone who uses this computer" on 4.16.0's options page (gone
+  ; since 4.16.1) is what put one there. Measured on a clean machine:
+  ;
+  ;   for me       %LOCALAPPDATA%\Programs\techdesk   HKCU   own desktop
+  ;   all users    C:\Program Files\TechDesk          HKLM   All Users desktop
+  ;
+  ; Same registry GUID, two different hives, so neither install can see or
+  ; replace the other, and Windows draws both desktops as one. That is how a
+  ; PC ends up showing two icons and two Add/Remove entries for one app.
+  ${If} ${UAC_IsAdmin}
+    SetShellVarContext all
+    !insertmacro tdRetireFrom HKLM machine
+  ${EndIf}
+
+  ; Put the context back to the one this install is actually using, since the
+  ; rest of the section writes its shortcuts through it.
+  ${If} $installMode == "all"
+    SetShellVarContext all
+  ${Else}
+    SetShellVarContext current
+  ${EndIf}
 !macroend
 
 ; -------------------------------------------------------------- uninstalling
@@ -190,6 +340,53 @@ SetCompressor lzma
 !endif
 
 !macro customInit
+  ; ---- for this user, decided here and not left to be worked out
+  ;
+  ; customInstallMode below skips the "who should this be installed for?"
+  ; page, and that is enough when there IS a page. A silent install runs no
+  ; pages at all, so nothing calls it, and initMultiUser decides instead --
+  ; by reading the registry. On a PC that has BOTH a per-user and a
+  ; per-machine TechDesk it picks per-machine, which points SHELL_CONTEXT at
+  ; HKLM, and electron-builder then goes looking for the all-users copy's
+  ; uninstaller and runs it: the one that stops on "Continue uninstalling
+  ; now?" and never comes back. Measured, with the old version of this file:
+  ;
+  ;   t=10s run=2 pf=yes pu=no win=[TechDesk Uninstall]   ... to t=400s
+  ;
+  ; The two paths also disagreed with each other, which is its own bug: the
+  ; same installer installed per-user from the wizard and per-machine from
+  ; the command line, on the same PC.
+  ;
+  ; So it is settled here instead. customInit is expanded immediately after
+  ; initMultiUser inside .onInit -- late enough to overrule it, early enough
+  ; that everything downstream, SHELL_CONTEXT and $INSTDIR included, is built
+  ; from the answer. From 4.16.1 on there is only one kind of install.
+  ;
+  ; Setting the mode is not enough on its own. electron-builder's install
+  ; section re-decides it before anything else runs:
+  ;
+  ;     ${if} $hasPerMachineInstallation == "1"
+  ;     ${andIf} ${Silent}
+  ;       ...
+  ;       !insertmacro setInstallModePerAllUsers
+  ;
+  ; -- on the reasoning that a silent upgrade OF a per-machine install needs
+  ; to stay per-machine, or writing to Program Files will fail. Sound in
+  ; general, wrong for us: we are not upgrading that copy, we are replacing
+  ; it with a per-user one and clearing it away. With the mode set but the
+  ; flag left standing, the probe read:
+  ;
+  ;     1-afterInit     mode=[CurrentUser] instdir=[...\Local\Programs\techdesk]
+  ;     2-sectionStart  mode=[all]         instdir=[C:\Program Files\TechDesk]
+  ;
+  ; So clear the flag the decision is made from, not just the decision. The
+  ; per-machine copy is still dealt with -- customCheckAppRunning removes it
+  ; where it can and customInstall names it where it cannot -- but it no
+  ; longer drags the new install into Program Files behind it.
+  StrCpy $hasPerMachineInstallation "0"
+  StrCpy $hasPerUserInstallation "1"
+  !insertmacro setInstallModePerUser
+
   ; $PLUGINSDIR is this instance's own temporary folder, and is cleaned up for
   ; us. Extracting here rather than into $INSTDIR keeps the artwork off the
   ; shop's disk once the install is done.
@@ -236,4 +433,21 @@ SetCompressor lzma
 
 !macro customInstall
   Call tdSlideshowStop
+
+  ; The all-users copy we could not remove, named rather than left as a
+  ; mystery. We only get here if one is still registered under HKLM, which
+  ; means this installer was not running as administrator and could not touch
+  ; it (see customCheckAppRunning). Saying nothing would leave a shop with two
+  ; identical icons, two Add/Remove entries, and no way to tell which is
+  ; which.
+  ;
+  ; /SD IDOK, without exception. A box with no silent default is the whole bug
+  ; this release exists to fix, and reintroducing it here -- in the installer
+  ; that is meant to end it -- would hang the next update exactly as before.
+  ReadRegStr $0 HKLM "${INSTALL_REGISTRY_KEY}" InstallLocation
+  StrCmp $0 "" td_no_machine_copy
+    MessageBox MB_OK|MB_ICONINFORMATION \
+      "TechDesk is also installed on this PC for all users, in $0.$\r$\n$\r$\nThat is a second copy. It is why you may see two TechDesk icons and two TechDesk entries in Add or remove programs. It updates on its own and will not go away by itself.$\r$\n$\r$\nTo clear it: open Add or remove programs, find the other TechDesk, and uninstall it. You will need an administrator to do that, and it is safe -- both copies use the same sales, repairs and stock, and uninstalling does not delete any of it.$\r$\n$\r$\nThe copy just installed is ready to use either way." \
+      /SD IDOK
+  td_no_machine_copy:
 !macroend
