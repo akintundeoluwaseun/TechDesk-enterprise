@@ -41,6 +41,10 @@ export {
   repairsSummary, salesSummary, customerKey, customerTotals, customersSummary,
   pendingPaymentsSummary, visibleSales, SALES_WINDOW_MS } from "./summary";
 
+// One serial per unit on a sale line -- shared because a sale can be rung
+// up from the sale screen or from the assistant, and both have to agree.
+export { serialSlots, cleanSerials, joinSerials, readSerials } from "./serials";
+
 export { computeReport, reportToCsv, getRangeStart } from "./reports";
 
 // The 3-hourly pending-payment reminder's clock -- see the note at the top

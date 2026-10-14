@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Mic, X, Check, Wifi, Undo2, AlertTriangle, Loader2, Square, Send, Camera, ImagePlus, ShoppingCart, Wrench, PackagePlus, Wallet, Sunrise, TrendingUp, Coins, Users, PackageX, PackageCheck, Trophy, GraduationCap, ChevronDown, History, RotateCcw, LayoutGrid, MessageSquare, Trash2, PackageSearch, BarChart3 } from "lucide-react";
-import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn, answerQuestion, quickIntent, debtors, assistantHistory, addHistory, clearHistory } from "@techdesk/core";
+import { voiceOrder, VOICE_PAYMENT_METHODS, featureOn, answerQuestion, quickIntent, debtors, assistantHistory, addHistory, clearHistory, serialSlots } from "@techdesk/core";
 import { useNavigate } from "react-router-dom";
 import AssistantBot from "./AssistantBot";
 import MoneyInput from "./MoneyInput";
@@ -223,9 +223,26 @@ function DraftCard({ d, update, settings, t, allowed, practice }) {
                 <NumberField t={t} label="Qty" value={it.qty} onChange={(v) => setItem({ qty: Math.max(1, Math.round(v || 1)) })} />
                 <NumberField t={t} label="Price each" value={it.price} onChange={(v) => setItem({ price: v })} />
               </div>
-              <div className="flex mt-1">
-                <TextField t={t} label="IMEI / Serial number (if it has one)" value={it.imei} onChange={(v) => setItem({ imei: v })} />
-              </div>
+              {/* One per unit. Two of the same laptop are two machines with
+                  two serials, and a single box between them put one of the
+                  two on the receipt and lost the other. A line of one looks
+                  exactly as it did. */}
+              {serialSlots(it.imeis || (it.imei ? [it.imei] : []), it.qty).map((value, si, all) => (
+                <div className="flex mt-1" key={si}>
+                  <TextField
+                    t={t}
+                    label={all.length > 1
+                      ? `IMEI / Serial number -- unit ${si + 1} of ${all.length}`
+                      : "IMEI / Serial number (if it has one)"}
+                    value={value}
+                    onChange={(v) => {
+                      const next = serialSlots(it.imeis || (it.imei ? [it.imei] : []), it.qty);
+                      next[si] = v;
+                      setItem({ imeis: next });
+                    }}
+                  />
+                </div>
+              ))}
             </div>
           );
         })}

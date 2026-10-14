@@ -4,6 +4,7 @@ import { db } from "../db";
 import { pdfSafe } from "../pdfSafe";
 import { currencyPdfSymbol } from "../currency";
 import { fitFontSize, pdfLock, printedOnLine } from "./layout";
+import { readSerials } from "../serials";
 
 export function buildInvoicePdf(sale) {
   const settings = db.getSettings();
@@ -146,10 +147,26 @@ export function buildInvoicePdf(sale) {
   y = boxTop + boxH + 26;
 
   // ---- Items table ----
+  //
+  // Two of the same laptop are one line with a quantity of two, and two
+  // different serial numbers. They go in the cell one per row, so the
+  // customer's copy names every machine they are carrying out -- which is
+  // what the receipt is for when one of them is stolen or fails in warranty.
+  //
+  // `imeis` is the list; `imei` is the same serials joined up, kept for sales
+  // saved before the list existed. Reading the list first and falling back
+  // means an old receipt reprints exactly as it did.
+  function serialCell(item) {
+    const serials = readSerials(item);
+    if (!serials.length) return "N/A";
+    if (serials.length === 1) return `Serial No: ${pdfSafe(serials[0])}`;
+    return serials.map((sn, i) => `${i + 1}. ${pdfSafe(sn)}`).join("\n");
+  }
+
   const rows = (sale.items || []).map((item, idx) => [
     String(idx + 1),
     pdfSafe(item.name),
-    item.imei ? `Serial No: ${pdfSafe(item.imei)}` : "N/A",
+    serialCell(item),
     String(item.qty),
     `${cur}${Number(item.price).toLocaleString()}`,
     `${cur}${Number(item.price * item.qty).toLocaleString()}`,

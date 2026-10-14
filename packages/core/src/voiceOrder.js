@@ -25,6 +25,7 @@ import { featureOn, pausedResult } from "./appControl";
 import { answerQuestion, periodRange } from "./assistantAnswers";
 import { addHistory } from "./assistantHistory";
 import { repairOwed, salePaymentStatus } from "./summary";
+import { cleanSerials, joinSerials } from "./serials";
 
 const SUPABASE_URL = "https://wuwerzyydtvargvqjufb.supabase.co";
 const PUBLISHABLE_KEY = "sb_publishable_aiiQjedgBx4Tq-NX_jIGtw_ekAYgxV_";
@@ -558,7 +559,10 @@ export function apply(drafts, { actor } = {}) {
         price: Number(i.price) || 0,
         costPrice: Number(i.costPrice) || 0,
         qty: i.qty,
-        imei: String(i.imei || "").trim(),
+        // One serial per unit, with the joined copy beside it for everything
+        // that already reads a line's `imei`. See core/serials.js.
+        imeis: cleanSerials(i.imeis || (i.imei ? [i.imei] : []), i.qty),
+        imei: joinSerials(i.imeis || (i.imei ? [i.imei] : []), i.qty),
         fromInventory: !!i.productId && d.takeFromStock !== false,
       }));
       const rec = db.createSale({

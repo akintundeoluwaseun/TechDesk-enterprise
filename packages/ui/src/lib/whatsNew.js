@@ -9,14 +9,19 @@ import { useEffect, useState } from "react";
 // `icon` is one of the names in WhatsNewModal's ICONS.
 export const UPDATES = [
   {
-    id: "2026-10-12a",
-    date: "12 October 2026",
-    title: "TechDesk 4.17: a paid sale says Paid",
+    id: "2026-10-14a",
+    date: "14 October 2026",
+    title: "TechDesk 4.17: a paid sale says Paid, and every serial is asked for",
     items: [
       {
         icon: "sparkles",
         title: "Paid in full stops saying Pending",
         text: "A sale showed whatever was written on it the moment you saved it, so one you had been paid for in full could sit in the list saying Pending. The badge now follows the money: put in what the customer paid and it says Paid by itself. Repairs too, where the bill is labour plus parts.",
+      },
+      {
+        icon: "phone",
+        title: "Two of the same device, two serial numbers",
+        text: "Selling two identical laptops or phones asked for one IMEI and put it on the receipt for both. Each unit now gets its own box -- unit 1 of 2, unit 2 of 2 -- and every serial goes on the receipt, so each machine is named by the number the customer will come back with.",
       },
       {
         icon: "printer",

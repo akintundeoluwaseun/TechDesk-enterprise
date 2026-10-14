@@ -7,6 +7,19 @@ import { resolve } from "node:path";
 // came from inventory, so there was nowhere to put the serial and the receipt
 // went out without it. That is the one number a customer comes back with, and
 // the one the shop needs if it is stolen.
+//
+// This file reads the source rather than the rendered page, and that is worth
+// doing for exactly one thing: proving a condition is ABSENT. A render test
+// can show the field appearing for the cases it thought to set up; only this
+// can say it is not gated at all.
+//
+// It used to assert the spellings of three other lines as well -- `imei: ""`,
+// `value={item.imei || ""}`, `imei: i.imei || ""` -- and all three broke the
+// day serials became one per unit, while every behaviour they stood for still
+// held. What they were really guarding (a hand-typed line can take a serial,
+// the inputs are never uncontrolled, what is typed is saved) is now covered by
+// rendering the modal and typing into it, in components/serialPerUnit.test.jsx.
+// Asserting on source text is for what cannot be rendered.
 const src = readFileSync(resolve(__dirname, "../components/NewSaleModal.jsx"), "utf-8");
 
 describe("IMEI can be recorded on any line of a sale", () => {
@@ -15,21 +28,11 @@ describe("IMEI can be recorded on any line of a sale", () => {
     expect(src).toMatch(/IMEI \/ Serial number/);
   });
 
-  it("a manually added item carries an imei key", () => {
-    // Without it the input is uncontrolled until the first keystroke, and
-    // React swaps it mid-edit -- which loses what was typed.
-    const manual = src.slice(src.indexOf("function addManualItem"), src.indexOf("function updateQty"));
-    expect(manual).toMatch(/fromInventory:\s*false/);
-    expect(manual).toMatch(/imei:\s*""/);
-  });
-
-  it("the input never goes uncontrolled on an older cart", () => {
-    // A sale being edited was saved before manual items had the key.
-    expect(src).toMatch(/value=\{item\.imei \|\| ""\}/);
-  });
-
-  it("whatever is typed is saved with the sale", () => {
-    const payload = src.slice(src.indexOf("const payload = {"));
-    expect(payload).toMatch(/imei:\s*i\.imei \|\| ""/);
+  it("a line's serial boxes come from its quantity, not from one shared field", () => {
+    // Two of the same laptop are two machines with two serials. If this ever
+    // collapses back to a single `item.imei` input, the second machine goes
+    // on the receipt as nothing at all, which is how this started.
+    expect(src).toMatch(/serialSlots\(item\.imeis, item\.qty\)\.map\(/);
+    expect(src).not.toMatch(/value=\{item\.imei\b/);
   });
 });

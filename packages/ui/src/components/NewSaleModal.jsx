@@ -3,11 +3,12 @@ import { X, Search, Plus, Minus, Trash2 } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
 import { useAuth } from "../lib/AuthContext";
 import { db } from "../lib/db";
-import { salePaymentStatus } from "@techdesk/core";
+import { salePaymentStatus, serialSlots, cleanSerials, joinSerials } from "@techdesk/core";
 import { currencySymbol, money } from "../lib/currency";
 import { useSettings } from "../lib/SettingsContext";
 import { useCloseOnBack } from "../lib/useCloseOnBack";
 import MoneyInput from "./MoneyInput";
+
 import SignatureField from "./SignatureField";
 
 const PAYMENT_METHODS = ["Cash", "Bank Transfer", "POS", "Transfer + Cash"];
@@ -41,7 +42,10 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
           costPrice: Number(i.costPrice || 0),
           qty: i.qty,
           fromInventory: i.fromInventory,
-          imei: i.imei || "",
+          // Sales saved before serials were per-unit carry a single `imei`
+          // for the whole line. Re-opening one puts that against the first
+          // unit and leaves the rest blank, rather than losing it.
+          imeis: serialSlots(i.imeis || (i.imei ? [i.imei] : []), i.qty),
         }))
       : []
   );
@@ -118,7 +122,7 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
           costPrice: Number(product.costPrice || 0),
           qty: 1,
           fromInventory: true,
-          imei: "",
+          imeis: [""],
         },
       ];
     });
@@ -138,9 +142,9 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
         fromInventory: false,
         // A device sold off the books still has a serial the customer will
         // want on the receipt -- a phone bought in that morning, a swap, a
-        // trade-in. Without this key the field below would be an
-        // uncontrolled input the first time it is typed in.
-        imei: "",
+        // trade-in. Without this key the fields below would be uncontrolled
+        // inputs the first time they are typed in.
+        imeis: serialSlots([], Number(manualQty) || 1),
       },
     ]);
     setManualName("");
@@ -155,13 +159,24 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
         if (i.id !== itemId) return i;
         const nextQty = Math.max(1, i.qty + delta);
         if (delta > 0 && i.fromInventory && nextQty > availableStock(i.productId)) return i;
-        return { ...i, qty: nextQty };
+        // Grow or shrink the serial boxes with the count. Shrinking drops the
+        // slots off the end and keeps what was already typed in the ones that
+        // remain -- taking one laptop back off a sale of three should not
+        // clear the two serials already scanned.
+        return { ...i, qty: nextQty, imeis: serialSlots(i.imeis, nextQty) };
       })
     );
   }
 
-  function updateImei(itemId, value) {
-    setCart((prev) => prev.map((i) => (i.id === itemId ? { ...i, imei: value } : i)));
+  function updateImei(itemId, index, value) {
+    setCart((prev) =>
+      prev.map((i) => {
+        if (i.id !== itemId) return i;
+        const imeis = serialSlots(i.imeis, i.qty);
+        imeis[index] = value;
+        return { ...i, imeis };
+      })
+    );
   }
 
   function removeItem(itemId) {
@@ -225,7 +240,13 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
         // Carried through, or the report falls back to today's cost.
         costPrice: Number(i.costPrice || 0),
         qty: i.qty,
-        imei: i.imei || "",
+        imeis: cleanSerials(i.imeis, i.qty),
+        // Kept alongside the list, holding the same serials joined up, so
+        // that everything already reading a line's `imei` -- the invoice
+        // column, the WhatsApp {{imei}} token, search -- goes on working
+        // without being touched, and a sale saved by this version can still
+        // be read by an older one.
+        imei: joinSerials(i.imeis, i.qty),
         fromInventory: i.fromInventory,
       })),
       customerId: customer?.id || null,
@@ -449,18 +470,34 @@ export default function NewSaleModal({ sale, onClose, onCompleted }) {
                         that morning, a swap, a trade-in -- had nowhere to put
                         the serial, and the receipt went out without it. That
                         is the one number a customer comes back with. */}
-                    <div className="mt-2">
-                      <div>
-                        <label className={`text-xs font-medium block mb-1 ${t.textPrimary}`}>
-                          IMEI / Serial number <span className={t.textMuted}>(if it has one)</span>
-                        </label>
-                        <input
-                          value={item.imei || ""}
-                          onChange={(e) => updateImei(item.id, e.target.value)}
-                          placeholder="IMEI / serial number"
-                          className={`w-full rounded-lg px-3 py-2 text-xs outline-none ${t.inputBg}`}
-                        />
-                      </div>
+                    {/* One box per unit. Two of the same laptop are two
+                        machines with two different serials, and they used to
+                        share a single box between them -- so the second one
+                        went on the receipt as nothing at all.
+
+                        A line of one looks exactly as it did: one box, no
+                        numbering, nothing new to read. The numbering only
+                        appears when there is actually more than one to tell
+                        apart, which is the only time it means anything. */}
+                    <div className="mt-2 flex flex-col gap-2">
+                      {serialSlots(item.imeis, item.qty).map((value, idx) => (
+                        <div key={idx}>
+                          <label className={`text-xs font-medium block mb-1 ${t.textPrimary}`}>
+                            IMEI / Serial number{" "}
+                            {item.qty > 1 ? (
+                              <span className={t.textMuted}>&mdash; unit {idx + 1} of {item.qty}</span>
+                            ) : (
+                              <span className={t.textMuted}>(if it has one)</span>
+                            )}
+                          </label>
+                          <input
+                            value={value}
+                            onChange={(e) => updateImei(item.id, idx, e.target.value)}
+                            placeholder={item.qty > 1 ? `Serial for unit ${idx + 1}` : "IMEI / serial number"}
+                            className={`w-full rounded-lg px-3 py-2 text-xs outline-none ${t.inputBg}`}
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ))}
