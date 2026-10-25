@@ -1,11 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Download, Upload, Trash2, Database, Network, QrCode, ShieldCheck } from "lucide-react";
+import { Download, Upload, Trash2, Database, Network, QrCode, ShieldCheck, Globe } from "lucide-react";
 import { useThemeTokens } from "../../lib/ThemeContext";
 import { db } from "../../lib/db";
 import { findOtherEditions } from "../../lib/editionData";
 import { IS_DESKTOP_APP } from "../../lib/platform";
 import DataMergeModal from "../../components/DataMergeModal";
 import NotificationSettings from "../../components/NotificationSettings";
+import { SITE_ORIGIN } from "@techdesk/editions";
 
 export default function DeviceTab() {
   const t = useThemeTokens();
@@ -196,6 +197,28 @@ export default function DeviceTab() {
         >
           <Trash2 className="w-4 h-4" /> {confirmErase ? "Click again to confirm" : "Erase all data"}
         </button>
+      </div>
+
+      {/* Where TechDesk lives on the web.
+          A shop that wants to put it on a second computer, send a staff
+          member the download, or just show somebody what they are using had
+          no address to go to from inside the app -- it was only ever in the
+          legal pages, printed as text. SITE_ORIGIN is the one place that
+          address is written down, the same constant the privacy and terms
+          links use, so this cannot drift from them. */}
+      <div className={`rounded-2xl p-6 ${t.cardBg}`}>
+        <h3 className={`font-semibold mb-1 ${t.textPrimary}`}>TechDesk on the web</h3>
+        <p className={`text-sm mb-4 ${t.textSecondary}`}>
+          Downloads for another computer or phone, and everything TechDesk can do.
+        </p>
+        <a
+          href={SITE_ORIGIN}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-medium ${t.pillBg}`}
+        >
+          <Globe className="w-4 h-4" /> {SITE_ORIGIN.replace(/^https:\/\//, "")}
+        </a>
       </div>
 
       {mergeEditions.length > 0 && (

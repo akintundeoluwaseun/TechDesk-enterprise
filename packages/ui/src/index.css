@@ -145,3 +145,30 @@ select {
 @media (prefers-reduced-motion: reduce) { .td-orbit { animation: none; } }
 .td-rise { animation: tdRise .5s cubic-bezier(.2, .8, .2, 1) backwards; }
 @media (prefers-reduced-motion: reduce) { .td-rise { animation: none !important; } }
+
+/* Phone browsers, where the screen is not the window.
+ *
+ * 100vh is the viewport with the browser's own address bar NOT counted, so on
+ * a phone an element sized to it is taller than what you can actually see --
+ * and it changes height as the bar hides and reappears on scroll, which is
+ * what makes a page feel like it is shifting under your thumb. A full-height
+ * app shell then runs off the bottom of the screen, and a modal capped at
+ * 85vh puts its own buttons below the fold.
+ *
+ * dvh is the same measurement taken against what is visible right now. The
+ * installed Android app never showed this because a WebView has no address
+ * bar: there, the two are the same number. In a browser they are not, which
+ * is why this only ever looked wrong on the web.
+ *
+ * Written as an override of the utilities rather than a config change so
+ * every existing class keeps working, and behind @supports so a browser
+ * without dvh keeps the old behaviour rather than losing the height.
+ */
+@supports (height: 100dvh) {
+  .min-h-screen { min-height: 100dvh; }
+  .h-screen { height: 100dvh; }
+  .max-h-\[85vh\] { max-height: 85dvh; }
+  .max-h-\[88vh\] { max-height: 88dvh; }
+  .max-h-\[90vh\] { max-height: 90dvh; }
+  .max-h-\[92vh\] { max-height: 92dvh; }
+}
