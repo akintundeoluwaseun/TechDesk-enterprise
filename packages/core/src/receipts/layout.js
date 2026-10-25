@@ -1,3 +1,4 @@
+import { BUILDER_LINE, builderLabel } from "@techdesk/editions";
 // Two things every generated document needs, done slightly differently in
 // every place that drew a header -- which is how a fix to one (the sales
 // receipt learned to draw the shop's own logo) left the others with a logo
@@ -91,4 +92,20 @@ export function pdfLock() {
  * its own, separate date, already on every document that needs one). */
 export function printedOnLine() {
   return `Printed ${new Date().toLocaleString("en-GB")}`;
+}
+
+/**
+ * The line of credit at the very bottom of a receipt.
+ *
+ * Read from @techdesk/editions rather than written out here, because the same
+ * name appears on the sign-in screen and in Settings, and a receipt is the one
+ * copy that leaves the building -- it is the worst of the three to have
+ * spelled differently.
+ *
+ * Smallest type on the page and last of everything, under the shop's own
+ * details and the printed-on stamp. This is the shop's document: their name,
+ * their customer, their money. The credit is a footnote on it, not a banner.
+ */
+export function builtByLine() {
+  return `${BUILDER_LINE} \u00b7 ${builderLabel()}`;
 }

@@ -2,7 +2,7 @@ import jsPDF from "jspdf";
 import { db } from "../db";
 import { pdfSafe } from "../pdfSafe";
 import { currencyPdfSymbol } from "../currency";
-import { fitFontSize, pdfLock, printedOnLine } from "./layout";
+import { fitFontSize, pdfLock, printedOnLine, builtByLine } from "./layout";
 
 const WIDTH_MM = 58;
 const MARGIN_MM = 3;
@@ -206,6 +206,12 @@ export function buildThermalReceiptPdf(sale) {
   // reprinted.
   y += 1;
   center(printedOnLine(), 6);
+
+  // Last of everything, and wrapped: 58mm of paper is narrow enough that the
+  // name and the address together do not fit on one line.
+  y += 1;
+  doc.setFontSize(5.5);
+  doc.splitTextToSize(builtByLine(), contentW).forEach((l) => center(l, 5.5));
 
   return doc;
 }

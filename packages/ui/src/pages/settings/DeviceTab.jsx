@@ -6,7 +6,7 @@ import { findOtherEditions } from "../../lib/editionData";
 import { IS_DESKTOP_APP } from "../../lib/platform";
 import DataMergeModal from "../../components/DataMergeModal";
 import NotificationSettings from "../../components/NotificationSettings";
-import { SITE_ORIGIN } from "@techdesk/editions";
+import { SITE_ORIGIN, BUILDER, BUILDER_LINE, builderLabel } from "@techdesk/editions";
 
 export default function DeviceTab() {
   const t = useThemeTokens();
@@ -219,6 +219,18 @@ export default function DeviceTab() {
         >
           <Globe className="w-4 h-4" /> {SITE_ORIGIN.replace(/^https:\/\//, "")}
         </a>
+
+        <p className={`text-sm mt-5 ${t.textSecondary}`}>
+          {BUILDER_LINE} &middot;{" "}
+          <a
+            href={BUILDER.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline underline-offset-2"
+          >
+            {builderLabel()}
+          </a>
+        </p>
       </div>
 
       {mergeEditions.length > 0 && (

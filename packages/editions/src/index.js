@@ -17,4 +17,4 @@ export {
   staffLimit,
 } from "./capabilities.js";
 
-export { SITE_ORIGIN, sitePage, siteLabel } from "./site.js";
+export { SITE_ORIGIN, sitePage, siteLabel, BUILDER, BUILDER_LINE, builderLabel } from "./site.js";

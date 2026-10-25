@@ -6,6 +6,7 @@ import { useAuth } from "../lib/AuthContext";
 import { useSettings } from "../lib/SettingsContext";
 import { db } from "../lib/db";
 import ForgotPinModal from "../components/ForgotPinModal";
+import { BUILDER, BUILDER_LINE } from "@techdesk/editions";
 
 // Matches the range the Users tab offers when a PIN is set.
 const MIN_PIN = 4;
@@ -101,7 +102,7 @@ export default function LoginScreen() {
   const people = [{ id: "admin", name: "Admin", role: "admin" }, ...users];
 
   return (
-    <div className={`min-h-screen w-full flex items-center justify-center ${t.bg}`}>
+    <div className={`relative min-h-screen w-full flex items-center justify-center ${t.bg}`}>
       <div className="w-full max-w-sm px-6">
         <div className="flex flex-col items-center mb-8">
           <BrandMark className="w-12 h-12 mb-3" />
@@ -208,6 +209,19 @@ export default function LoginScreen() {
           </div>
         )}
       </div>
+
+      {/* Quiet, at the very bottom, under everything else: the sign-in screen
+          is the one place every user of the app passes through, and it has
+          room going spare. Small and muted on purpose -- a shop signing in at
+          the counter should read the keypad, not this. */}
+      <a
+        href={BUILDER.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={`absolute bottom-4 inset-x-0 text-center text-[11px] ${t.textMuted}`}
+      >
+        {BUILDER_LINE}
+      </a>
 
       {showForgot && (
         <ForgotPinModal

@@ -3,7 +3,7 @@ import autoTable from "jspdf-autotable";
 import { db } from "../db";
 import { pdfSafe } from "../pdfSafe";
 import { currencyPdfSymbol } from "../currency";
-import { fitFontSize, pdfLock, printedOnLine } from "./layout";
+import { fitFontSize, pdfLock, printedOnLine, builtByLine } from "./layout";
 import { readSerials } from "../serials";
 
 export function buildInvoicePdf(sale) {
@@ -327,6 +327,12 @@ export function buildInvoicePdf(sale) {
   doc.setFontSize(7.5);
   doc.setTextColor(120, 120, 120);
   doc.text(printedOnLine(), pageW / 2, y, { align: "center" });
+
+  // Last line on the page, smallest type, lightest grey. See builtByLine.
+  y += 10;
+  doc.setFontSize(6.5);
+  doc.setTextColor(150, 150, 150);
+  doc.text(builtByLine(), pageW / 2, y, { align: "center" });
   doc.setTextColor(0, 0, 0);
 
   return doc;
