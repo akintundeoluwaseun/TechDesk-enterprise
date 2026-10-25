@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { useThemeTokens } from "../lib/ThemeContext";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 
 /**
  * A place to sign, on whatever the shop signs on.
@@ -13,6 +14,11 @@ import { useThemeTokens } from "../lib/ThemeContext";
  * touchscreen.
  */
 export default function SignaturePad({ onSave, onCancel }) {
+  // Back cancels the signature, not the app. It is the one overlay a customer
+  // rather than the shop is looking at, which makes closing the whole app
+  // under them the worst version of this bug.
+  useCloseOnBack(true, onCancel);
+
   const t = useThemeTokens();
   const canvasRef = useRef(null);
   const drawingRef = useRef(false);

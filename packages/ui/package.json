@@ -9,7 +9,8 @@
     ".": "./src/App.jsx",
     "./index.css": "./src/index.css",
     "./bindCore": "./src/lib/bindCore.js",
-    "./ErrorBoundary": "./src/components/ErrorBoundary.jsx"
+    "./ErrorBoundary": "./src/components/ErrorBoundary.jsx",
+    "./toast": "./src/lib/toast.js"
   },
   "scripts": {
     "test": "vitest run"

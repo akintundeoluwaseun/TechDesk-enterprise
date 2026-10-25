@@ -17,6 +17,12 @@ import { capacitorAdapter } from "@techdesk/platform/capacitor";
 
 setPlatform(capacitorAdapter);
 
+// Android's back button, before anything renders: without this it falls
+// through to the WebView's default, which closes the app whenever the page
+// has no history behind it. See backButton.js.
+import { wireBackButton } from "./backButton";
+wireBackButton();
+
 import "@techdesk/ui/bindCore";
 import React from "react";
 import ReactDOM from "react-dom/client";

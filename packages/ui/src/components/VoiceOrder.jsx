@@ -6,6 +6,7 @@ import AssistantBot from "./AssistantBot";
 import MoneyInput from "./MoneyInput";
 import SignatureField from "./SignatureField";
 import { platform } from "@techdesk/platform";
+import { useCloseOnBack } from "../lib/useCloseOnBack";
 
 // Live speech-to-text where the device has it; off for good on this device
 // once it has failed, so the next try records audio straight away.
@@ -62,6 +63,12 @@ const PAGE_FOR = { sale: "/sales", payment: "/sales", return: "/sales", edit_sal
 const TITLE = { sale: "Sale", repair: "New repair", stock: "Stock", repair_status: "Repair status", payment: "Payment", return: "Return", edit_sale: "Correct a sale", cancel_sale: "Cancel a sale", question: "Question", unknown: "Not understood" };
 
 function Sheet({ children, onClose, t, label }) {
+  // Back closes this sheet, not the app. Every other overlay in the app
+  // already did this; the assistant's did not, so a shop closing "About the
+  // assistant" with the back gesture lost everything they were in the middle
+  // of. Mounted means open here, which is why the flag is a literal.
+  useCloseOnBack(true, onClose);
+
   return (
     <div className="td-overlay fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/60 p-0 sm:p-6" role="dialog" aria-modal="true" aria-label={label}>
       <div className={`w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl p-5 ${t.cardBg}`}>
@@ -558,6 +565,7 @@ export default function VoiceOrder() {
   const { user } = useAuth();
   const { settings } = useSettings();
   const [open, setOpen] = useState(false);
+
   const [sheet, setSheet] = useState(null); // null | offline | consent | error
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false); // sending to the server
@@ -797,6 +805,18 @@ export default function VoiceOrder() {
     }
   }
 
+  // One way to close the assistant, used by the X, the backdrop and the back
+  // gesture alike. The back gesture had no handler at all, so on a phone it
+  // fell through to Android's default -- which, with nothing in the page's
+  // history to go back to, closes the whole app. A shop tapping back to put
+  // the assistant away lost the screen behind it too.
+  function closePanel() {
+    cancelRec();
+    setOpen(false);
+  }
+
+  useCloseOnBack(open, closePanel);
+
   function cancelRec() {
     clearInterval(timer.current);
     setLiveText("");
@@ -995,7 +1015,7 @@ export default function VoiceOrder() {
       {open && (
         <>
           {/* Phones: a sheet over a dimmed app. Computers: a chat window in the corner. */}
-          <div className="td-overlay fixed inset-0 z-[70] bg-black/50 sm:bg-black/10" onClick={() => { cancelRec(); setOpen(false); }} />
+          <div className="td-overlay fixed inset-0 z-[70] bg-black/50 sm:bg-black/10" onClick={closePanel} />
           <div role="dialog" aria-modal="true" aria-label="TechDesk Assistant"
             className={`td-pop fixed z-[71] inset-x-0 bottom-0 h-[92vh] sm:inset-auto sm:right-6 sm:bottom-6 sm:w-[420px] sm:h-[min(700px,88vh)] flex flex-col rounded-t-3xl sm:rounded-3xl shadow-2xl border overflow-hidden ${t.cardBg} ${t.divider}`}>
             <div className="flex items-center gap-3 px-4 py-3 bg-gradient-to-br from-indigo-600 to-sky-500 text-white">
@@ -1012,7 +1032,7 @@ export default function VoiceOrder() {
                   <GraduationCap className="w-4 h-4 sm:w-3.5 sm:h-3.5" /> <span className="hidden sm:inline">Practice</span>
                 </button>
               )}
-              <button type="button" onClick={() => { cancelRec(); setOpen(false); }} className="p-1 rounded-full hover:bg-white/15" aria-label="Close"><X className="w-5 h-5" /></button>
+              <button type="button" onClick={closePanel} className="p-1 rounded-full hover:bg-white/15" aria-label="Close"><X className="w-5 h-5" /></button>
             </div>
             {/* Three places, always one tap apart: what you can do, the conversation, and what's been done. */}
             <div role="tablist" aria-label="Assistant" className={`grid grid-cols-3 gap-1 p-1 mx-3 mt-3 rounded-2xl ${t.insetBg}`}>
