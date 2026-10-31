@@ -1,0 +1,195 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Colours taken from the TechDesk Setup Studio mockup: a deep navy
+       ground with a cyan primary and a violet secondary. Dark on purpose —
+       an installer is on screen for a minute against whatever is behind it,
+       and a dark panel reads as one deliberate object rather than another
+       white box. -->
+
+  <Color x:Key="GroundTopColor">#0C1424</Color>
+  <Color x:Key="GroundBottomColor">#16233D</Color>
+  <Color x:Key="PanelColor">#1B2941</Color>
+  <Color x:Key="RailColor">#111D33</Color>
+  <Color x:Key="StrokeColor">#2A3C5C</Color>
+
+  <Color x:Key="CyanColor">#54E7FF</Color>
+  <Color x:Key="VioletColor">#A68AFF</Color>
+  <Color x:Key="MintColor">#74EBC2</Color>
+
+  <Color x:Key="TextColor">#F3F7FF</Color>
+  <Color x:Key="MutedColor">#8FA3C4</Color>
+  <Color x:Key="FaintColor">#62718B</Color>
+
+  <SolidColorBrush x:Key="Panel" Color="{StaticResource PanelColor}" />
+  <SolidColorBrush x:Key="Rail" Color="{StaticResource RailColor}" />
+  <SolidColorBrush x:Key="Stroke" Color="{StaticResource StrokeColor}" />
+  <SolidColorBrush x:Key="Cyan" Color="{StaticResource CyanColor}" />
+  <SolidColorBrush x:Key="Violet" Color="{StaticResource VioletColor}" />
+  <SolidColorBrush x:Key="Mint" Color="{StaticResource MintColor}" />
+  <SolidColorBrush x:Key="Text" Color="{StaticResource TextColor}" />
+  <SolidColorBrush x:Key="Muted" Color="{StaticResource MutedColor}" />
+  <SolidColorBrush x:Key="Faint" Color="{StaticResource FaintColor}" />
+
+  <LinearGradientBrush x:Key="Ground" StartPoint="0,0" EndPoint="0.6,1">
+    <GradientStop Color="{StaticResource GroundTopColor}" Offset="0" />
+    <GradientStop Color="{StaticResource GroundBottomColor}" Offset="1" />
+  </LinearGradientBrush>
+
+  <LinearGradientBrush x:Key="Accent" StartPoint="0,0" EndPoint="1,0">
+    <GradientStop Color="{StaticResource CyanColor}" Offset="0" />
+    <GradientStop Color="{StaticResource VioletColor}" Offset="1" />
+  </LinearGradientBrush>
+
+  <FontFamily x:Key="Face">Segoe UI Variable Display, Segoe UI, Tahoma</FontFamily>
+  <FontFamily x:Key="BodyFace">Segoe UI Variable Text, Segoe UI, Tahoma</FontFamily>
+
+  <!-- One easing shared by every transition, so the whole installer moves
+       with the same hand rather than each animation having its own feel. -->
+  <CubicEase x:Key="Settle" EasingMode="EaseOut" />
+  <QuarticEase x:Key="Glide" EasingMode="EaseOut" />
+
+  <Style x:Key="Title" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource Face}" />
+    <Setter Property="FontSize" Value="30" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Text}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+
+  <Style x:Key="Body" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource BodyFace}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="LineHeight" Value="21" />
+  </Style>
+
+  <Style x:Key="Label" TargetType="TextBlock">
+    <Setter Property="FontFamily" Value="{StaticResource BodyFace}" />
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{StaticResource Faint}" />
+  </Style>
+
+  <!-- Buttons. Flat, with the hover and press states done as colour
+       animations rather than instant swaps, because an installer that
+       responds smoothly to the pointer feels built rather than generated. -->
+  <Style x:Key="Primary" TargetType="Button">
+    <Setter Property="Foreground" Value="#06131F" />
+    <Setter Property="FontFamily" Value="{StaticResource BodyFace}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Padding" Value="26,11" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Grid>
+            <Border x:Name="Fill" CornerRadius="9" Background="{StaticResource Accent}" />
+            <Border x:Name="Veil" CornerRadius="9" Background="#FFFFFF" Opacity="0" />
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Margin="{TemplateBinding Padding}" />
+          </Grid>
+          <ControlTemplate.Triggers>
+            <EventTrigger RoutedEvent="MouseEnter">
+              <BeginStoryboard>
+                <Storyboard>
+                  <DoubleAnimation Storyboard.TargetName="Veil" Storyboard.TargetProperty="Opacity"
+                                   To="0.16" Duration="0:0:0.18" />
+                </Storyboard>
+              </BeginStoryboard>
+            </EventTrigger>
+            <EventTrigger RoutedEvent="MouseLeave">
+              <BeginStoryboard>
+                <Storyboard>
+                  <DoubleAnimation Storyboard.TargetName="Veil" Storyboard.TargetProperty="Opacity"
+                                   To="0" Duration="0:0:0.22" />
+                </Storyboard>
+              </BeginStoryboard>
+            </EventTrigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter TargetName="Fill" Property="Opacity" Value="0.35" />
+              <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <Style x:Key="Quiet" TargetType="Button">
+    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    <Setter Property="FontFamily" Value="{StaticResource BodyFace}" />
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Padding" Value="20,11" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Edge" CornerRadius="9" Background="Transparent"
+                  BorderBrush="{StaticResource Stroke}" BorderThickness="1">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Margin="{TemplateBinding Padding}" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Edge" Property="Background" Value="#22314C" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- The window's own close button, since the window has no title bar. -->
+  <Style x:Key="Chrome" TargetType="Button">
+    <Setter Property="Foreground" Value="{StaticResource Muted}" />
+    <Setter Property="FontFamily" Value="Segoe MDL2 Assets" />
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="Width" Value="46" />
+    <Setter Property="Height" Value="34" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="Button">
+          <Border x:Name="Edge" Background="Transparent">
+            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Edge" Property="Background" Value="#C02A3A" />
+              <Setter Property="Foreground" Value="White" />
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+  <!-- The install path, typed or pasted. This is deliberately a plain text
+       box rather than a folder-picker dialog: picking a folder needs either
+       WinForms, whose implicit usings collide with WPF's own Application,
+       Label and Button, or several hundred lines of IFileDialog COM interop
+       whose correctness the compiler cannot check. The default is right
+       almost always, and someone changing it can paste a path. -->
+  <Style x:Key="PathEntry" TargetType="TextBox">
+    <Setter Property="FontFamily" Value="Consolas, Courier New" />
+    <Setter Property="FontSize" Value="12.5" />
+    <Setter Property="Foreground" Value="{StaticResource Text}" />
+    <Setter Property="CaretBrush" Value="{StaticResource Cyan}" />
+    <Setter Property="SelectionBrush" Value="{StaticResource Cyan}" />
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+    <Setter Property="AcceptsReturn" Value="False" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TextBox">
+          <ScrollViewer x:Name="PART_ContentHost" />
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+
+</ResourceDictionary>

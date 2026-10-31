@@ -15,9 +15,10 @@
     "test": "vitest run",
     "preview": "vite preview",
     "electron:dev": "concurrently -k \"npm:dev\" \"wait-on tcp:5173 && electron .\"",
-    "electron:build": "npm run art && npm run build && electron-builder",
-    "dist": "npm run art && npm run build && electron-builder --publish=never",
-    "art": "python3 build/art/make-installer-art.py"
+    "electron:build": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder --publish=never",
+    "art": "python3 build/art/make-installer-art.py",
+    "setup:win": "electron-builder --win dir --publish never && node setup/build-setup.mjs"
   },
   "dependencies": {
     "electron-updater": "^6.8.9",
@@ -58,7 +59,7 @@
       "releaseType": "release"
     },
     "win": {
-      "target": "nsis"
+      "target": "dir"
     },
     "mac": {
       "target": [
@@ -76,13 +77,6 @@
         "rpm"
       ],
       "category": "Office"
-    },
-    "nsis": {
-      "include": "build/installer.nsh",
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": false,
-      "runAfterFinish": true
     },
     "npmRebuild": false
   }

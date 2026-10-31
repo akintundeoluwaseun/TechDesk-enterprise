@@ -56,22 +56,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # The Windows installer plays an animation drawn by a Python script.
-      # It is thirty megabytes of true-colour frames -- too big to keep in
-      # the repository, and about 0.2 MB once the installer compresses it --
-      # so it is drawn here instead. Only Windows has an installer that shows
-      # it; the other two runners would be drawing it for nothing.
-      #
-      # Pillow is pinned. Every panel is fitted to the pixel, and the two
-      # things that decide where a pixel lands are the font (committed under
-      # build/art/fonts) and the renderer: an unpinned image library moves
-      # the drawing on an afternoon nobody touched this repo.
-      - name: Draw the installer artwork (Windows)
+      # The Windows installer is a WPF application now, not NSIS, so the
+      # runner needs the .NET SDK as well as Node. Pinned to the 8.0 feature
+      # band the project's global.json asks for.
+      - uses: actions/setup-dotnet@v4
         if: runner.os == 'Windows'
-        working-directory: apps/desktop
-        run: |
-          python -m pip install --disable-pip-version-check pillow==12.3.0
-          python build/art/make-installer-art.py
+        with:
+          dotnet-version: '8.0.x'
 
       - name: Build renderer
         run: npm run build
@@ -83,12 +74,68 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
 
-      - name: Build and publish installers (Windows/Linux)
-        if: runner.os != 'macOS'
+      - name: Build and publish installers (Linux)
+        if: runner.os == 'Linux'
         working-directory: apps/desktop
         run: npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+
+      # Windows is built in two halves. electron-builder stops at the
+      # unpacked app folder, and build-setup.mjs turns that folder into the
+      # installer: it compresses the app, publishes the WPF setup program,
+      # appends one to the other, and writes latest.yml.
+      - name: Build the Windows app folder
+        if: runner.os == 'Windows'
+        working-directory: apps/desktop
+        run: npx electron-builder --win dir --publish never
+
+      - name: Build the Windows installer
+        if: runner.os == 'Windows'
+        working-directory: apps/desktop
+        run: node setup/build-setup.mjs
+
+      # Uploaded by hand because electron-builder is no longer the thing
+      # producing the Windows artifacts, and so it can no longer publish
+      # them. latest.yml matters as much as the installer: it is the file
+      # every installed copy reads to find out an update exists, so if it
+      # does not reach the release, updating silently stops for everyone.
+      - name: Publish the Windows installer
+        if: runner.os == 'Windows'
+        shell: bash
+        working-directory: apps/desktop
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+        run: |
+          set -euo pipefail
+          REPO=akintundeoluwaseun/TechDesk-releases-
+          V=$(node -p "require('./package.json').version")
+          ID=$(curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+            "https://api.github.com/repos/$REPO/releases/tags/v$V" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).id")
+          echo "release v$V is $ID"
+
+          upload () {
+            NAME=$(basename "$1")
+            # A re-run would otherwise collide with the asset already there.
+            OLD=$(curl -sf -H "Authorization: Bearer $GH_TOKEN" \
+              "https://api.github.com/repos/$REPO/releases/$ID/assets" \
+              | node -p "(JSON.parse(require('fs').readFileSync(0,'utf8')).find(a => a.name === process.argv[1]) || {}).id || ''" "$NAME")
+            if [ -n "$OLD" ]; then
+              echo "replacing existing $NAME"
+              curl -sf -X DELETE -H "Authorization: Bearer $GH_TOKEN" \
+                "https://api.github.com/repos/$REPO/releases/assets/$OLD" || true
+            fi
+            echo "uploading $NAME ($(wc -c < "$1") bytes)"
+            curl -sf --retry 3 --retry-delay 5 -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Content-Type: application/octet-stream" \
+              --data-binary @"$1" \
+              "https://uploads.github.com/repos/$REPO/releases/$ID/assets?name=$NAME" > /dev/null
+          }
+
+          upload "release/TechDesk-Setup-$V.exe"
+          upload "release/latest.yml"
+          echo "Windows installer and latest.yml published"
 
   # The desktop app's updater asks GitHub for the LATEST release and reads its
   # latest.yml. The Android and Monitor releases live in the same repo and

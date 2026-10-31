@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <!-- Lets the project compile on the Linux CI container as well as on
+         Windows. The XAML is turned into BAML at build time either way, so a
+         typo in a storyboard target is a build error rather than something a
+         shop discovers. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>TechDeskSetup</AssemblyName>
+    <RootNamespace>TechDesk.Setup</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- Our own entry point, so a /S run never constructs a WPF Application.
+         See Program.cs for why that matters. -->
+    <StartupObject>TechDesk.Setup.Program</StartupObject>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <Product>TechDesk Setup</Product>
+    <Company>TechDesk</Company>
+    <AssemblyTitle>TechDesk Setup</AssemblyTitle>
+    <Copyright>TechDesk</Copyright>
+
+    <!-- Size. The installer carries the whole .NET runtime because a shop's
+         PC has no reason to have one, and WPF cannot be trimmed
+         (NETSDK1168), so these three are the only levers there are:
+         English resources only, no debug symbols in the shipped file, and
+         framework exception strings dropped. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+
+    <!-- InvariantGlobalization is deliberately NOT set. The reasoning for
+         setting it was to drop ICU and save the better part of thirty
+         megabytes, but measured both ways the published .exe is 62.9 MB
+         either way: WPF pulls the globalization data in regardless. So it
+         buys nothing, and what it costs is real — WPF's text shaping goes
+         through CultureInfo, and Microsoft advises against invariant mode
+         for WPF precisely because of that. A setting with no benefit and a
+         non-zero chance of breaking every piece of text in the window is
+         not a trade. -->
+
+    <!-- Treat warnings seriously: this code runs once, unattended, against
+         a stranger's PC, and there is no second chance to notice. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <!-- Version comes from apps/desktop/package.json via the build script, so
+       there is one place a release's number is written. -->
+  <PropertyGroup Condition="'$(Version)' == ''">
+    <Version>0.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\icon.ico" />
+  </ItemGroup>
+
+  <!-- The WPF SDK ships its own set of implicit usings, and that set leaves
+       out System.IO. For most WPF apps that is unremarkable; this one is
+       almost entirely files and folders, so it goes back in once here rather
+       than at the top of every file. -->
+  <ItemGroup>
+    <Using Include="System.IO" />
+  </ItemGroup>
+
+</Project>

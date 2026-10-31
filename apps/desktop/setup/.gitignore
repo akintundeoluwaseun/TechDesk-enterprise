@@ -1,0 +1,10 @@
+# Build output.
+bin/
+obj/
+
+# The payload is the built app, produced by electron-builder on the runner.
+# It is a quarter of a gigabyte and changes every release: it is assembled
+# at build time and never committed.
+*.tar
+*.tar.br
+Assets/payload.*
